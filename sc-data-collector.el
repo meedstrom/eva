@@ -3,6 +3,10 @@
 
 ;;;; Loggers (that work in the background without input, unlike queriers)
 
+(defun sc-log-idle ()
+  (sc-append* "/home/kept/Self_data/idle.csv"
+              (number-to-string (ts-unix (ts-now))) "," (number-to-string sc-length-of-last-idle)))
+
 ;; TODO: Instead of appending to a file, append to a buffer and save it only once every 5 minutes or so.
 ;; TODO: When buffer mode changes, count it as a new buffer (assoc will still work).
 (defun sc-log-buffer (_arg)
@@ -59,6 +63,21 @@
 ;; (read-string (concat "Score from 1 to 5: [" "]")  nil nil (cdr (assoc "fine" sc-mood-alist)))
 
 ;;;###autoload
+(defun sc-query-ingredients ()
+  (interactive)
+  (let* ((response (read-string "Comma-separated list of ingredients: "))
+         (formatted-response (->> response
+                                  (s-split (rx (+ (any "," blank))))
+                                  (s-join ", ")
+                                  (s-replace "\"" "'")))
+         (path "/home/kept/Self_data/ingredients.csv"))
+    (sc-append* path (ts-format "%F") ",\"" formatted-response "\"")
+    (sc-emit "Recorded so far today: "
+             (replace-regexp-in-string "^.*?," "" (sc-get-first-today-in-date-indexed-csv path)))))
+
+;; (defalias #'sc-query-food #'sc-query-ingredients)
+
+;;;###autoload
 (defun sc-query-mood (&optional prompt)
   (interactive)
   (let* ((str (completing-read (or prompt "Your mood: ") (mapcar #'car sc-mood-alist)))
@@ -83,17 +102,22 @@
 ;;;###autoload
 (defun sc-query-weight ()
   (interactive)
-  (let* ((last-wt (with-temp-buffer
-                    (insert-file-contents-literally "/home/kept/Self_data/weight.csv")
+  (let* ((path "/home/kept/Self_data/weight.csv")
+         (last-wt (with-temp-buffer
+                    (insert-file-contents-literally path)
                     (goto-char (point-max))
                     (search-backward ",")
                     (forward-char)
                     (buffer-substring (point) (line-end-position))))
-         (wt (completing-read "What do you weigh today? " nil nil nil last-wt)))
+         (wt (completing-read "What do you weigh today? " `(,last-wt "I don't know"))))
     (if (= 0 (string-to-number wt))
         (sc-emit "Ok, I'll ask you again later.")
-      (sc-append* "/home/kept/Self_data/weight.csv"
-                  (ts-format "%F") "," (replace-regexp-in-string "," "." wt)))))
+      (sc-append* path
+                  (ts-format "%F") "," (replace-regexp-in-string "," "." wt))
+      (sc-emit "Weight today: "
+               (replace-regexp-in-string "^.*?," "" (sc-get-first-today-in-date-indexed-csv path))
+               " kg"))
+    (sit-for .5)))
 
 ;; (defun sc-query-weight ()
 ;;   (interactive)
@@ -112,16 +136,28 @@
 ;;           (sc-emit "Ok, I'll ask you later.")
 ;;         (f-append (concat newline-maybe (ts-format "%F") "," wt) 'utf-8 "/home/kept/Self_data/weight.csv")))))
 
+(defun sc-check-yesterday-sleep ()
+  (let* ((foo (sc-get-all-today-in-date-indexed-csv "/home/kept/Self_data/sleep.csv" (ts-dec 'day 1 (ts-now))))
+         (total-yesterday (-sum (--map (string-to-number (nth 2 it)) foo))))
+    (if (> (* 60 4) total-yesterday)
+        (if (sc-prompt "Yesterday, you slept " (number-to-string (/ total-yesterday 60.0))
+                       " hours, is this about right?")
+            nil
+          (sc-emit "You may edit the history at " "/home/kept/Self_data/sleep.csv")
+          (sit-for .5)))))
+
 ;; TODO: Fix the case where someone wakes up at 23:00 but replies to the query
 ;; at 01:00
 ;;;###autoload
 (defun sc-query-sleep ()
   "Query you for wake-up time and sleep quantity for one sleep block today.
-You are free to decline either query, but do not later add sleep
-quantity from this same block -- the program will interpret it as
-a different sleep block and continue to count the original one as
-having an unknown nonzero quantity of sleep on top of what you add."
+You are free to decline either query, but do not later inform us
+of sleep quantity from this same block in order to \"get the
+totals correct\" -- the program will interpret it as a different
+sleep block and continue to count the original one as having an
+unknown nonzero quantity of sleep on top of what you add."
   (interactive)
+  (sc-check-yesterday-sleep)
   (let* ((waketime (if (sc-prompt "Did you wake around now?")
                        (ts-dec 'minute 10 (ts-now))
                      (let ((reply (completing-read "When did you wake? "
@@ -133,13 +169,25 @@ having an unknown nonzero quantity of sleep on top of what you add."
                        (completing-read "How long did you sleep? " '("I don't know")
                                         nil nil (number-to-string (/ sc-length-of-last-idle 60))))))
 
-    (sc-emit (when waketime (concat "Woke at " (ts-format "%T" waketime) ". "))
-             (when sleepamount (concat "Slept " (number-to-string (/ sleepamount 60.0))
-                                       " hours (" (number-to-string sleepamount) " minutes).")))
+    (sc-emit (when waketime (concat "You woke at " (ts-format "%H:%M" waketime) ". "))
+             (when sleepamount (concat "You slept " (number-to-string sleepamount) " minutes ("
+                                       (number-to-string (/ sleepamount 60.0)) " hours).")))
     (sc-append* "/home/kept/Self_data/sleep.csv"
                 (ts-format "%F")
                 "," (when waketime (ts-format "%T" waketime))
                 "," (number-to-string sleepamount))))
+
+(defun sc-query-meditation (&optional date)
+  (interactive)
+  (when (sc-prompt "Did you meditate today?")
+    (sc-append* "/home/kept/Self_data/meditation.csv"
+                (ts-format "%F" date) ",TRUE")))
+
+(defun sc-query-cold-shower (&optional date)
+  (interactive)
+  (let ((x (read-string "Cold rating? ")))
+    (sc-append* "/home/kept/Self_data/cold.csv"
+                (ts-format "%F" date) "," x)))
 
 (provide 'sc-data-collector)
 ;;; sc-data-collector.el ends here

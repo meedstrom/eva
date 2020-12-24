@@ -13,17 +13,22 @@
 
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
-source("sc.R")
+source("sc_common.R")
+#theme_set(theme_solarized(light = FALSE))
+theme_set(theme_hc(style = "darkunica"))
 
 wt <- read_csv("/home/kept/Self_data/weight.csv", col_names = c("date", "weight_kg"))
 mood <- read_csv("/home/kept/Self_data/mood.csv", col_names = c("date", "mood_desc", "mood_score"))
 
 plot1 <- ggplot(wt, aes(date, weight_kg)) +
-  ylim(70, 86) +
+  ylim(60, 86) +
   scale_x_date(date_breaks = "1 month",
-               date_labels = "%B",
-               limits = c(ymd("2020-05-01"), today() + months(1))) +
+               date_labels = "%b", # %B for full month name
+               limits = c(ymd("2020-05-15"), today() + months(1))) +
+  ylab(NULL) + xlab(NULL) +
   geom_point()
+
+ggsave("plot1.png", plot1, height = 5, width = as.integer(commandArgs(TRUE)[[1]]), units = "cm", dpi = 96)
 
 plot2 <- ggplot(mood, aes(date, mood_score)) +
   scale_x_date(date_breaks = "1 month",
@@ -31,7 +36,7 @@ plot2 <- ggplot(mood, aes(date, mood_score)) +
                limits = c(ymd("2020-05-01"), today() + months(1))) +
   geom_point()
 
+ggsave("plot2.png", plot2, height = 5, units = "cm", dpi = 96)
 
-
-combined <- plot1 / plot2
-ggsave(combined, "")
+#combined <- plot1 / plot2
+#ggsave(combined, "")

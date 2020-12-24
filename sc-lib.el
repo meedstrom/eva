@@ -20,31 +20,29 @@
 
 (require 'ts)
 (require 'dash)
+(require 's)
+(require 'parse-csv)
 (require 'subr-x)
 (autoload #'org-user-idle-seconds "org-clock")
-(autoload #'org-id-uuid "org-id")
-(autoload #'sc-append* "s")
-(autoload #'sc-append "s")
+(autoload #'sc-log-buffer "org-id")
 
-;; TODO: Show when the user types a noncommittal "k" for "okay". User should be
-;; given room to express such shades of feeling.
+;; TODO: Show when the user types a noncommittal "k" for "okay". User should
+;; have room to express shades of feeling, even if we don't do anything with it.
 (defun sc-prompt (&rest strings)
-  (let ((default-cmd (lookup-key y-or-n-p-map (kbd "k")))
-        (prompt (string-join strings)))
+  (let* (;; (default-y-or-n-p-map y-or-n-p-map)
+         ;; (default-cmd (lookup-key y-or-n-p-map (kbd "k")))
+         (prompt (string-join strings)))
     (unwind-protect
         (progn
-          (define-key y-or-n-p-map (kbd "k") #'y-or-n-p-insert-y)
           (switch-to-buffer (sc-chat-buffer))
           (unless (< 20 (car (window-fringes)))
             (set-window-fringes nil 20 20))
           (goto-char (point-max))
+          (sc-emit prompt)
+          (define-key y-or-n-p-map (kbd "o") #'sc-special-handle-current-query)
+          (define-key y-or-n-p-map (kbd "i") #'sc-special-handle-current-query)
+          (define-key y-or-n-p-map (kbd "k") #'y-or-n-p-insert-y)
           (read-only-mode 0)
-          (let ((beg (point)))
-            (insert "\n\n" prompt)
-            (add-text-properties beg (point) '(:foreground "blue")))
-          ;; (insert (propertize prompt
-          ;;                     :foreground (face-foreground font-lock-function-name-face)
-          ;;                     :background (face-background font-lock-function-name-face)))
           (if (y-or-n-p prompt)
               (progn
                 (insert " y" "\n")
@@ -53,30 +51,54 @@
             (insert " n" "\n")
             (view-mode)
             nil))
-      (define-key y-or-n-p-map (kbd "k") default-cmd))))
-;; (setq retval (sc-prompt "test"))
+      (dolist (x '("o" "i" "k"))
+        (define-key y-or-n-p-map (kbd x) #'y-or-n-p-insert-other)))))
+;; (sc-prompt "Test")
+;; (y-or-n-p "test")
 
 (defun sc-emit (&rest strings)
-  (message (string-join strings))
-  (with-current-buffer (sc-chat-buffer)
-    (read-only-mode 0)
-    (insert "\n" (string-join strings))
-    (view-mode)))
+  (prog1 (message (string-join strings))
+    (with-current-buffer (sc-chat-buffer)
+      (read-only-mode 0)
+      (insert "\n<" (ts-format "%H:%M") "> " (string-join strings))
+      (view-mode))))
 
-;; WONTFIX: check for recent activity (user awake thru the night)
+(defun sc-buffer-r ()
+  (get-buffer-create (concat "*" sc-ai-name ": R*")))
+
+(defun sc-reschedule ()
+    (run-with-timer 3600 nil #'sc-call-from-reschedule))
+
+;; (defmacro sc-with-file (path &rest body)
+;;   (declare (pure t) (indent defun))
+;;   `(with-temp-buffer
+;;      (insert-file-contents-literally ,path)
+;;      ,@body))
+
+(defun sc-last-date-string-in-date-indexed-csv (path)
+  (declare (side-effect-free t))
+  (with-temp-buffer
+    (insert-file-contents-literally path)
+    (goto-char (point-max))
+    (re-search-backward (rx bol (= 4 digit) "-" (= 2 digit) "-" (= 2 digit)))
+    (buffer-substring (point) (+ 10 (point)))))
+;; (sc-last-date-string-in-date-indexed-csv "/home/kept/Self_data/weight.csv")
+
+;; WONTFIX: check for recent activity (if user awake thru the night)
 (defun sc-logged-today (file)
-  ;; don't act like it's a new day if the time is <5.
-  (let ((day (if (> 5 (ts-hour (ts-now)))
-                 (ts-dec 'day 1 (ts-now))
-               (ts-now))))
-    (with-temp-buffer
-      (insert-file-contents-literally file)
-      (ignore-errors (search-forward (ts-format "%F" day))))))
+  (when (file-exists-p file)
+    ;; don't act like it's a new day if the time is <5am.
+    (let ((day (if (> 5 (ts-hour (ts-now)))
+                   (ts-dec 'day 1 (ts-now))
+                 (ts-now))))
+      (with-temp-buffer
+        (insert-file-contents-literally file)
+        (ignore-errors (search-forward (ts-format "%F" day)))))))
 ;; (sc-logged-today "/home/kept/Self_data/weight.csv")
 ;; (sc-logged-today "/home/kept/Self_data/buffers.csv")
 
-
 (defun sc-existing-diary (dir date)
+  (declare (pure t) (side-effect-free t))
   (let ((foo (car (--filter (string-match-p
                              (concat (ts-format "%y%m%d" date) ".*org$")
                              it)
@@ -87,6 +109,7 @@
 
 (defun sc-buffer-mode (buffer-or-name)
   "Retrieve the `major-mode' of BUFFER-OR-NAME."
+  (declare (pure t) (side-effect-free t))
   (with-current-buffer buffer-or-name
     major-mode))
 
@@ -107,10 +130,38 @@ you don't need a `/bin/sh' installed. PROGRAM and ARGS are passed on to
      (call-process ,program nil (current-buffer) nil ,@args)
      (buffer-string)))
 
+;; (parse-csv-string-rows
+;;  (f-read "/home/kept/Self_data/weight.csv") (string-to-char ",") (string-to-char " ") "\n")
+
+(defun sc-get-all-today-in-date-indexed-csv (path &optional ts)
+  (with-temp-buffer
+    (insert-file-contents-literally path)
+    (let (x)
+      (while (search-forward (ts-format "%F" ts) nil t)
+        (push (parse-csv->list (buffer-substring (line-beginning-position) (line-end-position))) x))
+      x)))
+;; (sc-get-all-today-in-date-indexed-csv "/home/kept/Self_data/sleep.csv" (ts-dec 'day 1 (ts-now)))
+
+;; (defun sc-update-or-append-in-date-indexed-csv (path &optional ts)
+;;   (sc-get-first-today-in-date-indexed-csv path ts))
+
+(defun sc-get-first-today-in-date-indexed-csv (path &optional ts)
+  (with-temp-buffer
+    (insert-file-contents path)
+    (search-forward (ts-format "%F" ts))
+    (line-beginning-position)
+    (buffer-substring (line-beginning-position) (line-end-position))))
+;; (sc-get-first-today-in-date-indexed-csv "/home/kept/Self_data/ingredients.csv")
+
 (defun sc-chat-buffer ()
-  (get-buffer-create "*Secretary: Chat log"))
+  (let ((x (get-buffer-create (concat "*" sc-ai-name ": Chat log*"))))
+    (with-current-buffer x
+      (visual-line-mode))
+    x))
 
 (defun sc-append* (path &rest text)
+  (unless (file-exists-p path)
+    (make-empty-file path t))
   (let ((newline-maybe (if (s-ends-with? "\n" (f-read-bytes path))
                            ""
                          "\n")))
@@ -124,25 +175,6 @@ you don't need a `/bin/sh' installed. PROGRAM and ARGS are passed on to
 ;;(sc-append "lel" "/home/kept/Self_data/weight.csv")
 
 
-
-;; TODO: Catch typos like 03 meaning 30 minutes, not 3 hours
-(defun sc-parse-time-amount (input)
-  (let ((numeric-part (string-to-number input)))
-    (cond ((= 0 numeric-part) ;; strings without any number result in 0
-           nil) ;; save as a NA observation
-          ((and (string-match-p "h.*m" input) (> numeric-part 0))
-           (warn "I'm not sophisticated enough to parse that"))
-          ((string-match-p "h" input)
-           (* 60 numeric-part))
-          ((string-match-p "m" input)
-           numeric-part)
-          ((-> numeric-part (>= 20))
-           numeric-part)
-          (t
-           (* 60 numeric-part)))))
-;; (sc-parse-time-amount "30")
-
-
 ;; (defmacro sc-prompt (&rest sequences)
 ;;   "SEQUENCES are passed to `concat'."
 ;;   `(sc--prompt (concat ,@sequences)))
@@ -152,6 +184,9 @@ you don't need a `/bin/sh' installed. PROGRAM and ARGS are passed on to
   '("The affairs of the world will go on forever. Do not delay the practice of meditation."
     "Serve the Emperor today, tomorrow you may be dead."
     "It takes all the running you can do, to keep in the same place."
+    "You can't hate yourself into someone that loves who they are."
+    "Don't show up to prove, show up to improve."
+    "If you are completely okay with ‘never doing’ and all the consequences which follow from never taking action, it’s easier to step into ‘always doing’."
     ;; https://mxplx.com/schema/58/
     "Life feeds on negentropy, sucking orderliness from its environment."
     "The cosmos is just right intellectually, where things are knowable but endlessly challenging."
@@ -201,9 +236,17 @@ you don't need a `/bin/sh' installed. PROGRAM and ARGS are passed on to
     "The people are flattered more obsequiously than the monarch ever was."
     "The incorruptible politician merely prefers power to money."
     "Why do aphorisms and cynicism go together? A good single sentence saying can’t require background evidencing or further explanation. It must be instantly recognizable as true. It also needs to be news to the listener. Most single sentences that people can immediately verify as true they already believe. What’s left? Things that people don’t believe or think about much for lack of wanting to, despite evidence. Drawing attention to these is called cynicism."
+    ;; Atomic Habits
+    "Missing once is an accident, missing twice is the start of a new habit."
+    "If it happens once it's a mistake. If it happens twice, it's a choice."
     ))
 
 ;;;; Greetings
+
+(defun sc-greeting-curt ()
+  "Used in the midst of a workday, so to speak. If you've already
+exchanged good mornings, it's weird to do so again."
+  (seq-random-elt `("Hello" "Hi" "Hey")))
 
 (defvar sc-greetings '("Welcome back, Master."
                        (concat "Nice to see you again, " sc-usrname ".")
@@ -246,7 +289,6 @@ prompts, no debug message, no info. Suitable for
          (append sc-greetings
                  (-list (sc-daytime-appropriate-greetings))
                  '("How may I help?")))))
-
 
 (provide 'sc-lib)
 

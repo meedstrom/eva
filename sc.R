@@ -8,7 +8,7 @@ my_packages <- c(
   # my essentials
   "tidyverse", "conflicted", # "languageserver", "styler", "lintr",
   # for this project
-  "lubridate", "patchwork", "usethis", "testthat"
+  "lubridate", "patchwork", "usethis", "testthat", "ggthemes"
 )
 missing <- setdiff(my_packages, rownames(installed.packages()))
 install.packages(missing, dependencies = T, source = T)
@@ -24,6 +24,7 @@ suppressPackageStartupMessages({
   library(tidyverse)
   library(lubridate)
   library(patchwork)
+  library(ggthemes)
 })
 
 as_datetime("2020-12-12 10:00:00 +0100")
