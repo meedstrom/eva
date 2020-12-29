@@ -1,19 +1,25 @@
-;;; sc-presenter.el --- description -*- lexical-binding: t; -*-
-(require 'sc-lib)
+;;; secretary-presenter.el --- description -*- lexical-binding: t; -*-
+(require 'secretary-common)
 
 ;;;###autoload
-(defun sc-plot-mood ()
+(defun scr-report-mood ()
+  (interactive)
+  (view-file "/home/kept/Self_data/mood.tsv")
+  (auto-revert-mode))
+
+;;;###autoload
+(defun scr-plot-mood ()
   (interactive)
   (let* ((default-directory (f-dirname (find-library-name "secretary")))
          (script (expand-file-name "sc_daily_plot.R"))
          (plot (expand-file-name "sc_mood.png" "/tmp/secretary")))
-    (sc-emit "Plotting mood...")
+    (scr-emit "Plotting mood...")
     (mkdir "/tmp/secretary" t)
     (set-process-sentinel
-     (start-process sc-ai-name nil "Rscript" script "14" "-0.1")
+     (start-process scr-ai-name nil "Rscript" script "14" "-0.1")
      `(lambda (_process _event)
-        (sc-emit "And that's your mood." "\n")
-        (switch-to-buffer (sc-buffer-chat))
+        (scr-emit "And that's your mood." "\n")
+        (switch-to-buffer (scr-buffer-chat))
         (read-only-mode 0)
         (insert-image-file ,plot)
         (goto-char (point-max))
@@ -22,17 +28,17 @@
         ))))
 
 ;;;###autoload
-(defun sc-plot-weight ()
+(defun scr-plot-weight ()
   (let* ((default-directory (f-dirname (find-library-name "secretary")))
          (script (expand-file-name "sc_daily_plot.R"))
          (plot (expand-file-name "sc_plot1.png" "/tmp/secretary")))
-    (sc-emit "Plotting weight...")
+    (scr-emit "Plotting weight...")
     (mkdir "/tmp/secretary" t)
     (set-process-sentinel
-     (start-process sc-ai-name nil "Rscript" script "14" "-0.1")
+     (start-process scr-ai-name nil "Rscript" script "14" "-0.1")
      `(lambda (_process _event)
-        (sc-emit "And here's your weight, boss." "\n")
-        (switch-to-buffer (sc-buffer-chat))
+        (scr-emit "And here's your weight, boss." "\n")
+        (switch-to-buffer (scr-buffer-chat))
         (read-only-mode 0)
         (insert-image-file ,plot)
         ;; (delete-file ,plot)
@@ -42,16 +48,16 @@
         ))))
 
 ;;;###autoload
-(defun sc-present-plots ()
+(defun scr-present-plots ()
   (interactive)
-  (unless (null sc-plot-hook)
-    (switch-to-buffer (sc-buffer-chat))
-    (sc-emit (seq-random-elt '("I have plotted the latest intel, boss."
+  (unless (null scr-plot-hook)
+    (switch-to-buffer (scr-buffer-chat))
+    (scr-emit (seq-random-elt '("I have plotted the latest intel, boss."
                                "Here are some projections!"
                                "Data is beautiful, don't you think?")))
-    (run-hooks 'sc-plot-hook)))
+    (run-hooks 'scr-plot-hook)))
 
-(defun sc-make-indirect-datetree (buffer dates)
+(defun scr-make-indirect-datetree (buffer dates)
   (require 'org)
   (let ((dates (-sort 'ts<= dates))
         (counter 0))
@@ -76,17 +82,17 @@
           (org-map-region #'org-promote (point-min) (point-max)))
       (kill-buffer buffer))
     counter))
-;; (sc-make-indirect-datetree (get-buffer-create "test") (--iterate (ts-dec 'month 1 it) (ts-now) 40))
+;; (scr-make-indirect-datetree (get-buffer-create "test") (--iterate (ts-dec 'month 1 it) (ts-now) 40))
 
 ;; Should I use such variables or encourage the user to make defuns?
-(defcustom sc-look-back-years 99 nil)
-(defcustom sc-look-back-months 12 nil)
-(defcustom sc-look-back-weeks 4 nil)
-(defcustom sc-look-back-days 1 nil)
+(defcustom scr-look-back-years 99 nil)
+(defcustom scr-look-back-months 12 nil)
+(defcustom scr-look-back-weeks 4 nil)
+(defcustom scr-look-back-days 1 nil)
 
-(defvar sc-past-sample-function #'sc-past-sample-default)
+(defvar scr-past-sample-function #'scr-past-sample-default)
 
-(defun sc-past-sample-default ()
+(defun scr-past-sample-default ()
   (let ((now (ts-now)))
     (-uniq (append
             (--iterate (ts-dec 'day 1 it) now 1)
@@ -94,7 +100,7 @@
             (--iterate (ts-dec 'month 1 it) now 12)
             (--iterate (ts-dec 'year 1 it) now 99)))))
 
-(ert-deftest sc-test-ts-works ()
+(ert-deftest scr-test-ts-works ()
   (let ((now (ts-now)))
     (should (equal (ts-dec 'month 12 now)
                    (ts-dec 'year 1 now)))
@@ -104,14 +110,14 @@
 
 ;; TODO: use rename-buffer to make separate buffers for each datetree entry
 ;;;###autoload
-(defun sc-present-diary (date)
+(defun scr-present-diary (date)
   (interactive)
-  (let* ((buffer (get-buffer-create (concat "*" sc-ai-name ": Selected diary entries*")))
-         (dates-to-check (funcall sc-past-sample-function))
-         (discrete-files-found (--keep (sc-existing-diary "/home/kept/Diary" it) dates-to-check))
-         (datetree-found-count (sc-make-indirect-datetree buffer dates-to-check))
+  (let* ((buffer (get-buffer-create (concat "*" scr-ai-name ": Selected diary entries*")))
+         (dates-to-check (funcall scr-past-sample-function))
+         (discrete-files-found (--keep (scr-existing-diary "/home/kept/Diary" it) dates-to-check))
+         (datetree-found-count (scr-make-indirect-datetree buffer dates-to-check))
          (total-found-count (+ (length discrete-files-found) datetree-found-count)))
-    (if (sc-prompt "Found " (int-to-string total-found-count) " past diary "
+    (if (scr-prompt "Found " (int-to-string total-found-count) " past diary "
                     (if (= 1 total-found-count) "entry" "entries")
                     " relevant to this date. Want me to open "
                     (if (= 1 total-found-count) "it" "them")
@@ -123,8 +129,8 @@
               (dolist (x discrete-files-found)
                 (view-file x))))
       (kill-buffer buffer))))
-;; (sc-present-diary (ts-now))
+;; (scr-present-diary (ts-now))
 
-(provide 'sc-presenter)
+(provide 'secretary-presenter)
 
-;;; sc-presenter.el ends here
+;;; secretary-presenter.el ends here

@@ -1,61 +1,61 @@
-;;; sc-modeler.el --- model the user  -*- lexical-binding: t; -*-
+;;; secretary-modeler.el --- model the user  -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
 ;;; Code:
 
-(require 'sc-lib)
+(require 'secretary-common)
 
-(defun sc-loss-fn (prediction)
+(defun scr-loss-fn (prediction)
   "Input PREDICTION should be a list of probabilities, one for
 each activity, adding up to 1."
   (let ((index 0)
         (result 0))
-    (dolist (row sc-activities-alist result)
+    (dolist (row scr-activities-alist result)
       (seq-let (id cost) row
         (setq result (+ result (* (nth index prediction) cost))))
       (setq index (1+ index)))))
-;; (sc-loss-fn ')
+;; (scr-loss-fn ')
 
-(ert-deftest sc-test-loss-fn ()
+(ert-deftest scr-test-loss-fn ()
   ;; (--iterate (- it (cl-random it)) 1.0 5) ;; try to make a list that adds up to 1 for use below
-  (should (<= 0 (sc-loss-fn '(.8 .15 .01 .01 .01 .01 .01)))))
+  (should (<= 0 (scr-loss-fn '(.8 .15 .01 .01 .01 .01 .01)))))
 
-(defun sc-guess-activity ()
+(defun scr-guess-activity ()
   (let* ((default-directory (f-dirname (find-library-name "secretary")))
          (script (expand-file-name "sc_activity.R")))
     (set-process-sentinel
-     (start-process sc-ai-name (sc--buffer-r) "Rscript" script)
+     (start-process scr-ai-name (scr--buffer-r) "Rscript" script)
      (lambda (_process _event)
-       (setq sc-guessed-activity-id
-             (with-current-buffer (sc--buffer-r)
+       (setq scr-guessed-activity-id
+             (with-current-buffer (scr--buffer-r)
                (goto-char (point-max))
                (buffer-substring (line-beginning-position) (line-end-position))))
-       (run-with-timer 30 nil #'sc-guess-activity)
+       (run-with-timer 30 nil #'scr-guess-activity)
        ))))
-;; (sc-guess-activity)
+;; (scr-guess-activity)
 
-(defun sc-guess-activity ()
+(defun scr-guess-activity ()
   (let* ((default-directory (f-dirname (find-library-name "secretary")))
          (script (expand-file-name "sc_activity.R")))
     (set-process-sentinel
-     (start-process sc-ai-name (sc--buffer-r) "Rscript" script)
+     (start-process scr-ai-name (scr--buffer-r) "Rscript" script)
      (lambda (_process _event)
        (mkdir "/tmp/secretary")
        ;; get a 2-column dataset with ids and probabilities
-       (setq sc-activity-nowcast (->> (f-read "/tmp/secretary/activities")
+       (setq scr-activity-nowcast (->> (f-read "/tmp/secretary/activities")
                                       (s-split "\n")
                                       (-map #'split-string)))))))
 
 ;; Not actually of central interest to clock correctly in realtime (and due to
 ;; MCMC slowness, it'd come many minutes late), we primarily want facilites to
 ;; edit the clock history.
-(defun sc-clock-in-to-guessed-activity ()
+(defun scr-clock-in-to-guessed-activity ()
   (save-excursion
-    (org-id-goto sc-guessed-activity-id)
+    (org-id-goto scr-guessed-activity-id)
     (org-clock-in)))
 
-(defun sc-edit-clocks ()
+(defun scr-edit-clocks ()
   "Edit the :LOGBOOK: entries of specified headings retroactively
 so they match what we know."
   ;; assume we can import a series of clock intervals, a
@@ -97,6 +97,6 @@ so they match what we know."
   
 
 
-(provide 'sc-modeler)
+(provide 'secretary-modeler)
 
-;;; sc-modeler.el ends here
+;;; secretary-modeler.el ends here

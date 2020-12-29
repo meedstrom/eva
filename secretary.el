@@ -18,17 +18,17 @@
 
 ;; user setup
 (setc org-clock-x11idle-program-name "xprintidle")
-(setc sc-usrname "Martin")
-(setc sc-usr-short-title "sir")
-(setc sc-user-birthday "1991-12-07")
-(setc sc-ai-name "Maya")
-(add-hook 'sc-plot-hook #'sc-plot-mood 50)
-(add-hook 'sc-plot-hook #'sc-plot-weight)
+(setc scr-usrname "Martin")
+(setc scr-usr-short-title "sir")
+(setc scr-user-birthday "1991-12-07")
+(setc scr-ai-name "Maya")
+(add-hook 'scr-plot-hook #'scr-plot-mood 50)
+(add-hook 'scr-plot-hook #'scr-plot-weight)
 
 ;; (require 'org-id)
 ;; (org-id-update-id-locations '("/home/kept/Emacs/secretary/test.org"))
 
-(setc sc-activities-alist
+(setc scr-activities-alist
       '(;; id            cost of misprediction (either false positive or false negative)
         ("7441f4e2-7251-47d8-ab06-1c2c205d1ae0"    0)  ;; unknown
         ("c1b1fdb8-ea87-4d5a-b01d-4214266c4f4b"    1)  ;; unknown (afk)
@@ -39,7 +39,7 @@
         ("ac93c132-ab74-455f-a456-71d7b5ee88a6"    3)  ;; sleep
         ))
 
-(setc sc-activities-alist
+(setc scr-activities-alist
       '(;; id            cost of misprediction (either false positive or false negative)
         ("unknown" 0)
         ("unknown afk"     1)  ;; unknown (afk)
@@ -58,10 +58,10 @@
 (require 'dash)
 (require 'seq)
 ;; (require 'bui)
-(require 'sc-lib)
-(require 'sc-data-collector)
-(require 'sc-presenter)
-(require 'sc-nlp)
+(require 'secretary-common)
+(require 'secretary-data-collector)
+(require 'secretary-presenter)
+(require 'secretary-nlp)
 
 (autoload #'org-mac-idle-seconds "org-clock")
 (autoload #'org-x11-idle-seconds "org-clock")
@@ -70,203 +70,203 @@
 (autoload #'org-id-goto "org-id")
 (autoload #'notifications-notify "notifications")
 
-(defun sc-call (&optional arg)
+(defun scr-call (&optional arg)
   "Call your secretary. Useful when you're unsure what to do."
   (interactive "P")
-  (sc-print-new-date-maybe)
-  (sc-emit "Hello!")
-  (sit-for sc-sit-short)
-  (sc-welcome arg))
+  (scr-print-new-date-maybe)
+  (scr-emit "Hello!")
+  (sit-for scr-sit-short)
+  (scr-welcome arg))
 
-(defun sc-call-from-idle ()
+(defun scr-call-from-idle ()
   "Called by idleness-related hooks, doesn't do much if idle was not long."
   (unwind-protect
-      (when (< 90 sc-length-of-last-idle-in-minutes)
+      (when (< 90 scr-length-of-last-idle-in-minutes)
         (unless (frame-focus-state)
-          (notifications-notify :title sc-ai-name :body (sc-greeting)))
-        (sc-print-new-date-maybe)
-        (sc-play-chime)
-        (when (sc-prompt (sc-greeting) " Do you have time for some questions?")
-          (sc-welcome t)))
-    (setq sc-length-of-last-idle-in-minutes 0)))
+          (notifications-notify :title scr-ai-name :body (scr-greeting)))
+        (scr-print-new-date-maybe)
+        (scr-play-chime)
+        (when (scr-prompt (scr-greeting) " Do you have time for some questions?")
+          (scr-welcome t)))
+    (setq scr-length-of-last-idle-in-minutes 0)))
 ;; (run-with-timer 3 nil (lambda ()  (print (frame-focus-state))))
-;; (sc-call-from-idle)
+;; (scr-call-from-idle)
 
-(defun sc-call-from-reschedule ()
-  (sc-print-new-date-maybe)
-  (sc-play-chime)
-  (sc-emit "Hello, " sc-usr-short-title ". ")
-  (sit-for sc-sit-medium)
-  (when (sc-prompt "1 hour ago, you asked to be reminded. Is now a good time?")
-    (sc-welcome)))
-;;(sc-call-from-reschedule)
+(defun scr-call-from-reschedule ()
+  (scr-print-new-date-maybe)
+  (scr-play-chime)
+  (scr-emit "Hello, " scr-usr-short-title ". ")
+  (sit-for scr-sit-medium)
+  (when (scr-prompt "1 hour ago, you asked to be reminded. Is now a good time?")
+    (scr-welcome)))
+;;(scr-call-from-reschedule)
 
-;; TODO: Apply changed date from `sc-special-handle-current-query' to the
+;; TODO: Apply changed date from `scr-special-handle-current-query' to the
 ;; appropriate places and show the results.
-(defun sc-welcome (&optional just-idled-p)
-  (setq sc--date (ts-now))
-  (sc-followup)
+(defun scr-welcome (&optional just-idled-p)
+  (setq scr--date (ts-now))
+  (scr-followup)
   (and just-idled-p
-       (sc-prompt "Have you slept?")
-       (sc-query-sleep))
-  (unless (sc-logged-today "/home/kept/Self_data/weight.tsv")
-    (sc-query-weight))
-  ;; (and (sc-prompt "Up to reflect?")
-  ;;      (sc-prompt "Have you learned something?")
+       (scr-prompt "Have you slept?")
+       (scr-query-sleep))
+  (unless (scr-logged-today "/home/kept/Self_data/weight.tsv")
+    (scr-query-weight))
+  ;; (and (scr-prompt "Up to reflect?")
+  ;;      (scr-prompt "Have you learned something?")
   ;;      (org-capture nil "s"))
-  ;; (if (sc-prompt (concat "How about some flashcards?"))
+  ;; (if (scr-prompt (concat "How about some flashcards?"))
   ;;     (org-drill))
-  ;; (if (sc-prompt "Have you stretched today?")
+  ;; (if (scr-prompt "Have you stretched today?")
   ;;     nil
-  ;;   (if (sc-prompt "Do you want reminders for why?")
+  ;;   (if (scr-prompt "Do you want reminders for why?")
   ;;       nil
   ;;     nil))
-  ;; (if (sc-prompt "Did you photographe your face today?")
+  ;; (if (scr-prompt "Did you photographe your face today?")
   ;;     nil)
-  ;; ;; (unless (sc-just-slept)
-  ;; (unless (sc-logged-today "/home/kept/Self_data/meditation.csv")
-  ;;   (sc-query-meditation sc--date))
-  ;; (unless (sc-logged-today "/home/kept/Self_data/cold.csv")
-  ;;   (when (sc-prompt "Have you had a cold shower yet?")
-  ;;     (sc-query-cold-shower sc--date)))
-  ;; (if (sc-prompt "Have you paid for anything since yesterday?")
+  ;; ;; (unless (scr-just-slept)
+  ;; (unless (scr-logged-today "/home/kept/Self_data/meditation.csv")
+  ;;   (scr-query-meditation scr--date))
+  ;; (unless (scr-logged-today "/home/kept/Self_data/cold.csv")
+  ;;   (when (scr-prompt "Have you had a cold shower yet?")
+  ;;     (scr-query-cold-shower scr--date)))
+  ;; (if (scr-prompt "Have you paid for anything since yesterday?")
   ;;     (org-capture nil "ln"))
-  ;; (if (sc-prompt "Shall I remind you of your life goals? Don't be shy.")
+  ;; (if (scr-prompt "Shall I remind you of your life goals? Don't be shy.")
   ;;     (view-file "/home/kept/Journal/gtd2.org"))
-  (and (> 3 (sc-query-mood "How are you? "))
-       (sc-prompt "Do you need to talk?")
-       (sc-prompt "I can direct you to my colleague Eliza, though "
+  (and (> 3 (scr-query-mood "How are you? "))
+       (scr-prompt "Do you need to talk?")
+       (scr-prompt "I can direct you to my colleague Eliza, though "
                   "she's not too bright. Will that do?")
        (doctor))
-  (sc-present-plots)
-  ;; and (sc-prompt "Would you like me to suggest an activity?")
-  (sc-present-diary (ts-now))
-  (and (-all-p #'null (-map #'sc-logged-today (-map #'car sc-csv-alist)))
-       (sc-prompt "Shall I come back in an hour?")
-       (run-with-timer 3600 nil #'sc-call-from-idle))
+  (scr-present-plots)
+  ;; and (scr-prompt "Would you like me to suggest an activity?")
+  (scr-present-diary (ts-now))
+  (and (-all-p #'null (-map #'scr-logged-today (-map #'car scr-csv-alist)))
+       (scr-prompt "Shall I come back in an hour?")
+       (run-with-timer 3600 nil #'scr-call-from-idle))
   )
 
-(defun sc-check-neglect ()
-  (dolist (cell sc-csv-alist)
+(defun scr-check-neglect ()
+  (dolist (cell scr-csv-alist)
     (when (file-exists-p (car cell))
       (let* ((path (car cell))
-             (d (ts-parse (sc-last-date-string-in-date-indexed-csv path)))
+             (d (ts-parse (scr-last-date-string-in-date-indexed-csv path)))
              (diff-days (/ (ts-diff (ts-now) d) 60 60 24)))
 	(when (< 3 diff-days)
-	  (sc-prompt "It's been " (number-to-string diff-days)
+	  (scr-prompt "It's been " (number-to-string diff-days)
                      " days since you logged " (file-name-base path)
                      ". Do you want to log it now?")
 	  (call-interactively (cadr cell)))))))
 
 ;;;; Handle idling & reboots & crashes
 
-;; (defsubst sc--start-next-timer ()
-;;   (if (sc-idle-p)
+;; (defsubst scr--start-next-timer ()
+;;   (if (scr-idle-p)
 ;;       (progn
-;;         (setq sc-idle-watcher nil)
-;;         (setq sc-idle-ticker (run-with-timer 1 nil #'sc--react-if-idle-ended)))
-;;     (setq sc-idle-watcher (run-with-timer 60 nil #'sc--react-if-idle-started))
-;;     (setq sc-idle-ticker nil)))
+;;         (setq scr-idle-watcher nil)
+;;         (setq scr-idle-ticker (run-with-timer 1 nil #'scr--react-if-idle-ended)))
+;;     (setq scr-idle-watcher (run-with-timer 60 nil #'scr--react-if-idle-started))
+;;     (setq scr-idle-ticker nil)))
 
-;; (defun sc--react-if-idle-started ()
-;;   (setq sc-idle-beginning (ts-now)) ;; remember the time we went idle
-;;   (sc--save-variables-to-disk)
-;;   (sc--start-next-timer))
+;; (defun scr--react-if-idle-started ()
+;;   (setq scr-idle-beginning (ts-now)) ;; remember the time we went idle
+;;   (scr--save-variables-to-disk)
+;;   (scr--start-next-timer))
 
-;; (defun sc--react-if-idle-ended ()
-;;   (unless (sc-idle-p)
-;;     (setq sc-length-of-last-idle-in-minutes
-;; 	  (+ sc-idle-threshold
-;;              (round (/ (ts-diff (ts-now) sc-idle-beginning) 60))))
-;;     (run-hooks 'sc-return-from-idle-hook))
-;;   (sc--start-next-timer))
+;; (defun scr--react-if-idle-ended ()
+;;   (unless (scr-idle-p)
+;;     (setq scr-length-of-last-idle-in-minutes
+;; 	  (+ scr-idle-threshold
+;;              (round (/ (ts-diff (ts-now) scr-idle-beginning) 60))))
+;;     (run-hooks 'scr-return-from-idle-hook))
+;;   (scr--start-next-timer))
 
-;; (defun sc--next-tick ()
-;;   (if (> (sc--idle-seconds) sc-idle-threshold)
+;; (defun scr--next-tick ()
+;;   (if (> (scr--idle-seconds) scr-idle-threshold)
 ;;       (progn
-;; 	(ts-decf (ts-sec sc--idle-beginning) sc-idle-threshold)
-;; 	(setq sc-length-of-last-idle (ts-diff (ts-now) sc--idle-beginning))
-;; 	(run-hooks 'sc-return-from-idle-hook)
-;;         (setq sc--timer (run-with-timer 2 nil #'sc--next-tick)))
-;;     (setq sc--idle-beginning (ts-now))
-;;     (sc--save-variables-to-disk)
-;;     (setq sc--timer (run-with-timer 60 nil #'sc--next-tick))))
-;; ;; (sc--next-tick)
+;; 	(ts-decf (ts-sec scr--idle-beginning) scr-idle-threshold)
+;; 	(setq scr-length-of-last-idle (ts-diff (ts-now) scr--idle-beginning))
+;; 	(run-hooks 'scr-return-from-idle-hook)
+;;         (setq scr--timer (run-with-timer 2 nil #'scr--next-tick)))
+;;     (setq scr--idle-beginning (ts-now))
+;;     (scr--save-variables-to-disk)
+;;     (setq scr--timer (run-with-timer 60 nil #'scr--next-tick))))
+;; ;; (scr--next-tick)
 
-(defun sc--start-next-timer (&optional idle-p)
-  (if (or idle-p (sc-idle-p))
-      (setq sc--timer (run-with-timer 2 nil #'sc--user-is-idle)))
-  (setq sc--timer (run-with-timer 60 nil #'sc--user-is-active)))
+(defun scr--start-next-timer (&optional idle-p)
+  (if (or idle-p (scr-idle-p))
+      (setq scr--timer (run-with-timer 2 nil #'scr--user-is-idle)))
+  (setq scr--timer (run-with-timer 60 nil #'scr--user-is-active)))
 
-(defun sc--user-is-active ()
+(defun scr--user-is-active ()
   ;; Explanation: We keep updating this variable as long as the user is active,
   ;; expecting to stop updating once they go idle.
-  (setq sc-idle-beginning (ts-now))
-  (sc--save-variables-to-disk)
-  (sc--start-next-timer))
+  (setq scr-idle-beginning (ts-now))
+  (scr--save-variables-to-disk)
+  (scr--start-next-timer))
 
-(defun sc--user-is-idle ()
-  (if (sc-idle-p)
-      (sc--start-next-timer t)
-    (ts-decf (ts-sec sc--idle-beginning) sc-idle-threshold)
-    (setq sc-length-of-last-idle (ts-diff (ts-now) sc--idle-beginning))
-    (run-hooks 'sc-return-from-idle-hook)
-    (sc--start-next-timer)))
+(defun scr--user-is-idle ()
+  (if (scr-idle-p)
+      (scr--start-next-timer t)
+    (ts-decf (ts-sec scr--idle-beginning) scr-idle-threshold)
+    (setq scr-length-of-last-idle (ts-diff (ts-now) scr--idle-beginning))
+    (run-hooks 'scr-return-from-idle-hook)
+    (scr--start-next-timer)))
 
-(defun sc--start-next-timer (&optional idle)
-  (if (or idle (sc-idle-p)) ;; don't re-call `sc-idle-p' if info was provided
+(defun scr--start-next-timer (&optional idle)
+  (if (or idle (scr-idle-p)) ;; don't re-call `scr-idle-p' if info was provided
       (progn
-        (setq sc-idle-watcher nil)
-        (setq sc-idle-ticker (run-with-timer 1 nil #'sc--user-is-idle)))
-    (setq sc-idle-watcher (run-with-timer 60 nil #'sc--user-is-active))
-    (setq sc-idle-ticker nil)))
+        (setq scr-idle-watcher nil)
+        (setq scr-idle-ticker (run-with-timer 1 nil #'scr--user-is-idle)))
+    (setq scr-idle-watcher (run-with-timer 60 nil #'scr--user-is-active))
+    (setq scr-idle-ticker nil)))
 
-(defun sc--user-is-active ()
-  "This function is meant to be called by `sc--start-next-timer'
+(defun scr--user-is-active ()
+  "This function is meant to be called by `scr--start-next-timer'
 repeatedly for as long as the user is active (not idle).
 
 Refresh some variables and sync to disk."
   ;; Explanation: We keep updating this variable as long as the user is active,
   ;; expecting to stop updating once they go idle.
-  (setq sc-idle-beginning (ts-now))
-  (sc--save-variables-to-disk)
-  (sc--start-next-timer))
+  (setq scr-idle-beginning (ts-now))
+  (scr--save-variables-to-disk)
+  (scr--start-next-timer))
 
-(defun sc--user-is-idle ()
-  "This function is meant to be called by `sc--start-next-timer'
+(defun scr--user-is-idle ()
+  "This function is meant to be called by `scr--start-next-timer'
 repeatedly for as long as the user is idle.  When the user comes
 back, this function will be called one last time, at which point
-it sets `sc-length-of-last-idle-in-minutes' and runs
-`sc-return-from-idle-hook'. That it has to run once with a
+it sets `scr-length-of-last-idle-in-minutes' and runs
+`scr-return-from-idle-hook'. That it has to run once with a
 failing condition that normally succeeds is the reason it had to
-be a separate function from `sc--user-is-active'."
-  (if (sc-idle-p)
-      (sc--start-next-timer t)
-    (setq sc-length-of-last-idle-in-minutes (sc--calc-last-idle-in-minutes))
-    (run-hooks 'sc-return-from-idle-hook)
-    (sc--start-next-timer)))
+be a separate function from `scr--user-is-active'."
+  (if (scr-idle-p)
+      (scr--start-next-timer t)
+    (setq scr-length-of-last-idle-in-minutes (scr--calc-last-idle-in-minutes))
+    (run-hooks 'scr-return-from-idle-hook)
+    (scr--start-next-timer)))
 
-(defsubst sc--calc-last-idle-in-minutes ()
-  (+ sc-idle-minutes-threshold
-     (round (/ (ts-diff (ts-now) sc-idle-beginning) 60))))
+(defsubst scr--calc-last-idle-in-minutes ()
+  (+ scr-idle-minutes-threshold
+     (round (/ (ts-diff (ts-now) scr-idle-beginning) 60))))
 
-(defun sc--restore-variables-from-disk ()
-  (when (f-exists-p sc-idle-beginning-file-name)
-    (setq sc-idle-beginning
-          (ts-parse (f-read sc-idle-beginning-file-name))))
-  (when (f-exists-p sc-mood-alist-file-name)
-    (setq sc-mood-alist
-          (read (f-read sc-mood-alist-file-name)))))
+(defun scr--restore-variables-from-disk ()
+  (when (f-exists-p scr-idle-beginning-file-name)
+    (setq scr-idle-beginning
+          (ts-parse (f-read scr-idle-beginning-file-name))))
+  (when (f-exists-p scr-mood-alist-file-name)
+    (setq scr-mood-alist
+          (read (f-read scr-mood-alist-file-name)))))
 
-(defun sc--save-variables-to-disk ()
-  (f-write (ts-format sc-idle-beginning) 'utf-8 sc-idle-beginning-file-name)
-  (f-write (prin1-to-string sc-mood-alist) 'utf-8 sc-mood-alist-file-name))
+(defun scr--save-variables-to-disk ()
+  (f-write (ts-format scr-idle-beginning) 'utf-8 scr-idle-beginning-file-name)
+  (f-write (prin1-to-string scr-mood-alist) 'utf-8 scr-mood-alist-file-name))
 
 ;; WIP
-(defvar sc-org-capture-templates
+(defvar scr-org-capture-templates
   `(
     ("s" "Secretary.el queries and presentations")
-    ("sw" "weight" plain (function #'sc-query-weight)
+    ("sw" "weight" plain (function #'scr-query-weight)
      :immediate-finish t)
     ))
 
@@ -275,46 +275,51 @@ be a separate function from `sc--user-is-active'."
   :global t
   (if secretary-mode
       (when (cond ((eq system-type 'darwin)
-                   (fset #'sc--idle-seconds #'org-mac-idle-seconds))
+                   (fset #'scr--idle-seconds #'org-mac-idle-seconds))
                   ((and (eq window-system 'x)
                         (executable-find org-clock-x11idle-program-name))
-                   (fset #'sc--idle-seconds #'sc--x11-idle-seconds))
+                   (fset #'scr--idle-seconds #'scr--x11-idle-seconds))
                   (t
                    (secretary-mode 0)
-                   (message sc-ai-name ": Not able to detect idleness, "
+                   (message scr-ai-name ": Not able to detect idleness, "
                             "I'll be useless. Disabling secretary-mode.")
                    nil))
-        (add-hook 'sc-return-from-idle-hook #'sc-log-idle -90)
-        (add-hook 'sc-return-from-idle-hook #'sc-call-from-idle 90)
-        (add-hook 'window-buffer-change-functions #'sc-log-buffer)
-        (add-hook 'window-selection-change-functions #'sc-log-buffer)
-        ;; (add-function :after #'after-focus-change-function #'sc-log-buffer)
+        (add-hook 'scr-return-from-idle-hook #'scr-log-idle -90)
+        (add-hook 'scr-return-from-idle-hook #'scr-call-from-idle 90)
+        (add-hook 'window-buffer-change-functions #'scr-log-buffer)
+        (add-hook 'window-selection-change-functions #'scr-log-buffer)
+        ;; (add-function :after #'after-focus-change-function #'scr-log-buffer)
         (if after-init-time
             (progn
-              (when (-any #'null '(sc-idle-beginning sc-mood-alist))
-                (sc--restore-variables-from-disk))
-	      ;; (when (null sc--timer)
-              ;;   (sc--start-next-timer))
-              (when (-all-p #'null '(sc-idle-watcher sc-idle-ticker))
-                (sc--start-next-timer))
+              (when (-any #'null '(scr-idle-beginning scr-mood-alist))
+                (scr--restore-variables-from-disk))
+	      ;; (when (null scr--timer)
+              ;;   (scr--start-next-timer))
+              (when (-all-p #'null '(scr-idle-watcher scr-idle-ticker))
+                (scr--start-next-timer))
 	      )
-          (add-hook 'after-init-hook #'sc--restore-variables-from-disk -1)
-          (add-hook 'after-init-hook #'sc--start-next-timer 91)))
-    (remove-hook 'sc-return-from-idle-hook #'sc-log-idle)
-    (remove-hook 'sc-return-from-idle-hook #'sc-call-from-idle)
-    (remove-hook 'window-buffer-change-functions #'sc-log-buffer)
-    (remove-hook 'window-selection-change-functions #'sc-log-buffer)
-    (remove-hook 'after-init-hook #'sc--restore-variables-from-disk)
-    (remove-hook 'after-init-hook #'sc--start-next-timer)
-    (unless (null sc--timer)
-      (cancel-timer sc--timer)
-      (setq sc--timer nil))
-    (unless (null sc-idle-watcher)
-      (cancel-timer sc-idle-watcher)
-      (setq sc-idle-watcher nil))
-    (unless (null sc-idle-ticker)
-      (cancel-timer sc-idle-ticker)
-      (setq sc-idle-ticker nil))))
+          (add-hook 'after-init-hook #'scr--restore-variables-from-disk -1)
+          (add-hook 'after-init-hook #'scr--start-next-timer 91)))
+    (remove-hook 'scr-return-from-idle-hook #'scr-log-idle)
+    (remove-hook 'scr-return-from-idle-hook #'scr-call-from-idle)
+    (remove-hook 'window-buffer-change-functions #'scr-log-buffer)
+    (remove-hook 'window-selection-change-functions #'scr-log-buffer)
+    (remove-hook 'after-init-hook #'scr--restore-variables-from-disk)
+    (remove-hook 'after-init-hook #'scr--start-next-timer)
+    (unless (null scr--timer)
+      (cancel-timer scr--timer)
+      (setq scr--timer nil))
+    (unless (null scr-idle-watcher)
+      (cancel-timer scr-idle-watcher)
+      (setq scr-idle-watcher nil))
+    (unless (null scr-idle-ticker)
+      (cancel-timer scr-idle-ticker)
+      (setq scr-idle-ticker nil))))
+
+(defun scr-report-mood ()
+  (interactive)
+  (view-file "/home/kept/Self_data/mood.tsv")
+  (auto-revert-mode))
 
 (provide 'secretary)
 

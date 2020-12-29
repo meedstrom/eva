@@ -1,4 +1,4 @@
-;;; sc-lib.el -*- lexical-binding: t; -*-
+;;; secretary-common.el -*- lexical-binding: t; -*-
 ;; Copyright (C) 2020 Martin Edström
 
 ;; This program is free software: you can redistribute it and/or modify
@@ -25,29 +25,29 @@
 (require 'dash)
 (require 's)
 (require 'parse-csv)
-(autoload #'sc-log-buffer "org-id")
+(autoload #'scr-log-buffer "org-id")
 
-(defcustom sc-location-diary-discrete "/home/kept/Diary/"
+(defcustom scr-location-diary-discrete "/home/kept/Diary/"
   nil)
 
-(defcustom sc-location-diary-datetree "/home/kept/Journal/diary2.org"
+(defcustom scr-location-diary-datetree "/home/kept/Journal/diary2.org"
   nil)
 
-(defcustom sc-ai-name "Secretary"
+(defcustom scr-ai-name "Secretary"
   nil)
 
-(defcustom sc-user-birthday nil
+(defcustom scr-user-birthday nil
   nil)
 
-(defcustom sc-usrname (if (s-equals? user-full-name "")
+(defcustom scr-usrname (if (s-equals? user-full-name "")
                           "Mr. Bond"
                         (-first-item (s-split " " user-full-name)))
   nil)
 
-(defcustom sc-usr-short-title "sir"
+(defcustom scr-usr-short-title "sir"
   nil)
 
-(defcustom sc-activities-alist
+(defcustom scr-activities-alist
   '(;; id            cost of misprediction (either false positive or false negative)
     ("some-org-id"    8)  ;; study
     ("some-org-id"    6)  ;; coding
@@ -59,15 +59,15 @@
     )
   nil)
 
-(defvar sc-last-buffer nil)
+(defvar scr-last-buffer nil)
 
-(defvar sc-known-buffers nil)
+(defvar scr-known-buffers nil)
 
-(defvar sc-buffer-focus-log nil)
+(defvar scr-buffer-focus-log nil)
 
-(defvar sc-guessed-activity-id nil)
+(defvar scr-guessed-activity-id nil)
 
-(defvar sc-mood-alist
+(defvar scr-mood-alist
   '(("meh" . "3")
     ("good" . "4")
     ("great" . "5")
@@ -78,50 +78,50 @@
     ("moody" . "2")
     ("strong" . "5")
     ("inspired" . "5"))
-  "Alist for suggesting a mood score in the `sc-log-mood'
+  "Alist for suggesting a mood score in the `scr-log-mood'
 prompt. Merely a convenience; the scores are not forced.
 
-This variable is loaded from `sc-mood-alist-file-name', edit that
+This variable is loaded from `scr-mood-alist-file-name', edit that
 file.")
 
-(defvar sc-dir (expand-file-name "secretary" user-emacs-directory))
-(defvar sc-idle-beginning-file-name (expand-file-name "idle-beginning" sc-dir))
-(defvar sc-mood-alist-file-name (expand-file-name "sc-mood-alist" sc-dir))
+(defvar scr-dir (expand-file-name "secretary" user-emacs-directory))
+(defvar scr-idle-beginning-file-name (expand-file-name "idle-beginning" scr-dir))
+(defvar scr-mood-alist-file-name (expand-file-name "scr-mood-alist" scr-dir))
 
-(defvar sc-sit-long 1)
-(defvar sc-sit-medium .8)
-(defvar sc-sit-short .5)
+(defvar scr-sit-long 1)
+(defvar scr-sit-medium .8)
+(defvar scr-sit-short .5)
 
-(defvar sc-csv-alist '(("/home/kept/Self_data/weight.tsv" sc-query-weight)
-                       ("/home/kept/Self_data/mood.tsv" sc-query-mood)
-                       ("/home/kept/Self_data/ingredients.tsv" sc-query-ingredients)
-                       ("/home/kept/Self_data/sleep.tsv" sc-query-sleep)
-                       ("/home/kept/Self_data/meditation.tsv" sc-query-meditation)
-                       ("/home/kept/Self_data/cold.tsv" sc-query-cold)))
+(defvar scr-csv-alist '(("/home/kept/Self_data/weight.tsv" scr-query-weight)
+                       ("/home/kept/Self_data/mood.tsv" scr-query-mood)
+                       ("/home/kept/Self_data/ingredients.tsv" scr-query-ingredients)
+                       ("/home/kept/Self_data/sleep.tsv" scr-query-sleep)
+                       ("/home/kept/Self_data/meditation.tsv" scr-query-meditation)
+                       ("/home/kept/Self_data/cold.tsv" scr-query-cold)))
 
-(defvar sc--date nil
+(defvar scr--date nil
   "Set during talking to the user.")
 
-(defvar sc-plot-hook nil)
+(defvar scr-plot-hook nil)
 
-(defvar sc-length-of-last-idle 0
+(defvar scr-length-of-last-idle 0
   "Amount of time in minutes, an integer.")
-(defvar sc-length-of-last-idle-in-minutes 0)
-(defvar sc-idle-threshold (* 10 60))
-(defvar sc-idle-minutes-threshold 10)
-(defvar sc-idle-ticker nil)
-(defvar sc-idle-watcher nil)
-(defvar sc-idle-beginning nil)
-(defvar sc--timer nil)
-(defvar sc--idle-beginning (ts-now))
-(defvar sc-return-from-idle-hook nil
+(defvar scr-length-of-last-idle-in-minutes 0)
+(defvar scr-idle-threshold (* 10 60))
+(defvar scr-idle-minutes-threshold 10)
+(defvar scr-idle-ticker nil)
+(defvar scr-idle-watcher nil)
+(defvar scr-idle-beginning nil)
+(defvar scr--timer nil)
+(defvar scr--idle-beginning (ts-now))
+(defvar scr-return-from-idle-hook nil
   "Note: An Emacs startup also counts as a return from idleness.
 You'll probably want your hook to be conditional on some value of
-`sc-length-of-last-idle-in-minutes', which at startup is
+`scr-length-of-last-idle-in-minutes', which at startup is
 calculated from the last Emacs shutdown or crash (technically,
 last time `secretary-mode' was running).")
 
-(defvar sc-chime-sound-file
+(defvar scr-chime-sound-file
   (expand-file-name
    ;; From https://freesound.org/people/josepharaoh99/sounds/380482/
    "Chime Notification-380482.wav"
@@ -130,23 +130,23 @@ last time `secretary-mode' was running).")
    (f-dirname (find-library-name "secretary"))))
 
 ;; What's cl-defstruct? https://nullprogram.com/blog/2018/02/14/
-(cl-defstruct (sc-activity (:constructor sc-activity-create)
+(cl-defstruct (scr-activity (:constructor scr-activity-create)
 			   (:copier nil))
   name id cost-false-pos cost-false-neg querier)
 
-(defun sc-activity-by-name (name)
+(defun scr-activity-by-name (name)
   (declare (side-effect-free t))
-  (--find (equal name (sc-activity-name it)) sc-activities))
+  (--find (equal name (scr-activity-name it)) scr-activities))
 
-(defun sc-play-chime ()
+(defun scr-play-chime ()
   (and (executable-find "aplay")
-       (file-exists-p sc-chime-sound-file)
-       (start-process "aplay" nil "aplay" sc-chime-sound-file)))
+       (file-exists-p scr-chime-sound-file)
+       (start-process "aplay" nil "aplay" scr-chime-sound-file)))
 
 
 ;; Throw this away when the other one is shown to work
-;; (defun sc-print-new-date-maybe ()
-;;   (with-current-buffer (sc-buffer-chat)
+;; (defun scr-print-new-date-maybe ()
+;;   (with-current-buffer (scr-buffer-chat)
 ;;       (goto-char (point-max))
 ;;       (let* ((last-timestamp-pos
 ;;               (re-search-backward
@@ -158,21 +158,21 @@ last time `secretary-mode' was running).")
 ;;           (goto-char (point-max))
 ;;           (read-only-mode 0)
 ;;           (insert "\n" (ts-format "%Y-%b-%d"))))))
-;; ;; (sc-print-new-date-maybe)
+;; ;; (scr-print-new-date-maybe)
 
-(defun sc-print-new-date-maybe ()
-  (with-current-buffer (sc-buffer-chat)
+(defun scr-print-new-date-maybe ()
+  (with-current-buffer (scr-buffer-chat)
     (when (> (ts-day (ts-now))
-             (ts-day sc--last-edited))
+             (ts-day scr--last-edited))
       (goto-char (point-max))
       (read-only-mode 0)
-      (insert "\n" (ts-format "%Y, %B %d") (sc--holiday-maybe)))))
+      (insert "\n" (ts-format "%Y, %B %d") (scr--holiday-maybe)))))
 
-(defun sc--holiday-maybe ()
+(defun scr--holiday-maybe ()
   (when-let (foo (calendar-check-holidays (calendar-current-date)))
     (concat " -- " foo)))
 
-(defun sc--another-secretary-running-p ()
+(defun scr--another-secretary-running-p ()
   (when (file-exists-p "/tmp/secretary/running")
     (let ((age (- (time-convert (current-time) 'integer)
 		  (time-convert (file-attribute-modification-time
@@ -180,31 +180,31 @@ last time `secretary-mode' was running).")
 				'integer))))
       (> age (* 10 60)))))
 
-(defun sc--mark-territory ()
+(defun scr--mark-territory ()
   (mkdir "/tmp/secretary/" t)
   (f-touch "/tmp/secretary/running"))
 
-(defun sc-activities-names ()
-  (->> sc-activities-alist
+(defun scr-activities-names ()
+  (->> scr-activities-alist
        (-map (lambda (x) (save-window-excursion
                       (org-id-goto (car x))
                       (-last-item (org--get-outline-path-1)))))))
 
 ;; TODO: Show when the user types a noncommittal "k" for "okay". User should
 ;; have room to express shades of feeling, even if we don't do anything with it.
-(defun sc-prompt (&rest strings)
+(defun scr-prompt (&rest strings)
   (let* (;; (default-y-or-n-p-map y-or-n-p-map)
          ;; (default-cmd (lookup-key y-or-n-p-map (kbd "k")))
          (prompt (string-join strings)))
     (unwind-protect
         (progn
-          (switch-to-buffer (sc-buffer-chat))
+          (switch-to-buffer (scr-buffer-chat))
           (unless (< 20 (car (window-fringes)))
             (set-window-fringes nil 20 20))
           (goto-char (point-max))
-          (sc-emit prompt)
-          (define-key y-or-n-p-map (kbd "o") #'sc-special-handle-current-query)
-          (define-key y-or-n-p-map (kbd "i") #'sc-special-handle-current-query)
+          (scr-emit prompt)
+          (define-key y-or-n-p-map (kbd "o") #'scr-special-handle-current-query)
+          (define-key y-or-n-p-map (kbd "i") #'scr-special-handle-current-query)
           (define-key y-or-n-p-map (kbd "k") #'y-or-n-p-insert-y)
           (read-only-mode 0)
           (if (y-or-n-p prompt)
@@ -217,49 +217,49 @@ last time `secretary-mode' was running).")
             nil))
       (dolist (x '("o" "i" "k"))
         (define-key y-or-n-p-map (kbd x) #'y-or-n-p-insert-other)))))
-;; (sc-prompt "Test")
+;; (scr-prompt "Test")
 ;; (y-or-n-p "test")
 
-(defun sc--idle-seconds ()
+(defun scr--idle-seconds ()
   "Stub to be overwritten."
   (warn "Code ended up in an impossible place."))
 
-(defvar sc--last-edited (ts-now)
+(defvar scr--last-edited (ts-now)
   "For use as buffer-local value in the chat buffer.")
 
-(defun sc-emit (&rest strings)
-  (setq-local sc--last-edited (ts-now))
+(defun scr-emit (&rest strings)
+  (setq-local scr--last-edited (ts-now))
   (prog1 (message (string-join strings))
-    (with-current-buffer (sc-buffer-chat)
+    (with-current-buffer (scr-buffer-chat)
       (read-only-mode 0)
       (goto-char (point-max))
       (insert "\n<" (ts-format "%H:%M") "> " (string-join strings))
       (view-mode))))
 
-(defun sc--buffer-r ()
-  (get-buffer-create (concat "*" sc-ai-name ": R*")))
+(defun scr--buffer-r ()
+  (get-buffer-create (concat "*" scr-ai-name ": R*")))
 
-(defun sc-reschedule ()
-    (run-with-timer 3600 nil #'sc-call-from-reschedule))
+(defun scr-reschedule ()
+    (run-with-timer 3600 nil #'scr-call-from-reschedule))
 
-;; (defmacro sc-with-file (path &rest body)
+;; (defmacro scr-with-file (path &rest body)
 ;;   (declare (pure t) (indent defun))
 ;;   `(with-temp-buffer
 ;;      (insert-file-contents-literally ,path)
 ;;      ,@body))
 
-(defun sc-last-date-string-in-date-indexed-csv (path)
+(defun scr-last-date-string-in-date-indexed-csv (path)
   (declare (side-effect-free t))
   (with-temp-buffer
     (insert-file-contents-literally path)
     (goto-char (point-max))
     (re-search-backward (rx bol (= 4 digit) "-" (= 2 digit) "-" (= 2 digit)))
     (buffer-substring (point) (+ 10 (point)))))
-;; (sc-last-date-string-in-date-indexed-csv "/home/kept/Self_data/weight.csv")
-;; (sc-last-date-string-in-date-indexed-csv "/home/kept/Self_data/mood.tsv")
-;; (sc-last-date-string-in-file "/home/kept/Self_data/mood.tsv")
+;; (scr-last-date-string-in-date-indexed-csv "/home/kept/Self_data/weight.csv")
+;; (scr-last-date-string-in-date-indexed-csv "/home/kept/Self_data/mood.tsv")
+;; (scr-last-date-string-in-file "/home/kept/Self_data/mood.tsv")
 
-(defun sc-last-date-string-in-file (path)
+(defun scr-last-date-string-in-file (path)
   (declare (side-effect-free t))
   (with-temp-buffer
     (insert-file-contents-literally path)
@@ -270,7 +270,7 @@ last time `secretary-mode' was running).")
     (buffer-substring (point) (+ 11 (point)))))
 
 ;; WONTFIX: check for recent activity (if user awake thru the night)
-(defun sc-logged-today (file)
+(defun scr-logged-today (file)
   (when (file-exists-p file)
     ;; don't act like it's a new day if the time is <5am.
     (let ((day (if (> 5 (ts-hour (ts-now)))
@@ -279,10 +279,10 @@ last time `secretary-mode' was running).")
       (with-temp-buffer
         (insert-file-contents-literally file)
         (ignore-errors (search-forward (ts-format "%F" day)))))))
-;; (sc-logged-today "/home/kept/Self_data/weight.csv")
-;; (sc-logged-today "/home/kept/Self_data/buffers.csv")
+;; (scr-logged-today "/home/kept/Self_data/weight.csv")
+;; (scr-logged-today "/home/kept/Self_data/buffers.csv")
 
-(defun sc-existing-diary (dir date)
+(defun scr-existing-diary (dir date)
   (declare (side-effect-free t))
   (let ((foo (car (--filter (string-match-p
                              (concat (ts-format "%y%m%d" date) ".*org$")
@@ -290,23 +290,23 @@ last time `secretary-mode' was running).")
                             (directory-files dir)))))
     (unless (null foo)
       (expand-file-name foo dir))))
-;; (sc-existing-diary "/home/kept/Diary" (ts-dec 'month 1 (ts-now)))
+;; (scr-existing-diary "/home/kept/Diary" (ts-dec 'month 1 (ts-now)))
 
-(defun sc-buffer-mode (buffer-or-name)
+(defun scr-buffer-mode (buffer-or-name)
   "Retrieve the `major-mode' of BUFFER-OR-NAME."
   (declare (side-effect-free t))
   (buffer-local-value 'major-mode (get-buffer buffer-or-name)))
 
-(defun sc-idle-p ()
+(defun scr-idle-p ()
   (declare (side-effect-free t))
-  (< (* 60 sc-idle-minutes-threshold) (sc--idle-seconds)))
+  (< (* 60 scr-idle-minutes-threshold) (scr--idle-seconds)))
 
-(defun sc--x11-idle-seconds ()
+(defun scr--x11-idle-seconds ()
   "Like `org-x11-idle-seconds' but doesn't need a /bin/sh, or org."
   (declare (side-effect-free t))
-  (/ (sc--process-output-to-number org-clock-x11idle-program-name) 1000))
+  (/ (scr--process-output-to-number org-clock-x11idle-program-name) 1000))
 
-(defmacro sc--process-output-to-string (program &rest args)
+(defmacro scr--process-output-to-string (program &rest args)
   "Similar to `shell-command-to-string', but skips the shell intermediary so
 you don't need `/bin/sh'. PROGRAM and ARGS are passed on to `call-process'."
   (declare (debug (&rest form)) (indent nil) (side-effect-free t))
@@ -314,16 +314,16 @@ you don't need `/bin/sh'. PROGRAM and ARGS are passed on to `call-process'."
      (call-process ,program nil (current-buffer) nil ,@args)
      (buffer-string)))
 
-(defmacro sc--process-output-to-number (program &rest args)
-  "Same as `sc-process-output-to-string', but passes the result
+(defmacro scr--process-output-to-number (program &rest args)
+  "Same as `scr-process-output-to-string', but passes the result
 through `string-to-number'."
   (declare (debug (&rest form)) (indent nil) (side-effect-free t))
-  `(string-to-number (sc--process-output-to-string ,program ,@args)))
+  `(string-to-number (scr--process-output-to-string ,program ,@args)))
 
 ;; (parse-csv-string-rows
 ;;  (f-read "/home/kept/Self_data/weight.csv") (string-to-char ",") (string-to-char " ") "\n")
 
-(defun sc-get-all-today-in-date-indexed-csv (path &optional ts)
+(defun scr-get-all-today-in-date-indexed-csv (path &optional ts)
   (with-temp-buffer
     (insert-file-contents-literally path)
     (let (x)
@@ -332,20 +332,20 @@ through `string-to-number'."
                                                  (line-end-position)))
               x))
       x)))
-;; (sc-get-all-today-in-date-indexed-csv "/home/kept/Self_data/sleep.csv" (ts-dec 'day 1 (ts-now)))
+;; (scr-get-all-today-in-date-indexed-csv "/home/kept/Self_data/sleep.csv" (ts-dec 'day 1 (ts-now)))
 
-;; (defun sc-update-or-append-in-date-indexed-csv (path &optional ts)
-;;   (sc-get-first-today-in-date-indexed-csv path ts))
+;; (defun scr-update-or-append-in-date-indexed-csv (path &optional ts)
+;;   (scr-get-first-today-in-date-indexed-csv path ts))
 
-(defun sc-get-first-today-in-date-indexed-csv (path &optional ts)
+(defun scr-get-first-today-in-date-indexed-csv (path &optional ts)
   (with-temp-buffer
     (insert-file-contents path)
     (search-forward (ts-format "%F" ts))
     (line-beginning-position)
     (buffer-substring (line-beginning-position) (line-end-position))))
-;; (sc-get-first-today-in-date-indexed-csv "/home/kept/Self_data/ingredients.csv")
+;; (scr-get-first-today-in-date-indexed-csv "/home/kept/Self_data/ingredients.csv")
 
-(defun sc-last-value-in-tsv (path)
+(defun scr-last-value-in-tsv (path)
   (when (file-exists-p path)
     (with-temp-buffer
       (insert-file-contents-literally path)
@@ -356,15 +356,15 @@ through `string-to-number'."
 
 ;; - Needs to be a function because something might kill the buffer.
 ;; - Can't use get-buffer-create because I want to turn on `visual-line-mode'.
-(defun sc-buffer-chat ()
-  (if-let* ((name (concat "*" sc-ai-name ": Chat log*"))
+(defun scr-buffer-chat ()
+  (if-let* ((name (concat "*" scr-ai-name ": Chat log*"))
             (b (get-buffer name)))
       b
     (with-current-buffer (generate-new-buffer name)
       (visual-line-mode)
       (current-buffer))))
 
-(defun sc-append (path &rest text)
+(defun scr-append (path &rest text)
   "Append TEXT to the file located at PATH, creating it and its
 parent directories if it doesn't exist, and making sure the text
 begins on a newline."
@@ -377,9 +377,9 @@ begins on a newline."
                          "\n")))
     (f-append (concat newline-maybe (string-join text)) 'utf-8 path)))
 
-(defalias 'sc-append-to #'sc-append)
+(defalias 'scr-append-to #'scr-append)
 
-(defvar sc-aphorisms
+(defvar scr-aphorisms
   '("The affairs of the world will go on forever. Do not delay the practice of meditation."
     "It takes all the running you can do, to keep in the same place."
     "You can't hate yourself into someone that loves who they are."
@@ -441,37 +441,37 @@ begins on a newline."
 
 ;;;; Greetings
 
-(defun sc-greeting-curt ()
+(defun scr-greeting-curt ()
   "Return a random greeting string appropriate in the midst of a
 workday. If you've already exchanged good mornings, it's weird to
 do so again."
   (seq-random-elt `("Hello" "Hi" "Hey")))
 
-(defvar sc-greetings '("Welcome back, Master."
-                       (concat "Nice to see you again, " sc-usrname ".")
-                       (concat "Greetings, " sc-usrname ".")
+(defvar scr-greetings '("Welcome back, Master."
+                       (concat "Nice to see you again, " scr-usrname ".")
+                       (concat "Greetings, " scr-usrname ".")
                        )
   "Greetings which can work as first sentence in a longer message.")
 
-(defun sc-greeting ()
+(defun scr-greeting ()
   "Return a random greeting string."
   ;; If it's morning, always use a variant of "good morning"
   (if (> 10 (ts-hour (ts-now)) 5)
-      (seq-random-elt (sc--daytime-appropriate-greetings))
-    (eval (seq-random-elt (append sc-greetings
-                                (-list (sc--daytime-appropriate-greetings)))))))
-;; (sc-greeting)
+      (seq-random-elt (scr--daytime-appropriate-greetings))
+    (eval (seq-random-elt (append scr-greetings
+                                (-list (scr--daytime-appropriate-greetings)))))))
+;; (scr-greeting)
 
 ;; NOTE: I considered making external variables for morning, day and evening
 ;; lists, but users might also want to change the daytime boundaries or even add
 ;; new boundaries. Too many possibilities, this is a case where it's ok to make
 ;; the user override the defun as a primary means of customization.
-(defun sc--daytime-appropriate-greetings ()
+(defun scr--daytime-appropriate-greetings ()
   (cond ((> 5 (ts-hour (ts-now)))
          (list "You're up late, Master."
                "Burning the midnight oil?"))
         ((> 10 (ts-hour (ts-now)))
-         (list (concat "Good morning, " sc-usrname ".")
+         (list (concat "Good morning, " scr-usrname ".")
                "Good morning!"
                "The stars shone upon us last night."))
         ((> 16 (ts-hour (ts-now)))
@@ -481,16 +481,16 @@ do so again."
          (list "Good evening!"
                "Pleasant evening to you!"))))
 
-(defun sc-greeting-standalone ()
+(defun scr-greeting-standalone ()
   "Return a greeting that expects to be followed by nothing: no
 prompts, no debug message, no info. Suitable for
 `notifications-notify' or `startup-echo-area-message'. A superset
-of `sc-greeting'."
+of `scr-greeting'."
   (eval (seq-random-elt
-         (append sc-greetings
-                 (-list (sc--daytime-appropriate-greetings))
+         (append scr-greetings
+                 (-list (scr--daytime-appropriate-greetings))
                  '("How may I help?")))))
 
-(provide 'sc-lib)
+(provide 'secretary-common)
 
-;;; sc-lib.el ends here
+;;; secretary-common.el ends here

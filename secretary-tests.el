@@ -1,4 +1,4 @@
-;;; sc-tests.el --- description -*- lexical-binding: t; -*-
+;;; secretary-tests.el --- description -*- lexical-binding: t; -*-
 
 (let ((var1-file-name "/tmp/...")
       (var2-file-name "/tmp/...")))
@@ -17,5 +17,5 @@
           (var2-file-name "/tmp/...")))
     )
 
-(provide 'sc-tests)
-;;; sc-tests.el ends here
+(provide 'secretary-tests)
+;;; secretary-tests.el ends here
