@@ -1,33 +1,38 @@
 ;;; sc-presenter.el --- description -*- lexical-binding: t; -*-
+(require 'sc-lib)
 
-;; WIP
-(defun sc-plot-finances ()
-  (set-process-sentinel
-     (start-process sc-ai-name nil "Rscript" script "14")
+;;;###autoload
+(defun sc-plot-mood ()
+  (interactive)
+  (let* ((default-directory (f-dirname (find-library-name "secretary")))
+         (script (expand-file-name "sc_daily_plot.R"))
+         (plot (expand-file-name "sc_mood.png" "/tmp/secretary")))
+    (sc-emit "Plotting mood...")
+    (mkdir "/tmp/secretary" t)
+    (set-process-sentinel
+     (start-process sc-ai-name nil "Rscript" script "14" "-0.1")
      `(lambda (_process _event)
-        (sc-emit "And here's your weight, boss." "\n")
-        (switch-to-buffer (sc-chat-buffer))
+        (sc-emit "And that's your mood." "\n")
+        (switch-to-buffer (sc-buffer-chat))
         (read-only-mode 0)
         (insert-image-file ,plot)
-        ;; (delete-file ,plot)
         (goto-char (point-max))
         (insert "\n")
         (read-only-mode)
-        ))
-  (call-process sc-ai-name nil "Rscript" "/home/kept/Journal/Finances/some-plot.R")
-  (insert-image-file "")
-  (sc-emit "And that's the plot of your finances, " sc-usr-short-title "."))
+        ))))
 
+;;;###autoload
 (defun sc-plot-weight ()
   (let* ((default-directory (f-dirname (find-library-name "secretary")))
          (script (expand-file-name "sc_daily_plot.R"))
-         (plot (expand-file-name "plot1.png")))
+         (plot (expand-file-name "sc_plot1.png" "/tmp/secretary")))
     (sc-emit "Plotting weight...")
+    (mkdir "/tmp/secretary" t)
     (set-process-sentinel
-     (start-process sc-ai-name nil "Rscript" script "14")
+     (start-process sc-ai-name nil "Rscript" script "14" "-0.1")
      `(lambda (_process _event)
         (sc-emit "And here's your weight, boss." "\n")
-        (switch-to-buffer (sc-chat-buffer))
+        (switch-to-buffer (sc-buffer-chat))
         (read-only-mode 0)
         (insert-image-file ,plot)
         ;; (delete-file ,plot)
@@ -36,13 +41,14 @@
         (read-only-mode)
         ))))
 
+;;;###autoload
 (defun sc-present-plots ()
+  (interactive)
   (unless (null sc-plot-hook)
-    (switch-to-buffer (sc-chat-buffer))
+    (switch-to-buffer (sc-buffer-chat))
     (sc-emit (seq-random-elt '("I have plotted the latest intel, boss."
                                "Here are some projections!"
                                "Data is beautiful, don't you think?")))
-    (sit-for 1)
     (run-hooks 'sc-plot-hook)))
 
 (defun sc-make-indirect-datetree (buffer dates)
@@ -78,8 +84,8 @@
 (defcustom sc-look-back-weeks 4 nil)
 (defcustom sc-look-back-days 1 nil)
 
-
 (defvar sc-past-sample-function #'sc-past-sample-default)
+
 (defun sc-past-sample-default ()
   (let ((now (ts-now)))
     (-uniq (append
@@ -96,36 +102,10 @@
                                   (--iterate (ts-dec 'month 1 it) now 12)
                                   (--iterate (ts-dec 'year 1 it) now 5))))))))
 
-;; TODO: Ok, use candidates as an index, use `--map-indexed' for each subtype of
-;;       thing to review, so the results can be sorted chronologically
-(defun sc-present-diary-as-datetree ()
-  "Unused"
-  (interactive)
-  (let* ((buffer (get-buffer-create (concat "*" sc-ai-name ": Selected diary entries*")))
-         (dates-to-check (sc-past-sample-default))
-         (discrete-files-found (--keep (sc-existing-diary "/home/kept/Diary" it) dates-to-check))
-         (datetree-found-count (sc-make-indirect-datetree buffer dates-to-check))
-         (total-found-count (+ (length discrete-files-found) datetree-found-count)))
-    (if (and (< 0 total-found-count)
-             (sc-prompt (concat "Found " (int-to-string total-found-count) " diary "
-                                (if (= 1 total-found-count) "entry" "entries")
-                                " for this date from the past. Want me to open "
-                                (if (= 1 total-found-count) "it" "them")
-                                "?")))
-        (progn
-          (switch-to-buffer (get-buffer buffer))
-          (dolist (f discrete-files-found)
-            (goto-char (point-max))
-            ;; org-paste-subtree may be better
-            (insert "\n* " f "\n")
-            (insert-file-contents f))
-          (view-mode)
-          (read-only-mode)
-          (goto-char (point-min)))
-      (kill-buffer buffer))))
-
 ;; TODO: use rename-buffer to make separate buffers for each datetree entry
+;;;###autoload
 (defun sc-present-diary (date)
+  (interactive)
   (let* ((buffer (get-buffer-create (concat "*" sc-ai-name ": Selected diary entries*")))
          (dates-to-check (funcall sc-past-sample-function))
          (discrete-files-found (--keep (sc-existing-diary "/home/kept/Diary" it) dates-to-check))
@@ -144,18 +124,6 @@
                 (view-file x))))
       (kill-buffer buffer))))
 ;; (sc-present-diary (ts-now))
-
-;; TODO: open multiple agenda buffers ??
-(defun foobar ()
-  (require 'org-agenda)
-  (let ((dates (--> dates
-                    (-sort #'ts>=)
-                    (-map (lambda (x) (ts-format "%F" x))))))
-    (dolist (x dates)
-      (org-agenda-list nil x 1)
-      (rename-buffer (concat "Agenda " x))
-      )))
-;; (foobar)
 
 (provide 'sc-presenter)
 

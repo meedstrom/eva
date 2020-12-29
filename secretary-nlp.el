@@ -18,6 +18,8 @@
 
 ;;; Code:
 
+(require 'sc-lib)
+
 ;; TODO: Catch typos like 03 meaning 30 minutes, not 3 hours
 (defun sc-parse-time-amount (input)
   (let ((numeric-part (string-to-number input)))
@@ -34,6 +36,8 @@
           (t
            (* 60 numeric-part)))))
 ;; (sc-parse-time-amount "30")
+
+;; (define-key minibuffer-local-completion-map (kbd "C-o") #'sc-special-handle-current-query)
 
 (defun sc-special-handle-current-query ()
   (interactive)
