@@ -93,33 +93,39 @@ file.")
 (defvar scr-sit-short .5)
 
 (defvar scr-csv-alist '(("/home/kept/Self_data/weight.tsv" scr-query-weight)
-                       ("/home/kept/Self_data/mood.tsv" scr-query-mood)
-                       ("/home/kept/Self_data/ingredients.tsv" scr-query-ingredients)
-                       ("/home/kept/Self_data/sleep.tsv" scr-query-sleep)
-                       ("/home/kept/Self_data/meditation.tsv" scr-query-meditation)
-                       ("/home/kept/Self_data/cold.tsv" scr-query-cold)))
+			("/home/kept/Self_data/mood.tsv" scr-query-mood)
+			("/home/kept/Self_data/ingredients.tsv" scr-query-ingredients)
+			("/home/kept/Self_data/sleep.tsv" scr-query-sleep)
+			("/home/kept/Self_data/meditation.tsv" scr-query-meditation)
+			("/home/kept/Self_data/cold.tsv" scr-query-cold)))
 
 (defvar scr--date nil
-  "Set during talking to the user.")
+  "Can be set while talking to the user to override the date to
+which some queries apply, for example to log something for
+yesterday. This is not universal (yet) so check the source for
+the welcomer you are using.")
 
-(defvar scr-plot-hook nil)
+(defvar scr--timer nil)
+
+(defvar scr--idle-beginning (ts-now))
+
+(defvar scr-plot-hook nil
+  "Hook called to print plots. A convenient place to add your
+custom plots.")
 
 (defvar scr-length-of-last-idle 0
-  "Amount of time in minutes, an integer.")
-(defvar scr-length-of-last-idle-in-minutes 0)
-(defvar scr-idle-threshold (* 10 60))
-(defvar scr-idle-minutes-threshold 10)
-(defvar scr-idle-ticker nil)
-(defvar scr-idle-watcher nil)
-(defvar scr-idle-beginning nil)
-(defvar scr--timer nil)
-(defvar scr--idle-beginning (ts-now))
+  "Duration in seconds.")
+
+(defvar scr-idle-threshold (* 10 60)
+  "Duration in seconds, beyond which the user is considered to be
+idle.")
+
 (defvar scr-return-from-idle-hook nil
   "Note: An Emacs startup also counts as a return from idleness.
 You'll probably want your hook to be conditional on some value of
-`scr-length-of-last-idle-in-minutes', which at startup is
-calculated from the last Emacs shutdown or crash (technically,
-last time `secretary-mode' was running).")
+`scr-length-of-last-idle', which at startup is calculated from
+the last Emacs shutdown or crash (technically, last time
+`secretary-mode' was running).")
 
 (defvar scr-chime-sound-file
   (expand-file-name
