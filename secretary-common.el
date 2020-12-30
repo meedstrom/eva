@@ -20,18 +20,24 @@
 
 (require 'subr-x)
 (require 'cl-lib)
+(require 'seq)
 (require 'find-func)
 (require 'ts)
 (require 'dash)
 (require 's)
+(require 'f)
 (require 'parse-csv)
 (autoload #'scr-log-buffer "org-id")
 
 (defcustom scr-location-diary-discrete "/home/kept/Diary/"
-  nil)
+  "The location of your discrete diary files, with names such as
+\"201228.org\".  Used by `scr-present-diary'.")
 
+;; TODO: rename to main-datetree
 (defcustom scr-location-diary-datetree "/home/kept/Journal/diary2.org"
-  nil)
+  "The name of your main datetree, if you have one that you use
+as a big archive file, see Info node `(org) Moving subtrees'.
+Used by `scr-present-diary'.  ")
 
 (defcustom scr-ai-name "Lex"
   nil)
@@ -47,6 +53,27 @@
 (defcustom scr-user-short-title "sir"
   nil)
 
+;; TODO: deprecate either this or the -file-name vars
+(defcustom scr-dir (expand-file-name "secretary" user-emacs-directory)
+  "Directory under which files should sit.")
+
+(defcustom scr-idle-beginning-file-name (expand-file-name "idle-beginning" scr-dir))
+
+(defcustom scr-mood-alist-file-name (expand-file-name "scr-mood-alist" scr-dir))
+
+(defcustom scr-sit-long 1
+  "A duration in seconds to pause for effect after certain kinds
+of messages. See also `scr-sit-medium' and `scr-sit-short'.")
+
+(defcustom scr-sit-medium .8
+  "A duration in seconds to pause for effect after certain kinds
+of messages. See also `scr-sit-long' and `scr-sit-short'.")
+
+(defcustom scr-sit-short .5
+  "A duration in seconds to pause for effect after certain kinds
+of messages. See also `scr-sit-long' and `scr-sit-medium'.")
+
+;; TODO: deprecate
 (defcustom scr-activities-alist
   '(;; id            cost of misprediction (either false positive or false negative)
     ("some-org-id"    8)  ;; study
@@ -59,38 +86,20 @@
     )
   nil)
 
-(defvar scr-last-buffer nil)
-
-(defvar scr-known-buffers nil)
-
-(defvar scr-buffer-focus-log nil)
-
-(defvar scr-guessed-activity-id nil)
-
-(defvar scr-mood-alist
-  '(("meh" . "3")
-    ("good" . "4")
-    ("great" . "5")
-    ("bad" . "2")
-    ("fine" . "3")
-    ("depressed" . "1")
-    ("motivated" . "4")
-    ("moody" . "2")
-    ("strong" . "5")
-    ("inspired" . "5"))
+;; REVIEW: see that there's no problem if you delete scr-dir
+(defvar scr-mood-alist nil
   "Alist for suggesting a mood score in the `scr-log-mood'
-prompt. Merely a convenience; the scores are not forced.
+prompt. Merely a convenience for auto-completion; the scores are
+not forced.
 
-This variable is loaded from `scr-mood-alist-file-name', edit that
-file.")
+The variable populates itself through use, and syncs with a file
+at `scr-mood-alist-file-name'.")
 
-(defvar scr-dir (expand-file-name "secretary" user-emacs-directory))
-(defvar scr-idle-beginning-file-name (expand-file-name "idle-beginning" scr-dir))
-(defvar scr-mood-alist-file-name (expand-file-name "scr-mood-alist" scr-dir))
-
-(defvar scr-sit-long 1)
-(defvar scr-sit-medium .8)
-(defvar scr-sit-short .5)
+;; (defvar scr-mood-alist '(("bemused" . "3")
+;; 			 ("amused" . "5")
+;; 			 ("great"  . "5")
+;; 			 ("annoyed" . "3")
+;; 			 ("depressed" . "1")))
 
 (defvar scr-tsv-alist '(("/home/kept/Self_data/weight.tsv" scr-query-weight)
 			("/home/kept/Self_data/mood.tsv" scr-query-mood)
@@ -99,38 +108,21 @@ file.")
 			("/home/kept/Self_data/meditation.tsv" scr-query-meditation)
 			("/home/kept/Self_data/cold.tsv" scr-query-cold)))
 
+(defvar scr-log-alist '(("/home/kept/Self_data/buffers.tsv" scr-log-buffer)
+			("/home/kept/Self_data/buffer_focus.tsv" scr-log-buffer)
+			("/home/kept/Self_data/idle.tsv" scr-log-idle)))
+
 
 (defvar scr-plot-hook nil
   "Hook called to print plots. A convenient place to add your
 custom plots.")
 
-(defvar scr--date nil
+(defvar scr--date (ts-now)
   "Can be set anytime during a welcome to override the date to
 which some queries apply, for example to log something for
 yesterday. This is not universal (yet), so check the source for
 the welcomer you are using.")
 
-(defvar scr--timer nil)
-
-(defvar scr--idle-beginning (ts-now))
-
-(defvar scr-length-of-last-idle 0
-  "Duration in seconds.")
-
-(defvar scr-idle-threshold (* 10 60)
-  "Duration in seconds, beyond which the user is considered to be
-idle.")
-
-(defvar scr-long-idle-threshold (* 90 60)
-  "Duration in seconds that is the minimum for
-`sc-call-from-idle' to trigger upon user return.")
-
-(defvar scr-return-from-idle-hook nil
-  "Note: An Emacs startup also counts as a return from idleness.
-You'll probably want your hook to be conditional on some value of
-`scr-length-of-last-idle', which at startup is calculated from
-the last Emacs shutdown or crash (technically, last time
-`secretary-mode' was running).")
 
 (defvar scr-chime-sound-file
   (expand-file-name
@@ -142,8 +134,8 @@ the last Emacs shutdown or crash (technically, last time
   "Sound to play when a welcomer is triggered unannounced.")
 
 (defvar scr-greetings '("Welcome back, Master."
-                       (concat "Nice to see you again, " scr-usrname ".")
-                       (concat "Greetings, " scr-usrname ".")
+                       (concat "Nice to see you again, " scr-user-name ".")
+                       (concat "Greetings, " scr-user-name ".")
                        )
   "Greetings which can work as first sentence in a longer message.")
 
@@ -199,14 +191,11 @@ the last Emacs shutdown or crash (technically, last time
           (define-key y-or-n-p-map (kbd "o") #'scr-special-handle-current-query)
           (define-key y-or-n-p-map (kbd "i") #'scr-special-handle-current-query)
           (define-key y-or-n-p-map (kbd "k") #'y-or-n-p-insert-y)
-          (read-only-mode 0)
           (if (y-or-n-p prompt)
               (progn
                 (insert " y" "\n")
-                (view-mode)
                 t)
             (insert " n" "\n")
-            (view-mode)
             nil))
       (dolist (x '("o" "i" "k"))
         (define-key y-or-n-p-map (kbd x) #'y-or-n-p-insert-other)))))
@@ -225,17 +214,14 @@ the last Emacs shutdown or crash (technically, last time
   (setq scr--last-edited (ts-now))
   (prog1 (message (string-join strings))
     (with-current-buffer (scr-buffer-chat)
-      (read-only-mode 0)
       (goto-char (point-max))
-      (insert "\n<" (ts-format "%H:%M") "> " (string-join strings))
-      (view-mode))))
+      (insert "\n<" (ts-format "%H:%M") "> " (string-join strings)))))
 
 (defun scr-print-new-date-maybe ()
   (when (/= (ts-day (ts-now))
             (ts-day scr--last-edited))
     (with-current-buffer (scr-buffer-chat)
       (goto-char (point-max))
-      (read-only-mode 0)
       (insert "\n\n" (ts-format "%Y, %B %d") (scr--holiday-maybe)))))
 ;; (scr-print-new-date-maybe)
 
@@ -279,7 +265,6 @@ the last Emacs shutdown or crash (technically, last time
      (rx (or (group (= 4 digit) "-" (= 3 wordchar) "-" (= 2 digit))
              (group (= 4 digit) "-" (= 2 digit) "-" (= 2 digit)))))
     (buffer-substring (point) (+ 11 (point)))))
-
 
 ;; (parse-csv-string-rows
 ;;  (f-read "/home/kept/Self_data/weight.csv") (string-to-char ",") (string-to-char " ") "\n")
@@ -495,7 +480,7 @@ do so again."
          (list "You're up late, Master."
                "Burning the midnight oil?"))
         ((> 10 (ts-hour (ts-now)))
-         (list (concat "Good morning, " scr-usrname ".")
+         (list (concat "Good morning, " scr-user-name ".")
                "Good morning!"
                "The stars shone upon us last night."))
         ((> 16 (ts-hour (ts-now)))
@@ -516,5 +501,9 @@ of `scr-greeting'."
                  '("How may I help?")))))
 
 (provide 'secretary-common)
+
+;; Local Variables:
+;; nameless-current-name: "scr"
+;; End:
 
 ;;; secretary-common.el ends here

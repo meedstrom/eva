@@ -1,5 +1,13 @@
 ;;; secretary.el -*- lexical-binding: t; -*-
-;; Copyright (C) 2020 Martin Edström
+
+;; Author: Martin Edström <meedstrom@teknik.io>
+;; URL: https://github.com/meedstrom/secretary
+;; Version: 0.1
+;; Created: 2020-12-03
+;; Keywords: outlines convenience
+;; Package-Requires: ((emacs "27.1"))
+
+;; Copyright (C) 2020-2021 Martin Edström
 
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU Affero General Public License as published by
@@ -15,6 +23,8 @@
 ;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
+
+;; See website.
 
 ;; user setup
 (setc org-clock-x11idle-program-name "xprintidle")
@@ -52,11 +62,11 @@
 
 ;;; Code:
 
-(require 'f)
-(require 's)
-(require 'ts)
-(require 'dash)
-(require 'seq)
+;; (define-package secretary
+;;   0.1
+;;   nil
+;;   '(hydra "0.15.0"))
+
 (require 'secretary-common)
 (require 'secretary-data-collector)
 (require 'secretary-presenter)
@@ -93,7 +103,7 @@
 
 (defun scr-call-from-reschedule ()
   (scr-play-chime)
-  (scr-emit "Hello, " scr-usr-short-title ". ")
+  (scr-emit "Hello, " scr-user-short-title ". ")
   (sit-for scr-sit-medium)
   (when (scr-prompt "1 hour ago, you asked to be reminded. Is now a good time?")
     (scr-check-neglect)
@@ -131,7 +141,7 @@
   ;;     (org-capture nil "ln"))
   ;; (if (scr-prompt "Shall I remind you of your life goals? Don't be shy.")
   ;;     (view-file "/home/kept/Journal/gtd2.org"))
-  (and (> 3 (scr-query-mood "How are you? "))
+  (and (>= 1 (scr-query-mood "How are you? "))
        (scr-prompt "Do you need to talk?")
        (scr-prompt "I can direct you to my colleague Eliza, though "
                   "she's not too bright. Will that do?")
@@ -157,53 +167,104 @@
 	     (call-interactively (cadr cell)))))))
 
 ;;;; Handle idling & reboots & crashes
+;; Refactor? Make it easier to write unit tests that don't need to wait 60
+;; seconds.
 
-(defun scr--start-next-timer (&optional force-idle)
-  (if (or force-idle (scr-idle-p))
-      (setq scr--timer (run-with-timer 2 nil #'scr--user-is-idle)))
-  (setq scr--timer (run-with-timer 60 nil #'scr--user-is-active)))
+(defvar scr--timer nil)
+
+(defvar scr--idle-beginning (ts-now))
+
+(defvar scr-length-of-last-idle 0
+  "Duration in seconds.")
+
+(defcustom scr-idle-threshold (* 10 60)
+  "Duration in seconds, beyond which the user is considered to be
+idle.")
+
+(defcustom scr-long-idle-threshold (* 90 60)
+  "Duration in seconds that is the minimum for
+`sc-call-from-idle' to trigger upon user return.")
+
+(defcustom scr-return-from-idle-hook nil
+  "Note: An Emacs startup also counts as a return from idleness.
+You'll probably want your hook to be conditional on some value of
+`scr-length-of-last-idle', which at startup is calculated from
+the last Emacs shutdown or crash (technically, last time
+`secretary-mode' was running).")
+
+(defcustom scr-periodic-not-idle-hook nil
+  "Hook run every minute when the user is not idle.")
+
+;; REVIEW: Put the compuer to sleep MANUALLY (so you're not idle), go away 11+
+;;         mins, come back and check if the idle.tsv has gained an entry.
+(defun scr--start-next-timer (&optional assume-idle)
+  "Start one or the other timer depending on idleness. If
+ASSUME-IDLE is non-nil, skip the idle check and associated
+overhead: useful if the caller has already checked it."
+  (if (or assume-idle (scr-idle-p))
+      (setq scr--timer (run-with-timer 2 nil #'scr--user-is-idle))
+    (setq scr--timer (run-with-timer 60 nil #'scr--user-is-active))))
 
 (defun scr--user-is-active ()
   "This function is meant to be called by `scr--start-next-timer'
 repeatedly for as long as the user is active (not idle).
 
-Refresh some variables and sync to disk."
-  (setq scr--idle-beginning (ts-now))
-  (scr--save-variables-to-disk)
-  (scr--start-next-timer))
+Refresh some variables and sync all variables to disk."
+  ;; Patch the case where the user puts the computer to sleep manually, which
+  ;; means this function will still be next to run when the computer wakes.  If
+  ;; the time difference is suddenly big, hand off to the other function.
+  (if (> (ts-diff (ts-now) scr--idle-beginning) scr-idle-threshold)
+      (scr--user-is-idle t)
+    (setq scr--idle-beginning (ts-now))
+    (run-hooks 'scr-periodic-not-idle-hook)
+    (scr--start-next-timer)))
 
-(defun scr--user-is-idle ()
+(defun scr--user-is-idle (&optional dont-dec)
   "This function is meant to be called by `scr--start-next-timer'
 repeatedly for as long as the user is idle.
 
 When the user comes back, this function will be called one last
-time, at which point it sets `scr-length-of-last-idle-in-minutes'
-and runs `scr-return-from-idle-hook'. That it has to run once
-with a failing condition that normally succeeds is the reason it
-has to be a separate function from `scr--user-is-active'."
+time, at which point it sets `scr-length-of-last-idle' and runs
+`scr-return-from-idle-hook'. That it has to run exactly once with
+a failing condition that normally succeeds is the reason it has
+to be a separate function from `scr--user-is-active'."
   (if (scr-idle-p)
       (scr--start-next-timer t)
-    (ts-decf (ts-sec scr--idle-beginning) scr-idle-threshold)
+    (unless dont-dec ;; REVIEW: this guard clause failed before
+      (ts-decf (ts-sec scr--idle-beginning) scr-idle-threshold))
     (setq scr-length-of-last-idle (ts-diff (ts-now) scr--idle-beginning))
     (run-hooks 'scr-return-from-idle-hook)
+    (setq scr--idle-beginning (ts-now))
     (scr--start-next-timer)))
 
-(ert-deftest idle-beginning-updates ()
-  ;; save ts-now, wait a bit, run scr--user-is-active, compare.
-  ;; make a special function that runs the timers very fast for testing
-  )
+;; TODO
+;; Test: save ts-now, wait, run scr--user-is-active, compare.
+;; Use a special function that runs the timers very fast for testing.
+;; (ert-deftest idle-beginning-does-update ()
+;;   (lambda (&optional force-idle)
+;;     (if (or force-idle (scr-idle-p))
+;; 	(setq scr--timer (run-with-timer 1 nil #'scr--user-is-idle)))
+;;     (setq scr--timer (run-with-timer 1 nil #'scr--user-is-active)))
+;;   )
 
 (defun scr--restore-variables-from-disk ()
   (when (f-exists-p scr-idle-beginning-file-name)
-    (setq scr-idle-beginning
+    (setq scr--idle-beginning
           (ts-parse (f-read scr-idle-beginning-file-name))))
   (when (f-exists-p scr-mood-alist-file-name)
     (setq scr-mood-alist
           (read (f-read scr-mood-alist-file-name)))))
 
 (defun scr--save-variables-to-disk ()
-  (f-write (ts-format scr-idle-beginning) 'utf-8 scr-idle-beginning-file-name)
+  (make-directory scr-dir t)
+  (f-write (ts-format scr--idle-beginning) 'utf-8 scr-idle-beginning-file-name)
   (f-write (prin1-to-string scr-mood-alist) 'utf-8 scr-mood-alist-file-name))
+
+(defvar scr--dog nil)
+
+(defun secretary-unload-function ()
+  "For `unload-feature'."
+  (secretary-mode 0))
 
 ;;;###autoload
 (define-minor-mode secretary-mode nil
@@ -221,28 +282,34 @@ has to be a separate function from `scr--user-is-active'."
                    nil))
         (add-hook 'scr-return-from-idle-hook #'scr-log-idle -90)
         (add-hook 'scr-return-from-idle-hook #'scr-call-from-idle 90)
+	(add-hook 'scr-periodic-not-idle-hook #'scr--save-variables-to-disk)
         (add-hook 'window-buffer-change-functions #'scr-log-buffer)
         (add-hook 'window-selection-change-functions #'scr-log-buffer)
+	(add-hook 'after-init-hook #'scr--restore-variables-from-disk -1)
+        (add-hook 'after-init-hook #'scr--start-next-timer 91)
+	(when (null scr--dog)
+	  (setq scr--dog (run-with-timer 0 300 #'scr--mark-territory)))
         ;; (add-function :after #'after-focus-change-function #'scr-log-buffer)
-        (if after-init-time
-            (progn
-              (when (-any #'null '(scr-idle-beginning scr-mood-alist))
-                (scr--restore-variables-from-disk))
-	      (when (null scr--timer)
-                (scr--start-next-timer))
-	      (setq scr--dog (run-with-timer 300 t #'scr--mark-territory)))
-          (add-hook 'after-init-hook #'scr--restore-variables-from-disk -1)
-          (add-hook 'after-init-hook #'scr--start-next-timer 91)))
+        (when after-init-time
+          (progn
+            (when (-any #'null '(scr-idle-beginning scr-mood-alist))
+              (scr--restore-variables-from-disk))
+	    (when (null scr--timer)
+              (scr--start-next-timer)))))
 
     (remove-hook 'scr-return-from-idle-hook #'scr-log-idle)
     (remove-hook 'scr-return-from-idle-hook #'scr-call-from-idle)
+    (remove-hook 'scr-periodic-not-idle-hook #'scr--save-variables-to-disk)
     (remove-hook 'window-buffer-change-functions #'scr-log-buffer)
     (remove-hook 'window-selection-change-functions #'scr-log-buffer)
     (remove-hook 'after-init-hook #'scr--restore-variables-from-disk)
     (remove-hook 'after-init-hook #'scr--start-next-timer)
     (unless (null scr--timer)
       (cancel-timer scr--timer)
-      (setq scr--timer nil))))
+      (setq scr--timer nil))
+    (unless (null scr--dog)
+      (cancel-timer scr--dog)
+      (setq scr--dog nil))))
 
 (provide 'secretary)
 

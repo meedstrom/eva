@@ -20,10 +20,16 @@
 
 (require 'secretary-common)
 
+(defvar scr-last-buffer nil)
+
+(defvar scr-known-buffers nil)
+
+(defvar scr-buffer-focus-log nil)
+
 (defun scr-log-idle ()
   (scr-append "/home/kept/Self_data/idle.tsv"
              (ts-format)
-             "\t" (number-to-string (/ scr-length-of-last-idle 60))))
+             "\t" (number-to-string (/ (round scr-length-of-last-idle) 60))))
 
 ;; TODO: Batch save. Instead of appending to a file line by line, append to a
 ;; buffer and save it once every 5 minutes or so.
@@ -126,7 +132,9 @@
 ;;;###autoload
 (defun scr-query-mood (&optional prompt)
   (interactive)
-  (let* ((mood-desc (completing-read (or prompt "Your mood: ") (mapcar #'car scr-mood-alist)))
+  (let* ((mood-desc (completing-read (or prompt "Your mood: ")
+				     (--sort (> 0 (random))
+					     (mapcar #'car scr-mood-alist))))
          (old-score (cdr (assoc mood-desc scr-mood-alist)))
          (prompt-for-score
           (concat "Score from 1 to 5"
@@ -260,4 +268,5 @@ add."
 	       "\t" x)))
 
 (provide 'secretary-data-collector)
+
 ;;; secretary-data-collector.el ends here

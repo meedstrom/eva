@@ -62,4 +62,5 @@ decimals, as a string, typically to be written to a file."
       (kill-buffer buffer))))
 
 (provide 'secretary-mothball)
+
 ;;; secretary-mothball.el ends here

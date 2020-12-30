@@ -56,6 +56,8 @@ each activity, adding up to 1."
     (org-id-goto scr-guessed-activity-id)
     (org-clock-in)))
 
+(defvar scr-guessed-activity-id nil)
+
 (defun scr--edit-clocks ()
   "Edit the :LOGBOOK: entries of specified headings retroactively
 so they match what we know."

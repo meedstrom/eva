@@ -40,12 +40,9 @@
      `(lambda (_process _event)
         (scr-emit "And that's your mood." "\n")
         (switch-to-buffer (scr-buffer-chat))
-        (read-only-mode 0)
         (insert-image-file ,plot)
         (goto-char (point-max))
-        (insert "\n")
-        (read-only-mode)
-        ))))
+        (insert "\n")))))
 
 ;;;###autoload
 (defun scr-plot-weight ()
@@ -60,13 +57,10 @@
      `(lambda (_process _event)
         (scr-emit "And here's your weight, boss." "\n")
         (switch-to-buffer (scr-buffer-chat))
-        (read-only-mode 0)
         (insert-image-file ,plot)
         ;; (delete-file ,plot)
         (goto-char (point-max))
-        (insert "\n")
-        (read-only-mode)
-        ))))
+        (insert "\n")))))
 
 ;;;###autoload
 (defun scr-present-plots ()
@@ -131,9 +125,16 @@
     counter))
 ;; (scr-make-indirect-datetree (get-buffer-create "test") (--iterate (ts-dec 'month 1 it) (ts-now) 40))
 
-;; TODO: use rename-buffer to make separate buffers for each datetree entry
+;; TODO: allow it to check a different date
+;; TODO: allow either discrete or datetree to be nil
+;; TODO: allow a list of datetrees
+;; TODO: make separate buffers for each datetree entry (use rename-buffer)
+;; TODO: make the datetree buffer(s) the next in line when you pop the last
+;;       discrete view
+;; TODO: try creating a sparse tree, so user can edit in-place
+;; TODO: show also the agenda for each date if not empty
 ;;;###autoload
-(defun scr-present-diary (date)
+(defun scr-present-diary (&optional _date)
   (interactive)
   (let* ((buffer (get-buffer-create (concat "*" scr-ai-name ": Selected diary entries*")))
          (dates-to-check (funcall scr-past-sample-function))

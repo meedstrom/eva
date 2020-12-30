@@ -36,4 +36,5 @@
     )
 
 (provide 'secretary-tests)
+
 ;;; secretary-tests.el ends here
