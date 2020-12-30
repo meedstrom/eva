@@ -2,9 +2,7 @@
 .POSIX:
 .SUFFIXES: .el .elc
 EMACS	= emacs
-EL   	= secretary.el secretary-nlp.el secretary-modeler.el \
-          secretary-data-collector.el secretary-presenter.el \
-          secretary-common.el secretary-test.el
+EL   	= secretary.el
 ELC  	= $(EL:.el=.elc)
 
 compile: $(ELC)
@@ -18,12 +16,6 @@ clean:
 run: $(ELC)
     $(EMACS) -Q -L . -l foo.elc -f foo-mode
 
-secretary.elc: secretary-common.elc secretary-nlp.elc secretary-modeler.elc \
-               secretary-data-collector.elc secretary-presenter.elc
-secretary-nlp.elc: secretary-common.elc
-secretary-data-collector.elc: secretary-common.elc
-secretary-modeler.elc: secretary-common.elc
-secretary-presenter.elc: secretary-common.elc
 secretary-test.elc: $(ELC)
 
 .el.elc:
