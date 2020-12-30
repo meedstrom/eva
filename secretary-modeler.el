@@ -20,45 +20,45 @@
 
 (require 'secretary-common)
 
-(defun scr--loss-fn (prediction)
+(defun secretary--loss-fn (prediction)
   "Input PREDICTION should be a list of probabilities, one for
 each activity, adding up to 1."
   (let ((index 0)
         (result 0))
-    (dolist (row scr-activities-alist result)
+    (dolist (row secretary-activities-alist result)
       (seq-let (id cost) row
         (setq result (+ result (* (nth index prediction) cost))))
       (setq index (1+ index)))))
-;; (scr-loss-fn ')
+;; (secretary-loss-fn ')
 
-(ert-deftest scr-test-loss-fn ()
+(ert-deftest secretary-test-loss-fn ()
   ;; (--iterate (- it (cl-random it)) 1.0 5) ;; try to make a list that adds up to 1 for use below
-  (should (<= 0 (scr--loss-fn '(.8 .15 .01 .01 .01 .01 .01)))))
+  (should (<= 0 (secretary--loss-fn '(.8 .15 .01 .01 .01 .01 .01)))))
 
-(defun scr--guess-activity ()
+(defun secretary--guess-activity ()
   (let* ((default-directory (f-dirname (find-library-name "secretary")))
          (script (expand-file-name "R/sc_activity.R")))
     (set-process-sentinel
-     (start-process scr-ai-name (scr--buffer-r) "Rscript" script)
+     (start-process secretary-ai-name (secretary--buffer-r) "Rscript" script)
      (lambda (_process _event)
        (mkdir "/tmp/secretary")
        ;; get a 2-column dataset with ids and probabilities
-       (setq scr-activity-nowcast (->> (f-read "/tmp/secretary/activities")
+       (setq secretary-activity-nowcast (->> (f-read "/tmp/secretary/activities")
                                        (s-split "\n")
                                        (-map #'split-string)))))))
-;; (scr-guess-activity)
+;; (secretary-guess-activity)
 
 ;; Not actually of central interest to clock correctly in realtime (and due to
 ;; MCMC slowness, it'd come many minutes late), we primarily want facilites to
 ;; edit the clock history.
-(defun scr--clock-in-to-guessed-activity ()
+(defun secretary--clock-in-to-guessed-activity ()
   (save-excursion
-    (org-id-goto scr-guessed-activity-id)
+    (org-id-goto secretary-guessed-activity-id)
     (org-clock-in)))
 
-(defvar scr-guessed-activity-id nil)
+(defvar secretary-guessed-activity-id nil)
 
-(defun scr--edit-clocks ()
+(defun secretary--edit-clocks ()
   "Edit the :LOGBOOK: entries of specified headings retroactively
 so they match what we know."
   ;; assume we can import a series of clock intervals, a

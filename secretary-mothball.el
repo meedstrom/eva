@@ -20,14 +20,14 @@
 
 (require 'secretary-common)
 
-(defun scr-timestamp-for-chat ()
+(defun secretary-timestamp-for-chat ()
   (concat "<" (ts-format "%H:%M") "> "))
 
-(defun scr-human-readable-ts (&optional ts)
+(defun secretary-human-readable-ts (&optional ts)
   (declare (side-effect-free t))
   (ts-format "%Y-%b-%d %H:%M" ts))
 
-(defun scr-unix-ts (&optional ts)
+(defun secretary-unix-ts (&optional ts)
   "Return an Unix timestamp at time TS, with zero-padded
 decimals, as a string, typically to be written to a file."
   (declare (side-effect-free t))
@@ -35,16 +35,16 @@ decimals, as a string, typically to be written to a file."
 
 ;; TODO: Ok, use candidates as an index, use `--map-indexed' for each subtype of
 ;;       thing to review, so the results can be sorted chronologically
-(defun scr-present-diary-as-datetree ()
+(defun secretary-present-diary-as-datetree ()
   "Unused"
   (interactive)
-  (let* ((buffer (get-buffer-create (concat "*" scr-ai-name ": Selected diary entries*")))
-         (dates-to-check (scr-past-sample-default))
-         (discrete-files-found (--keep (scr-existing-diary "/home/kept/Diary" it) dates-to-check))
-         (datetree-found-count (scr-make-indirect-datetree buffer dates-to-check))
+  (let* ((buffer (get-buffer-create (concat "*" secretary-ai-name ": Selected diary entries*")))
+         (dates-to-check (secretary-past-sample-default))
+         (discrete-files-found (--keep (secretary-existing-diary "/home/kept/Diary" it) dates-to-check))
+         (datetree-found-count (secretary-make-indirect-datetree buffer dates-to-check))
          (total-found-count (+ (length discrete-files-found) datetree-found-count)))
     (if (and (< 0 total-found-count)
-             (scr-prompt (concat "Found " (int-to-string total-found-count) " diary "
+             (secretary-prompt (concat "Found " (int-to-string total-found-count) " diary "
                                 (if (= 1 total-found-count) "entry" "entries")
                                 " for this date from the past. Want me to open "
                                 (if (= 1 total-found-count) "it" "them")
