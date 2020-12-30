@@ -1,4 +1,23 @@
-;;; secretary-presenter.el --- description -*- lexical-binding: t; -*-
+;;; secretary-presenter.el -*- lexical-binding: t; -*-
+;; Copyright (C) 2020 Martin Edström
+
+;; This program is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU Affero General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU Affero General Public License for more details.
+
+;; You should have received a copy of the GNU Affero General Public License
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+;;; Commentary:
+
+;;; Code:
+
 (require 'secretary-common)
 
 ;;;###autoload
@@ -10,9 +29,10 @@
 ;;;###autoload
 (defun scr-plot-mood ()
   (interactive)
-  (let* ((default-directory (f-dirname (find-library-name "secretary")))
-         (script (expand-file-name "sc_daily_plot.R"))
-         (plot (expand-file-name "sc_mood.png" "/tmp/secretary")))
+  (let* ((default-directory "/tmp/secretary")
+	 (pkg-dir (f-dirname (find-library-name "secretary")))
+         (script (expand-file-name "R/sc_daily_plot.R" pkg-dir))
+         (plot (expand-file-name "sc_mood.png" default-directory)))
     (scr-emit "Plotting mood...")
     (mkdir "/tmp/secretary" t)
     (set-process-sentinel
@@ -29,8 +49,9 @@
 
 ;;;###autoload
 (defun scr-plot-weight ()
-  (let* ((default-directory (f-dirname (find-library-name "secretary")))
-         (script (expand-file-name "sc_daily_plot.R"))
+  (let* ((default-directory "/tmp/secretary")
+         (script (expand-file-name "R/sc_daily_plot.R"
+				   (f-dirname (find-library-name "secretary"))))
          (plot (expand-file-name "sc_plot1.png" "/tmp/secretary")))
     (scr-emit "Plotting weight...")
     (mkdir "/tmp/secretary" t)
@@ -56,6 +77,32 @@
                                "Here are some projections!"
                                "Data is beautiful, don't you think?")))
     (run-hooks 'scr-plot-hook)))
+
+;; Should I use such variables or encourage the user to make defuns?
+(defcustom scr-look-back-years 99 nil)
+(defcustom scr-look-back-months 12 nil)
+(defcustom scr-look-back-weeks 4 nil)
+(defcustom scr-look-back-days 1 nil)
+
+(defvar scr-past-sample-function #'scr-past-sample-default)
+
+(defun scr-past-sample-default ()
+  (let ((now (ts-now)))
+    (-uniq (append
+	    ;; Yesterday, this weekday the last 4 weeks, this day of the month the
+	    ;; last 12 months, and this date from every year in the past.
+            (--iterate (ts-dec 'day 1 it) now 1)
+            (--iterate (ts-dec 'woy 1 it) now 4)
+            (--iterate (ts-dec 'month 1 it) now 12)
+            (--iterate (ts-dec 'year 1 it) now 99)))))
+
+(ert-deftest scr-test-ts-usage ()
+  (let ((now (ts-now)))
+    (should (equal (ts-dec 'month 12 now)
+                   (ts-dec 'year 1 now)))
+    (should (= 16 (length (-uniq (append
+                                  (--iterate (ts-dec 'month 1 it) now 12)
+                                  (--iterate (ts-dec 'year 1 it) now 5))))))))
 
 (defun scr-make-indirect-datetree (buffer dates)
   (require 'org)
@@ -83,30 +130,6 @@
       (kill-buffer buffer))
     counter))
 ;; (scr-make-indirect-datetree (get-buffer-create "test") (--iterate (ts-dec 'month 1 it) (ts-now) 40))
-
-;; Should I use such variables or encourage the user to make defuns?
-(defcustom scr-look-back-years 99 nil)
-(defcustom scr-look-back-months 12 nil)
-(defcustom scr-look-back-weeks 4 nil)
-(defcustom scr-look-back-days 1 nil)
-
-(defvar scr-past-sample-function #'scr-past-sample-default)
-
-(defun scr-past-sample-default ()
-  (let ((now (ts-now)))
-    (-uniq (append
-            (--iterate (ts-dec 'day 1 it) now 1)
-            (--iterate (ts-dec 'woy 1 it) now 4)
-            (--iterate (ts-dec 'month 1 it) now 12)
-            (--iterate (ts-dec 'year 1 it) now 99)))))
-
-(ert-deftest scr-test-ts-works ()
-  (let ((now (ts-now)))
-    (should (equal (ts-dec 'month 12 now)
-                   (ts-dec 'year 1 now)))
-    (should (= 16 (length (-uniq (append
-                                  (--iterate (ts-dec 'month 1 it) now 12)
-                                  (--iterate (ts-dec 'year 1 it) now 5))))))))
 
 ;; TODO: use rename-buffer to make separate buffers for each datetree entry
 ;;;###autoload

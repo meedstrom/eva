@@ -33,18 +33,18 @@
 (defcustom scr-location-diary-datetree "/home/kept/Journal/diary2.org"
   nil)
 
-(defcustom scr-ai-name "Secretary"
+(defcustom scr-ai-name "Lex"
   nil)
 
 (defcustom scr-user-birthday nil
   nil)
 
-(defcustom scr-usrname (if (s-equals? user-full-name "")
-                          "Mr. Bond"
-                        (-first-item (s-split " " user-full-name)))
+(defcustom scr-user-name (if (s-equals? user-full-name "")
+                             "Mr. Bond"
+                           (-first-item (s-split " " user-full-name)))
   nil)
 
-(defcustom scr-usr-short-title "sir"
+(defcustom scr-user-short-title "sir"
   nil)
 
 (defcustom scr-activities-alist
@@ -92,26 +92,27 @@ file.")
 (defvar scr-sit-medium .8)
 (defvar scr-sit-short .5)
 
-(defvar scr-csv-alist '(("/home/kept/Self_data/weight.tsv" scr-query-weight)
+(defvar scr-tsv-alist '(("/home/kept/Self_data/weight.tsv" scr-query-weight)
 			("/home/kept/Self_data/mood.tsv" scr-query-mood)
 			("/home/kept/Self_data/ingredients.tsv" scr-query-ingredients)
 			("/home/kept/Self_data/sleep.tsv" scr-query-sleep)
 			("/home/kept/Self_data/meditation.tsv" scr-query-meditation)
 			("/home/kept/Self_data/cold.tsv" scr-query-cold)))
 
+
+(defvar scr-plot-hook nil
+  "Hook called to print plots. A convenient place to add your
+custom plots.")
+
 (defvar scr--date nil
-  "Can be set while talking to the user to override the date to
+  "Can be set anytime during a welcome to override the date to
 which some queries apply, for example to log something for
-yesterday. This is not universal (yet) so check the source for
+yesterday. This is not universal (yet), so check the source for
 the welcomer you are using.")
 
 (defvar scr--timer nil)
 
 (defvar scr--idle-beginning (ts-now))
-
-(defvar scr-plot-hook nil
-  "Hook called to print plots. A convenient place to add your
-custom plots.")
 
 (defvar scr-length-of-last-idle 0
   "Duration in seconds.")
@@ -119,6 +120,10 @@ custom plots.")
 (defvar scr-idle-threshold (* 10 60)
   "Duration in seconds, beyond which the user is considered to be
 idle.")
+
+(defvar scr-long-idle-threshold (* 90 60)
+  "Duration in seconds that is the minimum for
+`sc-call-from-idle' to trigger upon user return.")
 
 (defvar scr-return-from-idle-hook nil
   "Note: An Emacs startup also counts as a return from idleness.
@@ -130,14 +135,21 @@ the last Emacs shutdown or crash (technically, last time
 (defvar scr-chime-sound-file
   (expand-file-name
    ;; From https://freesound.org/people/josepharaoh99/sounds/380482/
-   "Chime Notification-380482.wav"
+   "assets/Chime Notification-380482.wav"
    ;; From https://bigsoundbank.com/detail-0319-knock-on-a-glass-door-1.html
-   ;; "DOORKnck_Knock on a glass door 1 (ID 0319)_BSB.wav"
-   (f-dirname (find-library-name "secretary"))))
+   ;; "assets/DOORKnck_Knock on a glass door 1 (ID 0319)_BSB.wav"
+   (f-dirname (find-library-name "secretary")))
+  "Sound to play when a welcomer is triggered unannounced.")
+
+(defvar scr-greetings '("Welcome back, Master."
+                       (concat "Nice to see you again, " scr-usrname ".")
+                       (concat "Greetings, " scr-usrname ".")
+                       )
+  "Greetings which can work as first sentence in a longer message.")
 
 ;; What's cl-defstruct? https://nullprogram.com/blog/2018/02/14/
 (cl-defstruct (scr-activity (:constructor scr-activity-create)
-			   (:copier nil))
+			    (:copier nil))
   name id cost-false-pos cost-false-neg querier)
 
 (defun scr-activity-by-name (name)
@@ -150,34 +162,7 @@ the last Emacs shutdown or crash (technically, last time
        (start-process "aplay" nil "aplay" scr-chime-sound-file)))
 
 
-;; Throw this away when the other one is shown to work
-;; (defun scr-print-new-date-maybe ()
-;;   (with-current-buffer (scr-buffer-chat)
-;;       (goto-char (point-max))
-;;       (let* ((last-timestamp-pos
-;;               (re-search-backward
-;;                (rx bol "<" (group (= 2 digit) ":" (= 2 digit)) ">")))
-;;              (last-timestamp (buffer-substring (+ 1 (point)) (+ 6 (point)))))
-;;         ;; If the hour and minute last printed was greater than the current hour
-;;         ;; and minute, it's obviously a new day.
-;;         (when (ts> (ts-parse last-timestamp) (ts-now))
-;;           (goto-char (point-max))
-;;           (read-only-mode 0)
-;;           (insert "\n" (ts-format "%Y-%b-%d"))))))
-;; ;; (scr-print-new-date-maybe)
-
-(defun scr-print-new-date-maybe ()
-  (with-current-buffer (scr-buffer-chat)
-    (when (> (ts-day (ts-now))
-             (ts-day scr--last-edited))
-      (goto-char (point-max))
-      (read-only-mode 0)
-      (insert "\n" (ts-format "%Y, %B %d") (scr--holiday-maybe)))))
-
-(defun scr--holiday-maybe ()
-  (when-let (foo (calendar-check-holidays (calendar-current-date)))
-    (concat " -- " foo)))
-
+;; TODO: use length-of-last-idle to check it's not that i just restarted emacs
 (defun scr--another-secretary-running-p ()
   (when (file-exists-p "/tmp/secretary/running")
     (let ((age (- (time-convert (current-time) 'integer)
@@ -190,6 +175,7 @@ the last Emacs shutdown or crash (technically, last time
   (mkdir "/tmp/secretary/" t)
   (f-touch "/tmp/secretary/running"))
 
+;; TODO: deprecate
 (defun scr-activities-names ()
   (->> scr-activities-alist
        (-map (lambda (x) (save-window-excursion
@@ -197,7 +183,8 @@ the last Emacs shutdown or crash (technically, last time
                       (-last-item (org--get-outline-path-1)))))))
 
 ;; TODO: Show when the user types a noncommittal "k" for "okay". User should
-;; have room to express shades of feeling, even if we don't do anything with it.
+;; have room to express shades of feeling, even if we don't do anything with
+;; it.
 (defun scr-prompt (&rest strings)
   (let* (;; (default-y-or-n-p-map y-or-n-p-map)
          ;; (default-cmd (lookup-key y-or-n-p-map (kbd "k")))
@@ -227,20 +214,37 @@ the last Emacs shutdown or crash (technically, last time
 ;; (y-or-n-p "test")
 
 (defun scr--idle-seconds ()
-  "Stub to be overwritten."
+  "Stub to be redefined."
   (warn "Code ended up in an impossible place."))
 
 (defvar scr--last-edited (ts-now)
-  "For use as buffer-local value in the chat buffer.")
+  "Timestamp updated whenever `scr-emit' runs.")
 
 (defun scr-emit (&rest strings)
-  (setq-local scr--last-edited (ts-now))
+  (scr-print-new-date-maybe)
+  (setq scr--last-edited (ts-now))
   (prog1 (message (string-join strings))
     (with-current-buffer (scr-buffer-chat)
       (read-only-mode 0)
       (goto-char (point-max))
       (insert "\n<" (ts-format "%H:%M") "> " (string-join strings))
       (view-mode))))
+
+(defun scr-print-new-date-maybe ()
+  (when (/= (ts-day (ts-now))
+            (ts-day scr--last-edited))
+    (with-current-buffer (scr-buffer-chat)
+      (goto-char (point-max))
+      (read-only-mode 0)
+      (insert "\n\n" (ts-format "%Y, %B %d") (scr--holiday-maybe)))))
+;; (scr-print-new-date-maybe)
+
+(defun scr--holiday-maybe ()
+  (require 'calendar)
+  (require 'holidays)
+  (if-let (foo (calendar-check-holidays (calendar-current-date)))
+      (concat " -- " foo)
+    ""))
 
 (defun scr--buffer-r ()
   (get-buffer-create (concat "*" scr-ai-name ": R*")))
@@ -254,6 +258,7 @@ the last Emacs shutdown or crash (technically, last time
 ;;      (insert-file-contents-literally ,path)
 ;;      ,@body))
 
+;; REVIEW
 (defun scr-last-date-string-in-date-indexed-csv (path)
   (declare (side-effect-free t))
   (with-temp-buffer
@@ -261,7 +266,7 @@ the last Emacs shutdown or crash (technically, last time
     (goto-char (point-max))
     (re-search-backward (rx bol (= 4 digit) "-" (= 2 digit) "-" (= 2 digit)))
     (buffer-substring (point) (+ 10 (point)))))
-;; (scr-last-date-string-in-date-indexed-csv "/home/kept/Self_data/weight.csv")
+;; (scr-last-date-string-in-date-indexed-csv "/home/kept/Self_data/weight.tsv")
 ;; (scr-last-date-string-in-date-indexed-csv "/home/kept/Self_data/mood.tsv")
 ;; (scr-last-date-string-in-file "/home/kept/Self_data/mood.tsv")
 
@@ -275,8 +280,46 @@ the last Emacs shutdown or crash (technically, last time
              (group (= 4 digit) "-" (= 2 digit) "-" (= 2 digit)))))
     (buffer-substring (point) (+ 11 (point)))))
 
+
+;; (parse-csv-string-rows
+;;  (f-read "/home/kept/Self_data/weight.csv") (string-to-char ",") (string-to-char " ") "\n")
+
+;; REVIEW
+(defun scr-get-all-today-in-date-indexed-csv (path &optional ts)
+  (with-temp-buffer
+    (insert-file-contents-literally path)
+    (let (x)
+      (while (search-forward (ts-format "%F" ts) nil t)
+        (push (parse-csv->list (buffer-substring (line-beginning-position)
+                                                 (line-end-position)))
+              x))
+      x)))
+;; (scr-get-all-today-in-date-indexed-csv "/home/kept/Self_data/sleep.csv" (ts-dec 'day 1 (ts-now)))
+
+;; (defun scr-update-or-append-in-date-indexed-csv (path &optional ts)
+;;   (scr-get-first-today-in-date-indexed-csv path ts))
+
+;; REVIEW
+(defun scr-get-first-today-in-date-indexed-csv (path &optional ts)
+  (with-temp-buffer
+    (insert-file-contents path)
+    (search-forward (ts-format "%F" ts))
+    (line-beginning-position)
+    (buffer-substring (line-beginning-position) (line-end-position))))
+;; (scr-get-first-today-in-date-indexed-csv "/home/kept/Self_data/ingredients.csv")
+
+(defun scr-last-value-in-tsv (path)
+  (when (file-exists-p path)
+    (with-temp-buffer
+      (insert-file-contents-literally path)
+      (goto-char (point-max))
+      (search-backward "\t")
+      (forward-char)
+      (buffer-substring (point) (line-end-position)))))
+
 ;; WONTFIX: check for recent activity (if user awake thru the night)
 (defun scr-logged-today (file)
+  (declare (side-effect-free t))
   (when (file-exists-p file)
     ;; don't act like it's a new day if the time is <5am.
     (let ((day (if (> 5 (ts-hour (ts-now)))
@@ -285,8 +328,8 @@ the last Emacs shutdown or crash (technically, last time
       (with-temp-buffer
         (insert-file-contents-literally file)
         (ignore-errors (search-forward (ts-format "%F" day)))))))
-;; (scr-logged-today "/home/kept/Self_data/weight.csv")
-;; (scr-logged-today "/home/kept/Self_data/buffers.csv")
+;; (scr-logged-today "/home/kept/Self_data/weight.tsv")
+;; (scr-logged-today "/home/kept/Self_data/buffers.tsv")
 
 (defun scr-existing-diary (dir date)
   (declare (side-effect-free t))
@@ -305,60 +348,31 @@ the last Emacs shutdown or crash (technically, last time
 
 (defun scr-idle-p ()
   (declare (side-effect-free t))
-  (< (* 60 scr-idle-minutes-threshold) (scr--idle-seconds)))
+  (> (scr--idle-seconds) scr-idle-threshold))
 
 (defun scr--x11-idle-seconds ()
-  "Like `org-x11-idle-seconds' but doesn't need a /bin/sh, or org."
+  "Like `org-x11-idle-seconds' but doesn't need a /bin/sh, nor to
+load org."
   (declare (side-effect-free t))
   (/ (scr--process-output-to-number org-clock-x11idle-program-name) 1000))
 
 (defmacro scr--process-output-to-string (program &rest args)
-  "Similar to `shell-command-to-string', but skips the shell intermediary so
-you don't need `/bin/sh'. PROGRAM and ARGS are passed on to `call-process'."
-  (declare (debug (&rest form)) (indent nil) (side-effect-free t))
+  "Similar to `shell-command-to-string', but skips the shell
+intermediary so you don't need a /bin/sh. PROGRAM and ARGS are
+passed on to `call-process'."
+  (declare (debug (&rest form))
+	   (indent nil)
+	   (side-effect-free t))
   `(with-temp-buffer
      (call-process ,program nil (current-buffer) nil ,@args)
      (buffer-string)))
 
 (defmacro scr--process-output-to-number (program &rest args)
-  "Same as `scr-process-output-to-string', but passes the result
-through `string-to-number'."
-  (declare (debug (&rest form)) (indent nil) (side-effect-free t))
+  "Pipe `scr--process-output-to-string' through `string-to-number'."
+  (declare (debug (&rest form))
+	   (indent nil)
+	   (side-effect-free t))
   `(string-to-number (scr--process-output-to-string ,program ,@args)))
-
-;; (parse-csv-string-rows
-;;  (f-read "/home/kept/Self_data/weight.csv") (string-to-char ",") (string-to-char " ") "\n")
-
-(defun scr-get-all-today-in-date-indexed-csv (path &optional ts)
-  (with-temp-buffer
-    (insert-file-contents-literally path)
-    (let (x)
-      (while (search-forward (ts-format "%F" ts) nil t)
-        (push (parse-csv->list (buffer-substring (line-beginning-position)
-                                                 (line-end-position)))
-              x))
-      x)))
-;; (scr-get-all-today-in-date-indexed-csv "/home/kept/Self_data/sleep.csv" (ts-dec 'day 1 (ts-now)))
-
-;; (defun scr-update-or-append-in-date-indexed-csv (path &optional ts)
-;;   (scr-get-first-today-in-date-indexed-csv path ts))
-
-(defun scr-get-first-today-in-date-indexed-csv (path &optional ts)
-  (with-temp-buffer
-    (insert-file-contents path)
-    (search-forward (ts-format "%F" ts))
-    (line-beginning-position)
-    (buffer-substring (line-beginning-position) (line-end-position))))
-;; (scr-get-first-today-in-date-indexed-csv "/home/kept/Self_data/ingredients.csv")
-
-(defun scr-last-value-in-tsv (path)
-  (when (file-exists-p path)
-    (with-temp-buffer
-      (insert-file-contents-literally path)
-      (goto-char (point-max))
-      (search-backward "\t")
-      (forward-char)
-      (buffer-substring (point) (line-end-position)))))
 
 ;; - Needs to be a function because something might kill the buffer.
 ;; - Can't use get-buffer-create because I want to turn on `visual-line-mode'.
@@ -383,10 +397,20 @@ begins on a newline."
                          "\n")))
     (f-append (concat newline-maybe (string-join text)) 'utf-8 path)))
 
-(defalias 'scr-append-to #'scr-append)
+;; REVIEW
+(defun scr-change-date (&optional ts)
+  (require 'org)
+  (let ((target (if ts
+		    ts
+		  (ts-parse (org-read-date)))))
+    (setq scr--date target)))
+
+(defun scr-change-date-yesterday ()
+  (message "Applying this query AND subsequent queries for now to yesterday.")
+  (setq scr--date (ts-dec 'day 1 (ts-now))))
 
 (defvar scr-aphorisms
-  '("The affairs of the world will go on forever. Do not delay the practice of meditation."
+  '("The affairs of the world will go on forever. Do not delay the practice of meditation." ;; not koanish
     "It takes all the running you can do, to keep in the same place."
     "You can't hate yourself into someone that loves who they are."
     "Don't show up to prove, show up to improve."
@@ -432,7 +456,7 @@ begins on a newline."
     "Analyze verbs timelessly and nouns timefully. That way you look at the part of the conceptualization that isn’t already explicit in its construction."
     "You can learn smart things from stupid people."
     "Nothing is art, but anything can be treated as art."
-    "Adaptive is not optimal."
+    "Adaptive is not optimal." ;; definitely koanish
     "We all have the strength to refuse what we are not offered."
     "You are what you fear to appear to be."
     "Whatever you have done, you are the sort of person who would do that."
@@ -452,12 +476,6 @@ begins on a newline."
 workday. If you've already exchanged good mornings, it's weird to
 do so again."
   (seq-random-elt `("Hello" "Hi" "Hey")))
-
-(defvar scr-greetings '("Welcome back, Master."
-                       (concat "Nice to see you again, " scr-usrname ".")
-                       (concat "Greetings, " scr-usrname ".")
-                       )
-  "Greetings which can work as first sentence in a longer message.")
 
 (defun scr-greeting ()
   "Return a random greeting string."

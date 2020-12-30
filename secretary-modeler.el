@@ -1,4 +1,18 @@
-;;; secretary-modeler.el --- model the user  -*- lexical-binding: t; -*-
+;;; secretary-modeler.el -*- lexical-binding: t; -*-
+;; Copyright (C) 2020 Martin Edström
+
+;; This program is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU Affero General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU Affero General Public License for more details.
+
+;; You should have received a copy of the GNU Affero General Public License
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
@@ -6,7 +20,7 @@
 
 (require 'secretary-common)
 
-(defun scr-loss-fn (prediction)
+(defun scr--loss-fn (prediction)
   "Input PREDICTION should be a list of probabilities, one for
 each activity, adding up to 1."
   (let ((index 0)
@@ -19,43 +33,30 @@ each activity, adding up to 1."
 
 (ert-deftest scr-test-loss-fn ()
   ;; (--iterate (- it (cl-random it)) 1.0 5) ;; try to make a list that adds up to 1 for use below
-  (should (<= 0 (scr-loss-fn '(.8 .15 .01 .01 .01 .01 .01)))))
+  (should (<= 0 (scr--loss-fn '(.8 .15 .01 .01 .01 .01 .01)))))
 
-(defun scr-guess-activity ()
+(defun scr--guess-activity ()
   (let* ((default-directory (f-dirname (find-library-name "secretary")))
-         (script (expand-file-name "sc_activity.R")))
-    (set-process-sentinel
-     (start-process scr-ai-name (scr--buffer-r) "Rscript" script)
-     (lambda (_process _event)
-       (setq scr-guessed-activity-id
-             (with-current-buffer (scr--buffer-r)
-               (goto-char (point-max))
-               (buffer-substring (line-beginning-position) (line-end-position))))
-       (run-with-timer 30 nil #'scr-guess-activity)
-       ))))
-;; (scr-guess-activity)
-
-(defun scr-guess-activity ()
-  (let* ((default-directory (f-dirname (find-library-name "secretary")))
-         (script (expand-file-name "sc_activity.R")))
+         (script (expand-file-name "R/sc_activity.R")))
     (set-process-sentinel
      (start-process scr-ai-name (scr--buffer-r) "Rscript" script)
      (lambda (_process _event)
        (mkdir "/tmp/secretary")
        ;; get a 2-column dataset with ids and probabilities
        (setq scr-activity-nowcast (->> (f-read "/tmp/secretary/activities")
-                                      (s-split "\n")
-                                      (-map #'split-string)))))))
+                                       (s-split "\n")
+                                       (-map #'split-string)))))))
+;; (scr-guess-activity)
 
 ;; Not actually of central interest to clock correctly in realtime (and due to
 ;; MCMC slowness, it'd come many minutes late), we primarily want facilites to
 ;; edit the clock history.
-(defun scr-clock-in-to-guessed-activity ()
+(defun scr--clock-in-to-guessed-activity ()
   (save-excursion
     (org-id-goto scr-guessed-activity-id)
     (org-clock-in)))
 
-(defun scr-edit-clocks ()
+(defun scr--edit-clocks ()
   "Edit the :LOGBOOK: entries of specified headings retroactively
 so they match what we know."
   ;; assume we can import a series of clock intervals, a

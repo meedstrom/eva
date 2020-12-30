@@ -1,4 +1,4 @@
-;;; secretary-nlp.el -*- lexical-binding: t; -*-
+;;; secretary-nlp.el --- help parse user input -*- lexical-binding: t; -*-
 ;; Copyright (C) 2020 Martin Edström
 
 ;; This program is free software: you can redistribute it and/or modify
@@ -69,18 +69,6 @@
           (t
            (scr-emit "Override not understood.")))
     ))
-
-(defun scr-change-date ()
-  (require 'org)
-  (org-read-date)
-  (warn "Unimplemented")
-  )
-
-(defun scr-change-date-yesterday ()
-  (message "Applying this query AND subsequent queries to yesterday.")
-  (setq scr--date (ts-dec 'day 1 (ts-now))))
-
-
 
 (provide 'secretary-nlp)
 

@@ -18,8 +18,8 @@
 
 ;; user setup
 (setc org-clock-x11idle-program-name "xprintidle")
-(setc scr-usrname "Martin")
-(setc scr-usr-short-title "sir")
+(setc scr-user-name "Martin")
+(setc scr-user-short-title "sir")
 (setc scr-user-birthday "1991-12-07")
 (setc scr-ai-name "Maya")
 (add-hook 'scr-plot-hook #'scr-plot-mood 50)
@@ -72,7 +72,6 @@
 (defun scr-call (&optional arg)
   "Call your secretary. Useful when you're unsure what to do."
   (interactive "P")
-  (scr-print-new-date-maybe)
   (scr-emit "Hello!")
   (sit-for scr-sit-short)
   (scr-check-neglect)
@@ -81,20 +80,18 @@
 (defun scr-call-from-idle ()
   "Called by idleness-related hooks, doesn't do much if idle was not long."
   (unwind-protect
-      (when (< 90 scr-length-of-last-idle-in-minutes)
+      (when (> scr-length-of-last-idle scr-long-idle-threshold)
         (unless (frame-focus-state)
           (notifications-notify :title scr-ai-name :body (scr-greeting)))
-	(scr-print-new-date-maybe)
-        (scr-play-chime)
+	(scr-play-chime)
         (scr-check-neglect)
         (when (scr-prompt (scr-greeting) " Do you have time for some questions?")
           (scr-welcome t)))
-    (setq scr-length-of-last-idle-in-minutes 0)))
+    (setq scr-length-of-last-idle 0)))
 ;; (run-with-timer 3 nil (lambda ()  (print (frame-focus-state))))
 ;; (scr-call-from-idle)
 
 (defun scr-call-from-reschedule ()
-  (scr-print-new-date-maybe)
   (scr-play-chime)
   (scr-emit "Hello, " scr-usr-short-title ". ")
   (sit-for scr-sit-medium)
@@ -103,8 +100,7 @@
     (scr-welcome)))
 ;;(scr-call-from-reschedule)
 
-;; TODO: Apply changed date from `scr-special-handle-current-query' to the
-;; appropriate places and show the results.
+;; TODO: Show the results of changing date via `scr-special-handle-current-query'.
 (defun scr-welcome (&optional just-idled-p)
   (setq scr--date (ts-now))
   (scr-followup)
@@ -143,23 +139,22 @@
   (scr-present-plots)
   ;; and (scr-prompt "Would you like me to suggest an activity?")
   (scr-present-diary (ts-now))
-  (and (-all-p #'null (-map #'scr-logged-today (-map #'car scr-csv-alist)))
+  (and (-all-p #'null (-map #'scr-logged-today (-map #'car scr-tsv-alist)))
        (scr-prompt "Shall I come back in an hour?")
-       (run-with-timer 3600 nil #'scr-call-from-idle))
-  )
+       (run-with-timer 3600 nil #'scr-call-from-idle)))
 
 (defun scr-check-neglect ()
   (interactive)
-  (dolist (cell scr-csv-alist)
+  (dolist (cell scr-tsv-alist)
     (when (file-exists-p (car cell))
       (let* ((path (car cell))
              (d (ts-parse (scr-last-date-string-in-date-indexed-csv path)))
              (diff-days (/ (ts-diff (ts-now) d) 60 60 24)))
-	(when (< 3 diff-days)
-	  (scr-prompt "It's been " (number-to-string diff-days)
-                     " days since you logged " (file-name-base path)
-                     ". Do you want to log it now?")
-	  (call-interactively (cadr cell)))))))
+	(and (< 3 diff-days)
+	     (scr-prompt "It's been " (number-to-string diff-days)
+			 " days since you logged " (file-name-base path)
+			 ". Do you want to log it now?")
+	     (call-interactively (cadr cell)))))))
 
 ;;;; Handle idling & reboots & crashes
 
@@ -179,12 +174,13 @@ Refresh some variables and sync to disk."
 
 (defun scr--user-is-idle ()
   "This function is meant to be called by `scr--start-next-timer'
-repeatedly for as long as the user is idle.  When the user comes
-back, this function will be called one last time, at which point
-it sets `scr-length-of-last-idle-in-minutes' and runs
-`scr-return-from-idle-hook'. That it has to run once with a
-failing condition that normally succeeds is the reason it had to
-be a separate function from `scr--user-is-active'."
+repeatedly for as long as the user is idle.
+
+When the user comes back, this function will be called one last
+time, at which point it sets `scr-length-of-last-idle-in-minutes'
+and runs `scr-return-from-idle-hook'. That it has to run once
+with a failing condition that normally succeeds is the reason it
+has to be a separate function from `scr--user-is-active'."
   (if (scr-idle-p)
       (scr--start-next-timer t)
     (ts-decf (ts-sec scr--idle-beginning) scr-idle-threshold)
@@ -234,12 +230,10 @@ be a separate function from `scr--user-is-active'."
                 (scr--restore-variables-from-disk))
 	      (when (null scr--timer)
                 (scr--start-next-timer))
-              ;; (when (-all-p #'null '(scr-idle-watcher scr-idle-ticker))
-              ;;   (scr--start-next-timer))
-	      )
+	      (setq scr--dog (run-with-timer 300 t #'scr--mark-territory)))
           (add-hook 'after-init-hook #'scr--restore-variables-from-disk -1)
-          (add-hook 'after-init-hook #'scr--start-next-timer 91)
-	  ))
+          (add-hook 'after-init-hook #'scr--start-next-timer 91)))
+
     (remove-hook 'scr-return-from-idle-hook #'scr-log-idle)
     (remove-hook 'scr-return-from-idle-hook #'scr-call-from-idle)
     (remove-hook 'window-buffer-change-functions #'scr-log-buffer)

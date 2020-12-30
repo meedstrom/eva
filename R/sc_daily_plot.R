@@ -1,8 +1,7 @@
-# daily_plot.R
 # Copyright (C) 2020 Martin Edström
 
 # This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Affero General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 
@@ -11,8 +10,9 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
+
 source("sc_common.R")
 #theme_set(theme_solarized(light = FALSE))
 theme_set(theme_hc(style = "darkunica"))
@@ -20,14 +20,19 @@ theme_set(theme_hc(style = "darkunica"))
 WIDTH <- as.numeric(commandArgs(TRUE)[[1]])
 BY <- as.numeric(commandArgs(TRUE)[[2]])
 
-wt <- read_csv("/home/kept/Self_data/weight.csv", col_names = c("date", "weight_kg"))
+#wt <- read_csv("/home/kept/Self_data/weight.csv", col_names = c("date", "weight_kg"))
+
+wt <- lazy_dt(read_tsv("/home/kept/Self_data/weight.tsv",
+                       col_names = c("posted", "weight_kg"))) %>%
+  mutate(posted = as_datetime(posted)) %>%
+  mutate(weighed = posted)
 
 projected_wt <-
   tibble(weight_kg = seq(from = 85, to = 59, by = BY)) %>%
   mutate(date = today() + days(row_number())) %>%
   mutate(note = if_else(mday(date) == 1, weight_kg, NULL))
 
-ggplot(wt, aes(date, weight_kg)) +
+ggplot(as_tibble(wt), aes(date, weight_kg)) +
   ylim(75, 86) +
   scale_x_date(date_breaks = "1 month",
                date_labels = "%b", # %B for full month name
