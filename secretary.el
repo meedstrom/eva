@@ -62,14 +62,14 @@
 
 ;;; Code:
 
+(require 'seq)
 (require 'subr-x)
 (require 'cl-lib)
-(require 'seq)
 (require 'find-func)
 (require 'ts)
-(require 'dash)
-(require 's)
 (require 'f)
+(require 's)
+(require 'dash)
 (require 'parse-csv)
 (autoload #'scr-log-buffer "org-id")
 (autoload #'org-mac-idle-seconds "org-clock")
@@ -107,9 +107,11 @@ Used by `scr-present-diary'.  ")
 (defcustom scr-dir (expand-file-name "secretary" user-emacs-directory)
   "Directory under which files should sit.")
 
-(defcustom scr-idle-beginning-file-name (expand-file-name "idle-beginning" scr-dir))
+(defcustom scr-idle-beginning-file-name (expand-file-name "idle-beginning" scr-dir)
+  nil)
 
-(defcustom scr-mood-alist-file-name (expand-file-name "scr-mood-alist" scr-dir))
+(defcustom scr-mood-alist-file-name (expand-file-name "scr-mood-alist" scr-dir)
+  nil)
 
 (defcustom scr-sit-long 1
   "A duration in seconds to pause for effect after certain kinds
@@ -185,8 +187,7 @@ the welcomer you are using.")
 
 (defvar scr-greetings '("Welcome back, Master."
                        (concat "Nice to see you again, " scr-user-name ".")
-                       (concat "Greetings, " scr-user-name ".")
-                       )
+                       (concat "Greetings, " scr-user-name "."))
   "Greetings which can work as first sentence in a longer message.")
 
 ;; What's cl-defstruct? https://nullprogram.com/blog/2018/02/14/
@@ -994,10 +995,10 @@ add."
     (run-hooks 'scr-plot-hook)))
 
 ;; Should I use such variables or encourage the user to make defuns?
-(defcustom scr-look-back-years 99 nil)
-(defcustom scr-look-back-months 12 nil)
-(defcustom scr-look-back-weeks 4 nil)
-(defcustom scr-look-back-days 1 nil)
+;; (defcustom scr-look-back-years 99 nil)
+;; (defcustom scr-look-back-months 12 nil)
+;; (defcustom scr-look-back-weeks 4 nil)
+;; (defcustom scr-look-back-days 1 nil)
 
 (defvar scr-past-sample-function #'scr-past-sample-default)
 
