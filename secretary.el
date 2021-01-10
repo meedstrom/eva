@@ -4,7 +4,7 @@
 ;; URL: https://github.com/meedstrom/secretary
 ;; Version: 0.1
 ;; Created: 2020-12-03
-;; Keywords: outlines convenience
+;; Keywords: convenience
 ;; Package-Requires: ((emacs "27.1"))
 
 ;; Copyright (C) 2020-2021 Martin Edström
@@ -27,13 +27,6 @@
 ;; See website.
 
 ;; user setup
-(setc org-clock-x11idle-program-name "xprintidle")
-(setc secretary-user-name "Martin")
-(setc secretary-user-short-title "sir")
-(setc secretary-user-birthday "1991-12-07")
-(setc secretary-ai-name "Maya")
-(add-hook 'secretary-plot-hook #'secretary-plot-mood 50)
-(add-hook 'secretary-plot-hook #'secretary-plot-weight)
 
 ;; (require 'org-id)
 ;; (org-id-update-id-locations '("/home/kept/Emacs/secretary/test.org"))
@@ -62,15 +55,19 @@
 
 ;;; Code:
 
+;; builtins
 (require 'seq)
 (require 'subr-x)
 (require 'cl-lib)
 (require 'find-func)
+
+;; external
 (require 'ts)
 (require 'f)
 (require 's)
 (require 'dash)
 (require 'parse-csv)
+
 (autoload #'secretary-log-buffer "org-id")
 (autoload #'org-mac-idle-seconds "org-clock")
 (autoload #'org-x11-idle-seconds "org-clock")
@@ -78,11 +75,20 @@
 (autoload #'org-id-uuid "org-id")
 (autoload #'org-id-goto "org-id")
 (autoload #'notifications-notify "notifications")
+(autoload #'calendar-check-holidays "holidays")
+
+(defvar secretary-debug-p t)
+
+(defgroup secretary nil "The Emacs in-house secretary."
+  :prefix "secretary-"
+  :group 'convenience)
 
 (defcustom secretary-location-diary-discrete "/home/kept/Diary/"
-  "The location of your discrete diary files.
+  "The directory containing your discrete diary files.
 We assume these files have names such as \"201228.org\".  Used by
-`secretary-present-diary'.")
+`secretary-present-diary'."
+  :group 'secretary
+  :type 'string)
 
 ;; TODO: rename to main-datetree
 (defcustom secretary-location-diary-datetree "/home/kept/Journal/diary2.org"
@@ -90,49 +96,71 @@ We assume these files have names such as \"201228.org\".  Used by
 Only relevant if you have one you use as a big archive file, see
 Info node `(org) Moving subtrees', or just write/capture
 everything directly into it.  Used by
-`secretary-present-diary'.")
+`secretary-present-diary'."
+  :group 'secretary
+  :type 'string)
 
 (defcustom secretary-ai-name "Lex"
-  "Your secretary's name.")
+  "Your secretary's name."
+  :group 'secretary
+  :type 'string)
 
 (defcustom secretary-user-birthday nil
-  "Your birthday.")
+  "Your birthday."
+  :group 'secretary
+  :type 'string)
 
 (defcustom secretary-user-name (if (s-equals? user-full-name "")
-                             "Mr. Bond"
-                           (-first-item (s-split " " user-full-name)))
-  "Your name, that you prefer to be addressed by.")
+				   "Mr. Bond"
+				 (-first-item (s-split " " user-full-name)))
+  "Your name, that you prefer to be addressed by."
+  :group 'secretary
+  :type 'string)
 
 (defcustom secretary-user-short-title "sir"
-  "A short title for you that works on its own, in lowercase.")
+  "A short title for you that works on its own, in lowercase."
+  :group 'secretary
+  :type 'string)
 
 ;; TODO: deprecate either this or the -file-name vars
 (defcustom secretary-dir
   (expand-file-name "secretary" user-emacs-directory)
-  "Directory under which files should sit.")
+  "Directory under which files should sit."
+  :group 'secretary
+  :type 'string)
 
 (defcustom secretary-idle-beginning-file-name
   (expand-file-name "idle-beginning" secretary-dir)
-  nil)
+  nil
+  :group 'secretary
+  :type 'string)
 
 (defcustom secretary-mood-alist-file-name
   (expand-file-name "secretary-mood-alist" secretary-dir)
-  nil)
+  nil
+  :group 'secretary
+  :type 'string)
 
 (defcustom secretary-sit-long 1
   "A duration in seconds to pause for effect after certain kinds
 of messages. See also `secretary-sit-medium' and
-`secretary-sit-short'.")
+`secretary-sit-short'."
+  :group 'secretary
+  :type 'number)
 
 (defcustom secretary-sit-medium .8
   "A duration in seconds to pause for effect after certain kinds
 of messages. See also `secretary-sit-long' and
-`secretary-sit-short'.")
+`secretary-sit-short'."
+  :group 'secretary
+  :type 'number)
 
 (defcustom secretary-sit-short .5
   "A duration in seconds to pause for effect after certain kinds
 of messages. See also `secretary-sit-long' and
-`secretary-sit-medium'.")
+`secretary-sit-medium'."
+  :group 'secretary
+  :type 'number)
 
 ;; TODO: deprecate
 (defcustom secretary-activities-alist
@@ -145,7 +173,9 @@ of messages. See also `secretary-sit-long' and
     ("some-org-id"    1)  ;; unknown (afk)
     ("some-org-id"    0)  ;; unknown (must be 0 as the default guess)
     )
-  nil)
+  nil
+  :group 'secretary
+  :type '(list string number))
 
 ;; REVIEW: see that there's no problem if you delete secretary-dir
 (defvar secretary-mood-alist nil
@@ -162,26 +192,25 @@ at `secretary-mood-alist-file-name'.")
 ;; 			 ("annoyed" . "3")
 ;; 			 ("depressed" . "1")))
 
-(defvar secretary-tsv-alist '(("/home/kept/Self_data/weight.tsv" secretary-query-weight)
-			("/home/kept/Self_data/mood.tsv" secretary-query-mood)
-			("/home/kept/Self_data/ingredients.tsv" secretary-query-ingredients)
-			("/home/kept/Self_data/sleep.tsv" secretary-query-sleep)
-			("/home/kept/Self_data/meditation.tsv" secretary-query-meditation)
-			("/home/kept/Self_data/cold.tsv" secretary-query-cold)))
+(defvar secretary-tsv-alist
+  '(("/home/kept/Self_data/weight.tsv" secretary-query-weight)
+    ("/home/kept/Self_data/mood.tsv" secretary-query-mood)
+    ("/home/kept/Self_data/ingredients.tsv" secretary-query-ingredients)
+    ("/home/kept/Self_data/sleep.tsv" secretary-query-sleep)
+    ("/home/kept/Self_data/meditation.tsv" secretary-query-meditation)
+    ("/home/kept/Self_data/cold.tsv" secretary-query-cold)))
 
-(defvar secretary-log-alist '(("/home/kept/Self_data/buffers.tsv" secretary-log-buffer)
-			("/home/kept/Self_data/buffer_focus.tsv" secretary-log-buffer)
-			("/home/kept/Self_data/idle.tsv" secretary-log-idle)))
-
-(defvar secretary-plot-hook nil
-  "Hook called to print plots. A convenient place to add your
-custom plots.")
+(defvar secretary-log-alist
+  '(("/home/kept/Self_data/buffers.tsv" secretary-log-buffer)
+    ("/home/kept/Self_data/buffer_focus.tsv" secretary-log-buffer)
+    ("/home/kept/Self_data/idle.tsv" secretary-log-idle)))
 
 (defvar secretary--date (ts-now)
-  "Can be set anytime during a welcome to override the date to
-which some queries apply, for example to log something for
-yesterday. This is not universal (yet), so check the source for
-the welcomer you are using.")
+  "Date to which to apply the current query.
+Can be set anytime during a welcome to override the date to which
+some queries apply, for example to log something for yesterday.
+This may not apply, check the source for the welcomer you are
+using.")
 
 (defvar secretary-chime-sound-file
   (expand-file-name
@@ -193,37 +222,34 @@ the welcomer you are using.")
   "Sound to play when a welcomer is triggered unannounced.")
 
 (defvar secretary-greetings '("Welcome back, Master."
-                       (concat "Nice to see you again, " secretary-user-name ".")
-                       (concat "Greetings, " secretary-user-name "."))
-  "Greetings which can work as first sentence in a longer message.")
+			      (concat "Nice to see you again, " secretary-user-name ".")
+			      (concat "Greetings, " secretary-user-name "."))
+  "Greeting phrases which can initiate a conversation.")
 
 ;; What's cl-defstruct? https://nullprogram.com/blog/2018/02/14/
 (cl-defstruct (secretary-activity (:constructor secretary-activity-create)
-			    (:copier nil))
+			 (:copier nil))
   name id cost-false-pos cost-false-neg querier)
+
+(cl-defstruct (secretary-query (:constructor secretary-query-create)
+		      (:copier nil))
+  name log-file querier)
 
 (defun secretary-activity-by-name (name)
   (declare (side-effect-free t))
   (--find (equal name (secretary-activity-name it)) secretary-activities))
 
+;; (require 'hydra)
+;; (defhydra secretary-hydra ()
+;;   "
+;; Date: %(ts-format secretary--date)
+;;    "
+;;   )
+
 (defun secretary-play-chime ()
   (and (executable-find "aplay")
        (file-exists-p secretary-chime-sound-file)
        (start-process "aplay" nil "aplay" secretary-chime-sound-file)))
-
-
-;; TODO: use length-of-last-idle to check it's not that i just restarted emacs
-(defun secretary--another-secretary-running-p ()
-  (when (file-exists-p "/tmp/secretary/running")
-    (let ((age (- (time-convert (current-time) 'integer)
-		  (time-convert (file-attribute-modification-time
-				 (file-attributes "/tmp/secretary/running"))
-				'integer))))
-      (> age (* 10 60)))))
-
-(defun secretary--mark-territory ()
-  (mkdir "/tmp/secretary/" t)
-  (f-touch "/tmp/secretary/running"))
 
 ;; TODO: deprecate
 (defun secretary-activities-names ()
@@ -258,7 +284,7 @@ the welcomer you are using.")
       (dolist (x '("o" "i" "k"))
         (define-key y-or-n-p-map (kbd x) #'y-or-n-p-insert-other)))))
 ;; (secretary-prompt "Test")
-;; (y-or-n-p "test")
+;; (y-or-n-p "Test")
 
 (defun secretary--idle-seconds ()
   "Stub to be redefined."
@@ -294,7 +320,7 @@ the welcomer you are using.")
   (get-buffer-create (concat "*" secretary-ai-name ": R*")))
 
 (defun secretary-reschedule ()
-    (run-with-timer 3600 nil #'secretary-call-from-reschedule))
+  (run-with-timer 3600 nil #'secretary-call-from-reschedule))
 
 ;; (defmacro secretary-with-file (path &rest body)
 ;;   (declare (pure t) (indent defun))
@@ -347,7 +373,6 @@ the welcomer you are using.")
   (with-temp-buffer
     (insert-file-contents path)
     (search-forward (ts-format "%F" ts))
-    (line-beginning-position)
     (buffer-substring (line-beginning-position) (line-end-position))))
 ;; (secretary-get-first-today-in-date-indexed-csv "/home/kept/Self_data/ingredients.csv")
 
@@ -389,16 +414,6 @@ the welcomer you are using.")
   (declare (side-effect-free t))
   (buffer-local-value 'major-mode (get-buffer buffer-or-name)))
 
-(defun secretary-idle-p ()
-  (declare (side-effect-free t))
-  (> (secretary--idle-seconds) secretary-idle-threshold))
-
-(defun secretary--x11-idle-seconds ()
-  "Like `org-x11-idle-seconds' but doesn't need a /bin/sh, nor to
-load org."
-  (declare (side-effect-free t))
-  (/ (secretary--process-output-to-number org-clock-x11idle-program-name) 1000))
-
 (defmacro secretary--process-output-to-string (program &rest args)
   "Similar to `shell-command-to-string', but skips the shell
 intermediary so you don't need a /bin/sh. PROGRAM and ARGS are
@@ -416,6 +431,19 @@ passed on to `call-process'."
 	   (indent nil)
 	   (side-effect-free t))
   `(string-to-number (secretary--process-output-to-string ,program ,@args)))
+
+(defun secretary-idle-p ()
+  (declare (side-effect-free t))
+  (> (secretary--idle-seconds) secretary-idle-threshold))
+
+(defvar secretary--x11idle-program-name
+  (or org-clock-x11idle-program-name "xprintidle"))
+
+(defun secretary--x11-idle-seconds ()
+  "Like `org-x11-idle-seconds' but doesn't need a /bin/sh, nor to
+load org."
+  (declare (side-effect-free t))
+  (/ (secretary--process-output-to-number secretary--x11idle-program-name) 1000))
 
 ;; - Needs to be a function because something might kill the buffer.
 ;; - Can't use get-buffer-create because I want to turn on `visual-line-mode'.
@@ -511,21 +539,22 @@ begins on a newline."
     "Missing once is an accident, missing twice is the start of a new habit."
     "If it happens once it's a mistake. If it happens twice, it's a choice."))
 
+
 ;;;; Greetings
 
 (defun secretary-greeting-curt ()
-  "Return a random greeting string appropriate in the midst of a
-workday. If you've already exchanged good mornings, it's weird to
+  "Return a greeting appropriate in the midst of a workday.
+Because if you've already exchanged good mornings, it's weird to
 do so again."
   (seq-random-elt `("Hello" "Hi" "Hey")))
 
 (defun secretary-greeting ()
-  "Return a random greeting string."
+  "Return a greeting string."
   ;; If it's morning, always use a variant of "good morning"
   (if (> 10 (ts-hour (ts-now)) 5)
       (seq-random-elt (secretary--daytime-appropriate-greetings))
     (eval (seq-random-elt (append secretary-greetings
-                                (-list (secretary--daytime-appropriate-greetings)))))))
+                                  (-list (secretary--daytime-appropriate-greetings)))))))
 ;; (secretary-greeting)
 
 ;; NOTE: I considered making external variables for morning, day and evening
@@ -547,30 +576,56 @@ do so again."
                "Pleasant evening to you!"))))
 
 (defun secretary-greeting-standalone ()
-  "Return a greeting that expects to be followed by nothing: no
-prompts, no debug message, no info. Suitable for
+  "Return a greeting that expects to be followed by nothing.
+No prompts, no debug message, no info. Suitable for
 `notifications-notify' or `startup-echo-area-message'. A superset
-of `secretary-greeting'."
+of `secretary-greeting'. Mutually exclusive with
+`secretary-greeting-curt'."
   (eval (seq-random-elt
          (append secretary-greetings
                  (-list (secretary--daytime-appropriate-greetings))
                  '("How may I help?")))))
 
-;;;; Collect data
+
+;;;; Data collection
 
 (defvar secretary-last-buffer nil)
 
 (defvar secretary-known-buffers nil)
 
-(defvar secretary-buffer-focus-log nil)
+;; (defvar secretary-buffer-focus-log nil)
+
+;; TODO: recreate buffer upon disabling and reenabling secretary-mode
+(defvar secretary-buffer-focus-log-buffer
+  (get-buffer-create
+   (concat (unless secretary-debug-p " ")
+	   "*" secretary-ai-name ": Buffer focus log*")))
+
+(defvar secretary-buffer-existence-log-buffer
+  (get-buffer-create
+   (concat (unless secretary-debug-p " ")
+	   "*" secretary-ai-name ": Buffer existence log*")))
 
 (defun secretary-log-idle ()
   (secretary-append "/home/kept/Self_data/idle.tsv"
-             (ts-format)
-             "\t" (number-to-string (/ (round secretary-length-of-last-idle) 60))))
+    (ts-format)
+    "\t" (number-to-string (/ (round secretary-length-of-last-idle) 60))))
 
-;; TODO: Batch save. Instead of appending to a file line by line, append to a
-;; buffer and save it once every 5 minutes or so.
+(defun secretary--save-buffer-logs-to-disk ()
+  (cl-letf ((inhibit-message t)
+	    (message (lambda (&rest _))))
+    (secretary--transact-buffer-onto-file secretary-buffer-focus-log-buffer
+			       "/home/kept/Self_data/buffer-focus.tsv")
+    (secretary--transact-buffer-onto-file secretary-buffer-existence-log-buffer
+			       "/home/kept/Self_data/buffer-existence.tsv")))
+
+(defun secretary--transact-buffer-onto-file (buffer path)
+  (with-current-buffer buffer
+    (whitespace-cleanup)
+    (append-to-file (point-min) (point-max) path)
+    ;; TODO: delete region only if appending was successful
+    (delete-region (point-min) (point-max))))
+
 ;; TODO: When buffer mode changes, count it as a new buffer. Note that (assoc
 ;; buf secretary-known-buffers) will still work.
 (defun secretary-log-buffer (&optional _arg)
@@ -578,7 +633,7 @@ of `secretary-greeting'."
     (let* ((buf (current-buffer))
            (mode (symbol-name (secretary-buffer-mode buf)))
            (known (assoc buf secretary-known-buffers))
-           (timestamp (number-to-string (ts-unix (ts-now))))
+           (timestamp (s-pad-right 18 "0" (number-to-string (ts-unix (ts-now)))))
            (buffer-record (unless (and known
                                        (string= mode (nth 4 known))) ;; doesnt do it
                             (list buf
@@ -595,25 +650,19 @@ of `secretary-greeting'."
         (setq secretary-last-buffer buf)
         (unless known
           (push buffer-record secretary-known-buffers)
-	  (secretary-append "/home/kept/Self_data/buffers.tsv"
-		     (string-join (cdr buffer-record) "\t")))
-        (push focus-record secretary-buffer-focus-log)
-        (secretary-append "/home/kept/Self_data/buffer-focus.tsv"
-                   (string-join focus-record "\t"))))))
-
-;; (defun secretary-known-buffers-buffer ()
-;;   (or (get-file-buffer "/home/kept/Self_data/buffers.csv")
-;;       (create-file-buffer "/home/kept/Self_data/buffers.csv")))
-
-;; (defun secretary-buffer-focus-log-buffer ()
-;;   (or (get-file-buffer "/home/kept/Self_data/buffer-focus.csv")
-;;       (create-file-buffer "/home/kept/Self_data/buffer-focus.csv")))
-
-
-
-;; (setc completion-auto-help t)
-;; (completing-read (concat "Score from 1 to 5: [" "]") nil nil nil nil nil (cdr (assoc "fine" secretary-mood-alist)))
-;; (read-string (concat "Score from 1 to 5: [" "]")  nil nil (cdr (assoc "fine" secretary-mood-alist)))
+	  (with-current-buffer secretary-buffer-existence-log-buffer
+	    (goto-char (point-max))
+	    (insert "\n" (string-join (cdr buffer-record) "\t")))
+	  ;; (secretary-append "/home/kept/Self_data/buffers.tsv"
+	  ;;   (string-join (cdr buffer-record) "\t"))
+	  )
+        ;; (push focus-record secretary-buffer-focus-log)
+	(with-current-buffer secretary-buffer-focus-log-buffer
+	  (goto-char (point-max))
+	  (insert "\n" (string-join focus-record "\t")))
+        ;; (secretary-append "/home/kept/Self_data/buffer-focus.tsv"
+	;;   (string-join focus-record "\t"))
+	))))
 
 ;; TODO: make the dataset append-only
 ;;;###autoload
@@ -626,11 +675,11 @@ of `secretary-greeting'."
                                   (s-replace "\"" "'")))
          (path "/home/kept/Self_data/ingredients.tsv"))
     (secretary-append path
-	       (ts-format "%F")
-	       "\t" "\"" formatted-response "\"")
+		      (ts-format "%F")
+		      "\t" "\"" formatted-response "\"")
     (secretary-emit "Recorded so far today: "
-             (s-replace "^.*?," ""
-			(secretary-get-first-today-in-date-indexed-csv path)))))
+		    (s-replace "^.*?," ""
+			       (secretary-get-first-today-in-date-indexed-csv path)))))
 
 ;; (defalias #'secretary-query-food #'secretary-query-ingredients)
 
@@ -646,9 +695,9 @@ of `secretary-greeting'."
   (let* ((name (completing-read "What are you up to? " (secretary-activities-names)))
 	 (now (ts-now)))
     (secretary-append "/home/kept/Self_data/activity.tsv"
-               (ts-format now)
-               "\t" name
-               "\t" (secretary-activity-id (secretary-activity-by-name name)))))
+		      (ts-format now)
+		      "\t" name
+		      "\t" (secretary-activity-id (secretary-activity-by-name name)))))
 ;; (secretary-query-activity)
 
 (setq secretary-activities
@@ -664,12 +713,18 @@ of `secretary-greeting'."
 	     :cost-false-pos 8
 	     :cost-false-neg 8)))
 
+(defun secretary-random-p (&rest _args)
+  "Return t or nil at random."
+  (declare (side-effect-free t))
+  (> 0 (random)))
+
 ;;;###autoload
 (defun secretary-query-mood (&optional prompt)
   (interactive)
-  (let* ((mood-desc (completing-read (or prompt "Your mood: ")
-				     (--sort (> 0 (random))
-					     (mapcar #'car secretary-mood-alist))))
+  (let* ((mood-desc (completing-read
+		     (or prompt "Your mood: ")
+		     (cl-sort (mapcar #'car secretary-mood-alist)
+			      #'secretary-random-p)))
          (old-score (cdr (assoc mood-desc secretary-mood-alist)))
          (prompt-for-score
           (concat "Score from 1 to 5"
@@ -679,9 +734,9 @@ of `secretary-greeting'."
          (score-num (string-to-number score))
          (now (ts-now)))
     (secretary-append "/home/kept/Self_data/mood.tsv"
-               (ts-format now)
-               "\t" (s-replace "," "." score)
-               "\t" mood-desc)
+		      (ts-format now)
+		      "\t" (s-replace "," "." score)
+		      "\t" mood-desc)
     ;; Update secretary-mood-alist.
     (if (assoc mood-desc secretary-mood-alist)
         (setq secretary-mood-alist
@@ -708,8 +763,8 @@ of `secretary-greeting'."
     (if (= 0 (string-to-number wt))
         (secretary-emit "Ok, I'll ask you again later.")
       (secretary-append path
-                 (ts-format now)
-                 "\t" (s-replace "," "." wt))
+			(ts-format now)
+			"\t" (s-replace "," "." wt))
       (secretary-emit "Weight today: " (secretary-last-value-in-tsv path) " kg"))
     (sit-for secretary-sit-short)))
 
@@ -731,20 +786,23 @@ of `secretary-greeting'."
 ;;         (f-append (concat newline-maybe (ts-format "%F") "," wt) 'utf-8 "/home/kept/Self_data/weight.csv")))))
 
 (defun secretary-check-yesterday-sleep ()
-  (let* ((foo (secretary-get-all-today-in-date-indexed-csv
+  (let* ((today-rows (secretary-get-all-today-in-date-indexed-csv
 	       "/home/kept/Self_data/sleep.tsv" (ts-dec 'day 1 (ts-now))))
-         (total-yesterday (-sum (--map (string-to-number (nth 2 it)) foo))))
+         (total-yesterday (-sum (--map (string-to-number (nth 2 it)) today-rows))))
     (if (> (* 60 4) total-yesterday)
         (if (secretary-prompt "Yesterday, you slept "
-		       (number-to-string (/ total-yesterday 60.0))
-                       " hours, is this about right?")
+			      (number-to-string (round (/ total-yesterday 60.0)))
+			      " hours, is this about right?")
             nil
           (secretary-emit "You may edit the history at "
-		   "/home/kept/Self_data/sleep.tsv")
+			  "/home/kept/Self_data/sleep.tsv"
+			  ". For now, let's talk about today.")
           (sit-for secretary-sit-short)))))
 
+;; TODO: (Feature) Let user say "since 5" instead of quantity
 ;; TODO: Fix the case where someone wakes up at 23:00 but replies to the query
-;;       at 01:00.
+;;       at 01:00. Notice the unusual hour change and ask if user meant 23
+;;       yesterday.
 ;;;###autoload
 (defun secretary-query-sleep ()
   "Query you for wake-up time and sleep quantity for one sleep block today.
@@ -774,39 +832,42 @@ add."
 				(/ secretary-length-of-last-idle 60 60)))))))
 
     (secretary-emit (when wakeup-time
-	       (concat "You woke at " (ts-format "%H:%M" wakeup-time) ". "))
-             (when sleep-minutes
-	       (concat "You slept " (number-to-string sleep-minutes)
-		       " minutes (" (number-to-string (/ sleep-minutes 60.0))
-		       " hours).")))
+		      (concat "You woke at " (ts-format "%H:%M" wakeup-time) ". "))
+		    (when sleep-minutes
+		      (concat "You slept " (number-to-string sleep-minutes)
+			      " minutes (" (number-to-string (/ sleep-minutes 60.0))
+			      " hours).")))
     (secretary-append "/home/kept/Self_data/sleep.tsv"
-               (ts-format now)
-	       "\t" (ts-format "%F" secretary--date)
-               "\t" (when wakeup-time (ts-format "%T" wakeup-time))
-               "\t" (number-to-string sleep-minutes))))
+		      (ts-format now)
+		      "\t" (ts-format "%F" secretary--date)
+		      "\t" (when wakeup-time (ts-format "%T" wakeup-time))
+		      "\t" (number-to-string sleep-minutes))))
 
 (defun secretary-query-meditation (&optional date)
   (interactive)
   (when (secretary-prompt "Did you meditate today?")
     (let ((x (read-string "Do you know how long (in minutes)? ")))
       (secretary-append "/home/kept/Self_data/meditation.tsv"
-		 (ts-format date)
-		 "\t" "TRUE"
-		 "\t" x))))
+			(ts-format date)
+			"\t" "TRUE"
+			"\t" x))))
 
 (defun secretary-query-cold-shower (&optional date)
   (interactive)
   (let ((x (read-string "Cold rating? "))
 	(path "/home/kept/Self_data/cold.tsv"))
     (secretary-append path
-               (ts-format date)
-	       "\t" x)))
+		      (ts-format date)
+		      "\t" x)))
 
-
+
 ;;;; Parsers
 
-;; TODO: Catch typos like 03 meaning 30 minutes, not 3 hours
+;; TODO: Catch typos like 03 meaning 30 minutes, not 3 hours.
 (defun secretary-parse-time-amount (input)
+  "Translate the input from hours or minutes into minutes.
+If the input contains no \"h\" or \"m\", assume numbers above 20
+are minutes and numbers below are hours."
   (let ((numeric-part (string-to-number input)))
     (cond ((= 0 numeric-part) ;; strings without any number result in 0
            nil) ;; save as a NA observation
@@ -827,15 +888,15 @@ add."
 (defun secretary-special-handle-current-query ()
   (interactive)
   (let ((input (completing-read "Yes? " '(
-                                    "Never mind, let me reply normally."
-                                    "Remind me about this one later."
-                                    "Skip this."
-                                    "Back to previous query."
-                                    "Yes."
-                                    "No."
-                                    "Apply this query to a different date."
-                                    "Apply this query to yesterday."
-                                    "Tell me something profound."))))
+					  "Never mind, let me reply normally."
+					  "Remind me about this one later."
+					  "Skip this."
+					  "Back to previous query."
+					  "Yes."
+					  "No."
+					  "Apply this query to a different date."
+					  "Apply this query to yesterday."
+					  "Tell me something profound."))))
     (cond ((string-match-p (rx (or "remind" "later" "l8r" "resched")) input)
            'reschedule)
           ((string-match-p (rx (or "food" "ingred")) input)
@@ -853,7 +914,8 @@ add."
           (t
            (secretary-emit "Override not understood.")))))
 
-;;;; Callers
+
+;;;; Welcomers
 
 (defun secretary-call (&optional arg)
   "Call your secretary. Useful when you're unsure what to do."
@@ -871,6 +933,7 @@ add."
           (notifications-notify :title secretary-ai-name :body (secretary-greeting)))
 	(secretary-play-chime)
         (secretary-check-neglect)
+	;; check neglect overlaps with the stuff asked in the following prompt.
         (when (secretary-prompt (secretary-greeting) " Do you have time for some questions?")
           (secretary-welcome t)))
     (setq secretary-length-of-last-idle 0)))
@@ -889,7 +952,7 @@ add."
 ;; TODO: Show the results of changing date via `secretary-special-handle-current-query'.
 (defun secretary-welcome (&optional just-idled-p)
   (setq secretary--date (ts-now))
-  (secretary-followup)
+  (secretary-check-neglect)
   (and just-idled-p
        (secretary-prompt "Have you slept?")
        (secretary-query-sleep))
@@ -920,7 +983,7 @@ add."
   (and (>= 1 (secretary-query-mood "How are you? "))
        (secretary-prompt "Do you need to talk?")
        (secretary-prompt "I can direct you to my colleague Eliza, though "
-                  "she's not too bright. Will that do?")
+			 "she's not too bright. Will that do?")
        (doctor))
   (secretary-present-plots)
   ;; and (secretary-prompt "Would you like me to suggest an activity?")
@@ -935,14 +998,20 @@ add."
     (when (file-exists-p (car cell))
       (let* ((path (car cell))
              (d (ts-parse (secretary-last-date-string-in-date-indexed-csv path)))
-             (diff-days (/ (ts-diff (ts-now) d) 60 60 24)))
+             (diff-days (round (/ (ts-diff (ts-now) d) 60 60 24))))
 	(and (< 3 diff-days)
+	     ;; TODO: ask about quitting to log this thing
 	     (secretary-prompt "It's been " (number-to-string diff-days)
-			 " days since you logged " (file-name-base path)
-			 ". Do you want to log it now?")
+			       " days since you logged " (file-name-base path)
+			       ". Do you want to log it now?")
 	     (call-interactively (cadr cell)))))))
 
+
 ;;;; Presenters
+
+(defvar secretary-plot-hook nil
+  "Hook called to print plots. A convenient place to add your
+custom plots.")
 
 ;;;###autoload
 (defun secretary-report-mood ()
@@ -992,8 +1061,8 @@ add."
   (unless (null secretary-plot-hook)
     (switch-to-buffer (secretary-buffer-chat))
     (secretary-emit (seq-random-elt '("I have plotted the latest intel, boss."
-                               "Here are some projections!"
-                               "Data is beautiful, don't you think?")))
+				      "Here are some projections!"
+				      "Data is beautiful, don't you think?")))
     (run-hooks 'secretary-plot-hook)))
 
 ;; Should I use such variables or encourage the user to make defuns?
@@ -1014,13 +1083,13 @@ add."
             (--iterate (ts-dec 'month 1 it) now 12)
             (--iterate (ts-dec 'year 1 it) now 99)))))
 
-(ert-deftest secretary-test-ts-usage ()
-  (let ((now (ts-now)))
-    (should (equal (ts-dec 'month 12 now)
-                   (ts-dec 'year 1 now)))
-    (should (= 16 (length (-uniq (append
-                                  (--iterate (ts-dec 'month 1 it) now 12)
-                                  (--iterate (ts-dec 'year 1 it) now 5))))))))
+;; (ert-deftest secretary-test-ts-usage ()
+;;   (let ((now (ts-now)))
+;;     (should (equal (ts-dec 'month 12 now)
+;;                    (ts-dec 'year 1 now)))
+;;     (should (= 16 (length (-uniq (append
+;;                                   (--iterate (ts-dec 'month 1 it) now 12)
+;;                                   (--iterate (ts-dec 'year 1 it) now 5))))))))
 
 (defun secretary-make-indirect-datetree (buffer dates)
   (require 'org)
@@ -1066,10 +1135,10 @@ add."
          (datetree-found-count (secretary-make-indirect-datetree buffer dates-to-check))
          (total-found-count (+ (length discrete-files-found) datetree-found-count)))
     (if (secretary-prompt "Found " (int-to-string total-found-count) " past diary "
-                    (if (= 1 total-found-count) "entry" "entries")
-                    " relevant to this date. Want me to open "
-                    (if (= 1 total-found-count) "it" "them")
-                    "?")
+			  (if (= 1 total-found-count) "entry" "entries")
+			  " relevant to this date. Want me to open "
+			  (if (= 1 total-found-count) "it" "them")
+			  "?")
         (progn
           (switch-to-buffer buffer)
           (view-mode)
@@ -1079,6 +1148,7 @@ add."
       (kill-buffer buffer))))
 ;; (secretary-present-diary (ts-now))
 
+
 ;;;; Handle idling & reboots & crashes
 ;; Refactor? Make it easier to write unit tests that don't need to wait 60
 ;; seconds.
@@ -1091,22 +1161,28 @@ add."
   "Duration in seconds.")
 
 (defcustom secretary-idle-threshold (* 10 60)
-  "Duration in seconds, beyond which the user is considered to be
-idle.")
+  "Duration in seconds, above which the user is considered idle."
+  :group 'secretary
+  :type 'number)
 
 (defcustom secretary-long-idle-threshold (* 90 60)
-  "Duration in seconds that is the minimum for
-`sc-call-from-idle' to trigger upon user return.")
+  "Be idle at least this long to be greeted upon return."
+  :group 'secretary
+  :type 'number)
 
 (defcustom secretary-return-from-idle-hook nil
   "Note: An Emacs startup also counts as a return from idleness.
 You'll probably want your hook to be conditional on some value of
 `secretary-length-of-last-idle', which at startup is calculated from
 the last Emacs shutdown or crash (technically, last time
-`secretary-mode' was running).")
+`secretary-mode' was running)."
+  :group 'secretary
+  :type '(restricted-sexp :match-alternatives #'listp))
 
 (defcustom secretary-periodic-not-idle-hook nil
-  "Hook run every minute when the user is not idle.")
+  "Hook run every minute when the user is not idle."
+  :group 'secretary
+  :type '(restricted-sexp :match-alternatives #'listp))
 
 ;; REVIEW: Put the compuer to sleep MANUALLY (so you're not idle), go away 11+
 ;;         mins, come back and check if the idle.tsv has gained an entry.
@@ -1123,32 +1199,39 @@ overhead: useful if the caller has already checked it."
 repeatedly for as long as the user is active (not idle).
 
 Refresh some variables and sync all variables to disk."
-  ;; Patch the case where the user puts the computer to sleep manually, which
-  ;; means this function will still be next to run when the computer wakes.  If
+  ;; Guard the case where the user puts the computer to sleep manually, which
+  ;; means this function will still be queued to run when the computer wakes.  If
   ;; the time difference is suddenly big, hand off to the other function.
   (if (> (ts-diff (ts-now) secretary--idle-beginning) secretary-idle-threshold)
       (secretary--user-is-idle t)
     (setq secretary--idle-beginning (ts-now))
-    (run-hooks 'secretary-periodic-not-idle-hook)
-    (secretary--start-next-timer)))
+    (secretary--start-next-timer)
+    ;; Run hooks last, in case they have bugs.
+    (run-hooks 'secretary-periodic-not-idle-hook)))
 
 (defun secretary--user-is-idle (&optional dont-dec)
   "This function is meant to be called by `secretary--start-next-timer'
 repeatedly for as long as the user is idle.
 
 When the user comes back, this function will be called one last
-time, at which point it sets `secretary-length-of-last-idle' and runs
-`secretary-return-from-idle-hook'. That it has to run exactly once with
-a failing condition that normally succeeds is the reason it has
-to be a separate function from `secretary--user-is-active'."
+time, at which point the idleness condition will fail and it sets
+`secretary-length-of-last-idle' and runs
+`secretary-return-from-idle-hook'.  That it has to run exactly
+once with a failing condition that normally succeeds, as opposed
+to running zero or infinity times, is the reason it has to be a
+separate function from `secretary--user-is-active'."
   (if (secretary-idle-p)
       (secretary--start-next-timer t)
+    ;; Take the idle threshold into account and correct the idle begin point,
+    ;; unless the caller knows it is correct already.
+    ;; FIXME: This probably repeats every 2 seconds, causing massive idle spans??
     (unless dont-dec ;; REVIEW: this guard clause failed before
       (ts-decf (ts-sec secretary--idle-beginning) secretary-idle-threshold))
     (setq secretary-length-of-last-idle (ts-diff (ts-now) secretary--idle-beginning))
-    (run-hooks 'secretary-return-from-idle-hook)
-    (setq secretary--idle-beginning (ts-now))
-    (secretary--start-next-timer)))
+    (unwind-protect
+	(run-hooks 'secretary-return-from-idle-hook)
+      (setq secretary--idle-beginning (ts-now))
+      (secretary--start-next-timer))))
 
 ;; TODO
 ;; Test: save ts-now, wait, run secretary--user-is-active, compare.
@@ -1159,6 +1242,46 @@ to be a separate function from `secretary--user-is-active'."
 ;; 	(setq secretary--timer (run-with-timer 1 nil #'secretary--user-is-idle)))
 ;;     (setq secretary--timer (run-with-timer 1 nil #'secretary--user-is-active)))
 ;;   )
+
+
+;; TODO: Watch for secretary--timer dying and alert the user. Ask user about
+;; respawning it.
+
+;; we could simply use catch and throw in the body of the timer's function to
+;; ensure it respawns itself
+
+(require 'named-timer)
+
+;; TODO: use length-of-last-idle to check it's not that i just restarted emacs.
+;; relevant: this will mainly (only?) run on init after setting length of last
+;; idle time.  so if length is very short, i probably just restarted emacs and
+;; should start the secretary.
+;; can we simply check for the presence of other emacs processes?
+;;
+;; relevant: there are probably people with the usage pattern of starting a new
+;; emacs before they kill the old one. also there are people who run an
+;; ERC-dedicated emacs all the time.  should the secretary mode just stay on
+;; and wait for other emacsen to die before starting up its work?
+(defun secretary--another-secretary-running-p ()
+  (when (file-exists-p "/tmp/secretary/running")
+    (let ((age (- (time-convert (current-time) 'integer)
+		  (time-convert (file-attribute-modification-time
+				 (file-attributes "/tmp/secretary/running"))
+				'integer))))
+      (> age (* 10 60)))))
+
+(defvar secretary--dog nil)
+
+(defun secretary--mark-territory ()
+  (mkdir "/tmp/secretary/" t)
+  (f-touch "/tmp/secretary/running")
+  ;; while we're at it...
+  (unless (member secretary--timer timer-list)
+    (message "[%s] `secretary--timer' found dead, reviving it."
+	     (format-time-string "%H:%M"))
+    (secretary--start-next-timer)))
+
+
 
 (defun secretary--restore-variables-from-disk ()
   (when (f-exists-p secretary-idle-beginning-file-name)
@@ -1173,10 +1296,8 @@ to be a separate function from `secretary--user-is-active'."
   (f-write (ts-format secretary--idle-beginning) 'utf-8 secretary-idle-beginning-file-name)
   (f-write (prin1-to-string secretary-mood-alist) 'utf-8 secretary-mood-alist-file-name))
 
-(defvar secretary--dog nil)
-
 (defun secretary-unload-function ()
-  "For `unload-feature'."
+  "For `unload-feature' (is this unnecessary?)."
   (secretary-mode 0))
 
 ;;;###autoload
@@ -1186,7 +1307,7 @@ to be a separate function from `secretary--user-is-active'."
       (when (cond ((eq system-type 'darwin)
                    (fset #'secretary--idle-seconds #'org-mac-idle-seconds))
                   ((and (eq window-system 'x)
-                        (executable-find org-clock-x11idle-program-name))
+                        (executable-find secretary--x11idle-program-name))
                    (fset #'secretary--idle-seconds #'secretary--x11-idle-seconds))
                   (t
                    (secretary-mode 0)
@@ -1196,6 +1317,7 @@ to be a separate function from `secretary--user-is-active'."
         (add-hook 'secretary-return-from-idle-hook #'secretary-log-idle -90)
         (add-hook 'secretary-return-from-idle-hook #'secretary-call-from-idle 90)
 	(add-hook 'secretary-periodic-not-idle-hook #'secretary--save-variables-to-disk)
+	(add-hook 'secretary-periodic-not-idle-hook #'secretary--save-buffer-logs-to-disk)
         (add-hook 'window-buffer-change-functions #'secretary-log-buffer)
         (add-hook 'window-selection-change-functions #'secretary-log-buffer)
 	(add-hook 'after-init-hook #'secretary--restore-variables-from-disk -1)
