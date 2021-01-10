@@ -1184,14 +1184,14 @@ the last Emacs shutdown or crash (technically, last time
   :group 'secretary
   :type '(restricted-sexp :match-alternatives #'listp))
 
-;; REVIEW: Put the compuer to sleep MANUALLY (so you're not idle), go away 11+
-;;         mins, come back and check if the idle.tsv has gained an entry.
+(setq secretary-idle-threshold 30)
+
 (defun secretary--start-next-timer (&optional assume-idle)
   "Start one or the other timer depending on idleness. If
 ASSUME-IDLE is non-nil, skip the idle check and associated
 overhead: useful if the caller has already checked it."
   (if (or assume-idle (secretary-idle-p))
-      (setq secretary--timer (run-with-timer 2 nil #'secretary--user-is-idle))
+      (setq secretary--timer (run-with-timer 2 nil #'secretary--user-is-idle t))
     (setq secretary--timer (run-with-timer 60 nil #'secretary--user-is-active))))
 
 (defun secretary--user-is-active ()
@@ -1203,13 +1203,13 @@ Refresh some variables and sync all variables to disk."
   ;; means this function will still be queued to run when the computer wakes.  If
   ;; the time difference is suddenly big, hand off to the other function.
   (if (> (ts-diff (ts-now) secretary--idle-beginning) secretary-idle-threshold)
-      (secretary--user-is-idle t)
+      (secretary--user-is-idle)
     (setq secretary--idle-beginning (ts-now))
     (secretary--start-next-timer)
     ;; Run hooks last, in case they have bugs.
     (run-hooks 'secretary-periodic-not-idle-hook)))
 
-(defun secretary--user-is-idle (&optional dont-dec)
+(defun secretary--user-is-idle (&optional decrement)
   "This function is meant to be called by `secretary--start-next-timer'
 repeatedly for as long as the user is idle.
 
@@ -1221,11 +1221,9 @@ once with a failing condition that normally succeeds, as opposed
 to running zero or infinity times, is the reason it has to be a
 separate function from `secretary--user-is-active'."
   (if (secretary-idle-p)
-      (secretary--start-next-timer t)
-    ;; Take the idle threshold into account and correct the idle begin point,
-    ;; unless the caller knows it is correct already.
-    ;; FIXME: This probably repeats every 2 seconds, causing massive idle spans??
-    (unless dont-dec ;; REVIEW: this guard clause failed before
+      (secretary--start-next-timer 'assume-idle)
+    ;; Take the idle threshold into account and correct the idle begin point.
+    (when decrement ;; REVIEW: this guard clause failed before
       (ts-decf (ts-sec secretary--idle-beginning) secretary-idle-threshold))
     (setq secretary-length-of-last-idle (ts-diff (ts-now) secretary--idle-beginning))
     (unwind-protect
