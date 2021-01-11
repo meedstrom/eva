@@ -18,6 +18,14 @@
 
 ;;; Code:
 
+(ert-deftest ts-usage ()
+  (let ((now (ts-now)))
+    (should (equal (ts-dec 'month 12 now)
+                   (ts-dec 'year 1 now)))
+    (should (= 16 (length (-uniq (append
+                                  (--iterate (ts-dec 'month 1 it) now 12)
+                                  (--iterate (ts-dec 'year 1 it) now 5))))))))
+
 (let ((var1-file-name "/tmp/...")
       (var2-file-name "/tmp/...")))
 
@@ -34,7 +42,7 @@
     (let ((var1-file-name "/tmp/...")
           (var2-file-name "/tmp/...")))
     )
-
 (provide 'secretary-tests)
+
 
 ;;; secretary-tests.el ends here

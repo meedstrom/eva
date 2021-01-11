@@ -400,16 +400,6 @@ using.")
 ;; (secretary-logged-today "/home/kept/Self_data/weight.tsv")
 ;; (secretary-logged-today "/home/kept/Self_data/buffers.tsv")
 
-(defun secretary-existing-diary (dir date)
-  (declare (side-effect-free t))
-  (let ((foo (car (--filter (string-match-p
-                             (concat (ts-format "%y%m%d" date) ".*org$")
-                             it)
-                            (directory-files dir)))))
-    (unless (null foo)
-      (expand-file-name foo dir))))
-;; (secretary-existing-diary "/home/kept/Diary" (ts-dec 'month 1 (ts-now)))
-
 (defun secretary-buffer-mode (buffer-or-name)
   "Retrieve the `major-mode' of BUFFER-OR-NAME."
   (declare (side-effect-free t))
@@ -456,14 +446,42 @@ load org."
       (visual-line-mode)
       (current-buffer))))
 
+;; The IANA standard disallows tabs within fields, simplifying sanity checks.
+;; https://www.iana.org/assignments/media-types/text/tab-separated-values
+(defun secretary-append-tsv (path &rest fields)
+  "Append a line to the file located at PATH, creating it and its
+parent directories if it doesn't exist, and making sure it begins
+on a newline. Treat each argument FIELDS as a separate data
+field, inserting a tab character in between."
+  (declare (indent defun))
+  (unless (file-exists-p path)
+    (make-empty-file path t))
+  (unless (-all-p #'stringp fields)
+    (warn "[%s] `secretary-append-tsv' was passed nil" (ts-format "%H:%M")))
+  (let* ((fields (-replace nil "" fields))
+	 (newline-maybe (if (s-ends-with-p "\n" (f-read-bytes path))
+                            ""
+                          "\n"))
+	 ;;(cols-count ) ;; TODO sane number of cols
+	 (errors-path (concat path "_errors"))
+	 (new-text (concat newline-maybe (string-join fields "\t"))))
+    (cond ((--any-p (s-contains-p "\t" it) fields)
+	   (warn "Log entry had tabs inside fields, wrote to %s" errors-path)
+	   (f-append new-text 'utf-8 errors-path))
+	  ((s-contains-p "\n" new-text)
+	   (warn "Log entry had newlines, wrote to %s" errors-path)
+	   (f-append new-text 'utf-8 errors-path))
+	  (t
+	   (f-append new-text 'utf-8 path)))))
+;; (secretary-append-tsv "/home/kept/Self_data/idle.tsv"  "sdfsdf" "33")
+
 (defun secretary-append (path &rest text)
   "Append TEXT to the file located at PATH, creating it and its
 parent directories if it doesn't exist, and making sure the text
 begins on a newline."
   (declare (indent defun))
   (unless (file-exists-p path)
-    (make-empty-file path t)
-    (start-process "chattr" nil "chattr" "+A" path))
+    (make-empty-file path t))
   (let ((newline-maybe (if (s-ends-with-p "\n" (f-read-bytes path))
                            ""
                          "\n")))
@@ -1066,31 +1084,18 @@ custom plots.")
 				      "Data is beautiful, don't you think?")))
     (run-hooks 'secretary-plot-hook)))
 
-;; Should I use such variables or encourage the user to make defuns?
-;; (defcustom secretary-look-back-years 99 nil)
-;; (defcustom secretary-look-back-months 12 nil)
-;; (defcustom secretary-look-back-weeks 4 nil)
-;; (defcustom secretary-look-back-days 1 nil)
-
 (defvar secretary-past-sample-function #'secretary-past-sample-default)
 
-(defun secretary-past-sample-default ()
-  (let ((now (ts-now)))
+(defun secretary-past-sample-default (&optional ts)
+  "Return a list of ts.el objects referring to yesterday, this
+weekday the last 4 weeks, this day of the month the last 12
+months, and this date from all past years."
+  (let ((now (or ts (ts-now))))
     (-uniq (append
-	    ;; Yesterday, this weekday the last 4 weeks, this day of the month the
-	    ;; last 12 months, and this date from every year in the past.
             (--iterate (ts-dec 'day 1 it) now 1)
             (--iterate (ts-dec 'woy 1 it) now 4)
             (--iterate (ts-dec 'month 1 it) now 12)
             (--iterate (ts-dec 'year 1 it) now 99)))))
-
-;; (ert-deftest secretary-test-ts-usage ()
-;;   (let ((now (ts-now)))
-;;     (should (equal (ts-dec 'month 12 now)
-;;                    (ts-dec 'year 1 now)))
-;;     (should (= 16 (length (-uniq (append
-;;                                   (--iterate (ts-dec 'month 1 it) now 12)
-;;                                   (--iterate (ts-dec 'year 1 it) now 5))))))))
 
 (defun secretary-make-indirect-datetree (buffer dates)
   (require 'org)
@@ -1117,7 +1122,35 @@ custom plots.")
           (org-map-region #'org-promote (point-min) (point-max)))
       (kill-buffer buffer))
     counter))
-;; (secretary-make-indirect-datetree (get-buffer-create "test") (--iterate (ts-dec 'month 1 it) (ts-now) 40))
+;; (secretary-make-indirect-datetree (get-buffer-create "test")
+;;      (--iterate (ts-dec 'month 1 it) (ts-now) 40))
+
+(defun secretary-existing-diary (&optional date dir file-format)
+  "Return the first file in DIR matching FILE-FORMAT.
+FILE-FORMAT is handled by `parse-time-string'. The value returned
+is a full filesystem path or nil.
+
+When DATE is nil, use today.
+When DIR is nil, use `org-journal-dir'.
+When FILE-FORMAT is nil, use `org-journal-file-format'."
+  (let* ((dir (or dir org-journal-dir))
+	 (file-format (or file-format org-journal-file-format))
+	 (file (--find (string-match-p
+			(ts-format file-format date) it)
+                       (directory-files dir))))
+    (unless (null file)
+      (expand-file-name file dir))))
+;; (secretary-existing-diary (ts-dec 'day 1 (ts-now)))
+
+;; (defun secretary-existing-diary (dir date)
+;;   (declare (side-effect-free t))
+;;   (let ((foo (car (--filter (string-match-p
+;;                              (concat (ts-format "%y%m%d" date) ".*org$")
+;;                              it)
+;;                             (directory-files dir)))))
+;;     (unless (null foo)
+;;       (expand-file-name foo dir))))
+;; ;; (secretary-existing-diary "/home/kept/Diary" (ts-dec 'month 1 (ts-now)))
 
 ;; TODO: allow it to check a different date
 ;; TODO: allow either discrete or datetree to be nil
