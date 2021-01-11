@@ -1,5 +1,5 @@
-;;; secretary.el --- Help user live how they want -*- lexical-binding: t; -*-
 
+;;; secretary.el --- Help user live how they want -*- lexical-binding: t; -*-
 ;; Author: Martin Edström <meedstrom@teknik.io>
 ;; URL: https://github.com/meedstrom/secretary
 ;; Version: 0.1
@@ -67,6 +67,7 @@
 (require 's)
 (require 'dash)
 (require 'parse-csv)
+(require 'named-timer)
 
 (autoload #'secretary-log-buffer "org-id")
 (autoload #'org-mac-idle-seconds "org-clock")
@@ -1189,8 +1190,8 @@ the last Emacs shutdown or crash (technically, last time
 ASSUME-IDLE is non-nil, skip the idle check and associated
 overhead: useful if the caller has already checked it."
   (if (or assume-idle (secretary-idle-p))
-      (setq secretary--timer (run-with-timer 2 nil #'secretary--user-is-idle t))
-    (setq secretary--timer (run-with-timer 60 nil #'secretary--user-is-active))))
+      (named-timer-run :secretary 2 nil #'secretary--user-is-idle t)
+    (named-timer-run :secretary 60 nil #'secretary--user-is-active)))
 
 (defun secretary--user-is-active ()
   "This function is meant to be called by `secretary--start-next-timer'
@@ -1246,7 +1247,6 @@ separate function from `secretary--user-is-active'."
 ;; we could simply use catch and throw in the body of the timer's function to
 ;; ensure it respawns itself
 
-(require 'named-timer)
 
 ;; TODO: use length-of-last-idle to check it's not that i just restarted emacs.
 ;; relevant: this will mainly (only?) run on init after setting length of last
@@ -1264,11 +1264,9 @@ separate function from `secretary--user-is-active'."
       (and (/= pid (emacs-pid))
 	   (member pid (list-system-processes))))))
 
-;; rename this
-(defvar secretary--dog nil)
-(defun secretary--mark-territory ()
-  (unless (member secretary--timer timer-list)
-    (message "[%s] `secretary--timer' found dead, reviving it."
+(defun secretary--keepalive ()
+  (unless (member (named-timer-get :secretary) timer-list)
+    (message "[%s] secretary timer found dead, reviving it."
 	     (format-time-string "%H:%M"))
     (secretary--start-next-timer)))
 
@@ -1292,21 +1290,26 @@ separate function from `secretary--user-is-active'."
   (secretary-mode 0))
 
 ;;;###autoload
-(define-minor-mode secretary-mode nil
+(define-minor-mode secretary-mode
+  nil
   :global t
   (if secretary-mode
       (when (and
 	     (cond ((eq system-type 'darwin)
-			(fset #'secretary--idle-seconds #'org-mac-idle-seconds))
-                       ((and (eq window-system 'x)
-                             (executable-find secretary--x11idle-program-name))
-			(fset #'secretary--idle-seconds #'secretary--x11-idle-seconds))
-                       (t
-			(secretary-mode 0)
-			(message secretary-ai-name ": Not able to detect idleness, "
-				 "I'll be useless. Disabling secretary-mode.")
-			nil))
-	     (not (secretary--another-secretary-running-p)))
+		    (fset #'secretary--idle-seconds #'org-mac-idle-seconds))
+                   ((and (eq window-system 'x)
+                         (executable-find secretary--x11idle-program-name))
+		    (fset #'secretary--idle-seconds #'secretary--x11-idle-seconds))
+                   (t
+		    (secretary-mode 0)
+		    (message secretary-ai-name ": Not able to detect idleness, "
+			     "I'll be useless. Disabling secretary-mode.")
+		    nil))
+	     (if (secretary--another-secretary-running-p)
+		 (prog1 nil
+		   (message "Another secretary active.")
+		   (secretary-mode 0))
+	       t))
 	(mkdir "/tmp/secretary/" t)
 	(f-write (number-to-string (emacs-pid))
 	   'utf-8 "/tmp/secretary/pid")
@@ -1318,15 +1321,13 @@ separate function from `secretary--user-is-active'."
         (add-hook 'window-selection-change-functions #'secretary-log-buffer)
 	(add-hook 'after-init-hook #'secretary--restore-variables-from-disk -1)
         (add-hook 'after-init-hook #'secretary--start-next-timer 91)
-	(when (null secretary--dog)
-	  (setq secretary--dog (run-with-timer 0 300 #'secretary--mark-territory)))
+	(named-timer-run :secretary-keepalive 300 300 #'secretary--keepalive)
         ;; (add-function :after #'after-focus-change-function #'secretary-log-buffer)
         (when after-init-time
           (progn
             (when (-any #'null '(secretary-idle-beginning secretary-mood-alist))
               (secretary--restore-variables-from-disk))
-	    (when (null secretary--timer)
-              (secretary--start-next-timer)))))
+            (secretary--start-next-timer))))
     (f-delete "/tmp/secretary/pid")
     (remove-hook 'secretary-return-from-idle-hook #'secretary-log-idle)
     (remove-hook 'secretary-return-from-idle-hook #'secretary-call-from-idle)
@@ -1335,12 +1336,8 @@ separate function from `secretary--user-is-active'."
     (remove-hook 'window-selection-change-functions #'secretary-log-buffer)
     (remove-hook 'after-init-hook #'secretary--restore-variables-from-disk)
     (remove-hook 'after-init-hook #'secretary--start-next-timer)
-    (unless (null secretary--timer)
-      (cancel-timer secretary--timer)
-      (setq secretary--timer nil))
-    (unless (null secretary--dog)
-      (cancel-timer secretary--dog)
-      (setq secretary--dog nil))))
+    (named-timer-cancel :secretary)
+    (named-timer-cancel :secretary-keepalive)))
 
 (provide 'secretary)
 
