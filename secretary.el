@@ -446,6 +446,17 @@ load org."
       (visual-line-mode)
       (current-buffer))))
 
+(defvar secretary--frame nil)
+(defmacro secretary--raise-frame-and-do (&rest body)
+  `(progn
+     (and (frame-live-p secretary--frame)
+	  (not (= 1 (length (frames-on-display-list))))
+	  (delete-frame secretary--frame t))
+     (setq secretary--frame (make-frame '((name . "Secretary")
+					 (buffer-predicate . nil))))
+     (select-frame-set-input-focus secretary--frame t)
+     ,@body))
+
 ;; The IANA standard disallows tabs within fields, simplifying sanity checks.
 ;; https://www.iana.org/assignments/media-types/text/tab-separated-values
 (defun secretary-append-tsv (path &rest fields)
