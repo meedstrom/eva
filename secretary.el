@@ -1184,8 +1184,6 @@ the last Emacs shutdown or crash (technically, last time
   :group 'secretary
   :type '(restricted-sexp :match-alternatives #'listp))
 
-(setq secretary-idle-threshold 30)
-
 (defun secretary--start-next-timer (&optional assume-idle)
   "Start one or the other timer depending on idleness. If
 ASSUME-IDLE is non-nil, skip the idle check and associated
@@ -1223,7 +1221,7 @@ separate function from `secretary--user-is-active'."
   (if (secretary-idle-p)
       (secretary--start-next-timer 'assume-idle)
     ;; Take the idle threshold into account and correct the idle begin point.
-    (when decrement ;; REVIEW: this guard clause failed before
+    (when decrement
       (ts-decf (ts-sec secretary--idle-beginning) secretary-idle-threshold))
     (setq secretary-length-of-last-idle (ts-diff (ts-now) secretary--idle-beginning))
     (unwind-protect
@@ -1261,19 +1259,14 @@ separate function from `secretary--user-is-active'."
 ;; ERC-dedicated emacs all the time.  should the secretary mode just stay on
 ;; and wait for other emacsen to die before starting up its work?
 (defun secretary--another-secretary-running-p ()
-  (when (file-exists-p "/tmp/secretary/running")
-    (let ((age (- (time-convert (current-time) 'integer)
-		  (time-convert (file-attribute-modification-time
-				 (file-attributes "/tmp/secretary/running"))
-				'integer))))
-      (> age (* 10 60)))))
+  (when (file-exists-p "/tmp/secretary/pid")
+    (let ((pid (string-to-number (f-read "/tmp/secretary/pid" 'utf-8))))
+      (and (/= pid (emacs-pid))
+	   (member pid (list-system-processes))))))
 
+;; rename this
 (defvar secretary--dog nil)
-
 (defun secretary--mark-territory ()
-  (mkdir "/tmp/secretary/" t)
-  (f-touch "/tmp/secretary/running")
-  ;; while we're at it...
   (unless (member secretary--timer timer-list)
     (message "[%s] `secretary--timer' found dead, reviving it."
 	     (format-time-string "%H:%M"))
@@ -1302,16 +1295,21 @@ separate function from `secretary--user-is-active'."
 (define-minor-mode secretary-mode nil
   :global t
   (if secretary-mode
-      (when (cond ((eq system-type 'darwin)
-                   (fset #'secretary--idle-seconds #'org-mac-idle-seconds))
-                  ((and (eq window-system 'x)
-                        (executable-find secretary--x11idle-program-name))
-                   (fset #'secretary--idle-seconds #'secretary--x11-idle-seconds))
-                  (t
-                   (secretary-mode 0)
-                   (message secretary-ai-name ": Not able to detect idleness, "
-                            "I'll be useless. Disabling secretary-mode.")
-                   nil))
+      (when (and
+	     (cond ((eq system-type 'darwin)
+			(fset #'secretary--idle-seconds #'org-mac-idle-seconds))
+                       ((and (eq window-system 'x)
+                             (executable-find secretary--x11idle-program-name))
+			(fset #'secretary--idle-seconds #'secretary--x11-idle-seconds))
+                       (t
+			(secretary-mode 0)
+			(message secretary-ai-name ": Not able to detect idleness, "
+				 "I'll be useless. Disabling secretary-mode.")
+			nil))
+	     (not (secretary--another-secretary-running-p)))
+	(mkdir "/tmp/secretary/" t)
+	(f-write (number-to-string (emacs-pid))
+	   'utf-8 "/tmp/secretary/pid")
         (add-hook 'secretary-return-from-idle-hook #'secretary-log-idle -90)
         (add-hook 'secretary-return-from-idle-hook #'secretary-call-from-idle 90)
 	(add-hook 'secretary-periodic-not-idle-hook #'secretary--save-variables-to-disk)
@@ -1329,7 +1327,7 @@ separate function from `secretary--user-is-active'."
               (secretary--restore-variables-from-disk))
 	    (when (null secretary--timer)
               (secretary--start-next-timer)))))
-
+    (f-delete "/tmp/secretary/pid")
     (remove-hook 'secretary-return-from-idle-hook #'secretary-log-idle)
     (remove-hook 'secretary-return-from-idle-hook #'secretary-call-from-idle)
     (remove-hook 'secretary-periodic-not-idle-hook #'secretary--save-variables-to-disk)
