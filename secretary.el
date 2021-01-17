@@ -30,28 +30,6 @@
 ;; (require 'org-id)
 ;; (org-id-update-id-locations '("/home/kept/Emacs/secretary/test.org"))
 
-(setc secretary-activities-alist
-      '(;; id            cost of misprediction (either false positive or false negative)
-        ("7441f4e2-7251-47d8-ab06-1c2c205d1ae0"    0)  ;; unknown
-        ("c1b1fdb8-ea87-4d5a-b01d-4214266c4f4b"    1)  ;; unknown (afk)
-        ("24553859-2214-4fb0-bdc9-84e7f3d04b2b"    8)  ;; studying
-        ("a0fdbb69-9cdb-418f-b5e8-37601af43c0d"    6)  ;; coding
-        ("784d67a5-c15b-4c09-8c74-97b5767d70e6"    2)  ;; downtime
-        ("7aaf9105-d58d-4e83-9d34-045a3c922ac5"   20)  ;; meditating
-        ("ac93c132-ab74-455f-a456-71d7b5ee88a6"    3)  ;; sleep
-        ))
-
-(setc secretary-activities-alist
-      '(;; id            cost of misprediction (either false positive or false negative)
-        ("unknown" 0)
-        ("unknown afk"     1)  ;; unknown (afk)
-        ("studying"    8)  ;; studying
-        ("coding"    6)  ;; coding
-        ("downtime"    2)  ;; downtime
-        ("meditating"   20)  ;; meditating
-        ("sleep"    3)  ;; sleep
-        ))
-
 ;;; Code:
 
 ;; builtins
@@ -161,21 +139,6 @@ of messages. See also `secretary-sit-long' and
 `secretary-sit-medium'."
   :group 'secretary
   :type 'number)
-
-;; TODO: deprecate
-(defcustom secretary-activities-alist
-  '(;; id            cost of misprediction (either false positive or false negative)
-    ("some-org-id"    8)  ;; study
-    ("some-org-id"    6)  ;; coding
-    ("some-org-id"    2)  ;; downtime
-    ("some-org-id"   20)  ;; meditating
-    ("some-org-id"    3)  ;; sleep
-    ("some-org-id"    1)  ;; unknown (afk)
-    ("some-org-id"    0)  ;; unknown (must be 0 as the default guess)
-    )
-  nil
-  :group 'secretary
-  :type '(list string number))
 
 ;; REVIEW: see that there's no problem if you delete secretary-dir
 (defvar secretary-mood-alist nil
@@ -324,12 +287,8 @@ Do nothing if recently logged, reached max-entries-per-day, etc."
        (file-exists-p secretary-chime-sound-file)
        (start-process "aplay" nil "aplay" secretary-chime-sound-file)))
 
-;; TODO: deprecate
 (defun secretary-activities-names ()
-  (->> secretary-activities-alist
-       (-map (lambda (x) (save-window-excursion
-                      (org-id-goto (car x))
-                      (-last-item (org--get-outline-path-1)))))))
+  (-map #'secretary-activity-name secretary-activities))
 
 (defvar secretary--last-msg (ts-format "[%H:%M] Recorded blah"))
 (defun secretary-prompt (&rest strings)
@@ -347,23 +306,24 @@ Do nothing if recently logged, reached max-entries-per-day, etc."
           (secretary-emit prompt)
           (define-key y-or-n-p-map (kbd "o") #'secretary-special-handle-current-query)
           (define-key y-or-n-p-map (kbd "i") #'secretary-special-handle-current-query)
+          (define-key y-or-n-p-map (kbd "<SPC>") #'secretary-special-handle-current-query)
           (define-key y-or-n-p-map (kbd "k") #'secretary--y-or-n-p-insert-k)
 	  (let ((result (y-or-n-p (concat info prompt))))
 	    (if secretary--k
 		(progn
 		  (setq secretary--k nil)
-		  (insert " Okay")
+		  (insert " Okay...")
 		  t)
 	      (if result
 		  (progn
-		    (insert " Yes")
+		    (insert " Yes.")
 		    t)
-		(insert " No")
+		(insert " No.")
 		nil)))
 	  (setq secretary--last-msg (buffer-substring (line-beginning-position)
 						      (line-end-position)))
 	  (insert "\n"))
-      (dolist (x '("o" "i" "k"))
+      (dolist (x '("o" "i" "k" "<SPC>"))
         (define-key y-or-n-p-map (kbd x) #'y-or-n-p-insert-other)))))
 ;; (secretary-prompt "Test")
 ;; (y-or-n-p "Test")
@@ -562,7 +522,7 @@ load org."
 (defun secretary-append-tsv (path &rest fields)
   "Append a line to the file located at PATH, creating it and its
 parent directories if it doesn't exist, and making sure it begins
-on a newline. Treat each argument FIELDS as a separate data
+on a newline. Treat each form in FIELDS as a separate data
 field, inserting a tab character in between."
   (declare (indent defun))
   (unless (file-exists-p path)
