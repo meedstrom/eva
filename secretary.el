@@ -1,5 +1,4 @@
-
-;;; secretary.el --- Help user live how they want -*- lexical-binding: t; -*-
+;;; secretary.el --- Help the user achieve goals -*- lexical-binding: t; -*-
 ;; Author: Martin Edström <meedstrom@teknik.io>
 ;; URL: https://github.com/meedstrom/secretary
 ;; Version: 0.1
@@ -187,7 +186,7 @@ forced.
 The variable populates itself through use, and syncs with a file
 at `secretary-mood-alist-file-name'.")
 
-;; (defvar secretary-mood-alist '(("bemused" . "3")
+;; (setq secretary-mood-alist '(("bemused" . "3")
 ;; 			 ("amused" . "5")
 ;; 			 ("great"  . "5")
 ;; 			 ("annoyed" . "3")
@@ -227,25 +226,90 @@ using.")
 			      (concat "Greetings, " secretary-user-name "."))
   "Greeting phrases which can initiate a conversation.")
 
-;; What's cl-defstruct? https://nullprogram.com/blog/2018/02/14/
+;; Q: What's cl-defstruct? A: https://nullprogram.com/blog/2018/02/14/
 (cl-defstruct (secretary-activity (:constructor secretary-activity-create)
-			 (:copier nil))
-  name id cost-false-pos cost-false-neg querier)
-
-(cl-defstruct (secretary-query (:constructor secretary-query-create)
-		      (:copier nil))
-  name log-file querier)
+				  (:copier nil))
+  name
+  id
+  cost-false-pos
+  cost-false-neg
+  query-struct)
 
 (defun secretary-activity-by-name (name)
   (declare (side-effect-free t))
   (--find (equal name (secretary-activity-name it)) secretary-activities))
 
-;; (require 'hydra)
-;; (defhydra secretary-hydra ()
-;;   "
-;; Date: %(ts-format secretary--date)
-;;    "
-;;   )
+;; TODO: There's no need to use a name, the query-fn symbol can be its identifier.
+(cl-defstruct (secretary-querier (:constructor secretary-querier-create)
+			(:copier nil))
+  fn
+  log-file
+  max-entries-per-day
+  (min-hours-wait 3)
+  last-called)
+
+(defun secretary--get-associated-struct (fn)
+  (--find (equal fn (secretary-querier-fn it)) secretary-queriers))
+
+(defun secretary--get-entries-in-tsv (path &optional ts)
+  (with-temp-buffer
+    (insert-file-contents-literally path)
+    (let (x)
+      (while (search-forward (ts-format "%F" ts) nil t)
+        (push (split-string (buffer-substring (line-beginning-position)
+					      (line-end-position))
+			    "\t")
+              x)
+	(goto-char (line-end-position)))
+      x)))
+
+(defun secretary-do-query-maybe (fn &optional ts)
+  (let* ((q (secretary--get-associated-struct fn))
+	 (last-called (secretary-querier-last-called q))
+	 (min-hrs (secretary-querier-min-hours-wait q))
+	 (file (secretary-querier-log-file q))
+	 (max-entries (secretary-querier-max-entries-per-day q)))
+    (when (or (null max-entries)
+	      (> max-entries (length (secretary--get-entries-in-tsv file ts))))
+      (when (or (null last-called)
+		(< min-hrs (/ (ts-diff (ts-now) last-called) 60 60)))
+	(setf (secretary-querier-last-called q) (ts-now))
+	(funcall fn)))))
+
+(defvar secretary-queriers
+  "To be customized by user."
+  (list (secretary-querier-create :fn #'secretary-query-sleep
+				  :log-file "/home/kept/Self_data/sleep.tsv"
+				  :min-hours-wait 5)
+	(secretary-querier-create :fn #'secretary-query-weight
+				  :log-file "/home/kept/Self_data/weight.tsv"
+				  :max-entries-per-day 1)
+	(secretary-querier-create :fn #'secretary-query-mood
+				  :log-file "/home/kept/Self_data/mood.tsv")
+	(secretary-querier-create :fn #'secretary-query-ingredients
+				  :log-file "/home/kept/Self_data/ingredients.tsv"
+				  :min-hours-wait 5)
+	(secretary-querier-create :fn #'secretary-query-cold-shower
+				  :log-file "/home/kept/Self_data/cold.tsv"
+				  :max-entries-per-day 1)))
+
+(defvar secretary--inactive-queries-file
+  "/home/kept/Emacs/secretary/pseudo-userdir/inactive-queries.el")
+
+;; TODO: move to read/save on disk functions
+(defvar secretary--active-queries
+  (let* ((all (-map #'secretary-querier-fn secretary-queriers))
+	 (inactive (read (f-read secretary--inactive-queries-file))))
+    (-difference all inactive)))
+
+;; Call all queries.
+(defun secretary--call2 ()
+  (dolist (x secretary--active-queries)
+    (secretary--do-query-maybe x)))
+
+;; (secretary-do-query-maybe #'secretary-query-weight)
+
+
 
 (defun secretary-play-chime ()
   (and (executable-find "aplay")
@@ -259,9 +323,6 @@ using.")
                       (org-id-goto (car x))
                       (-last-item (org--get-outline-path-1)))))))
 
-;; TODO: Show when the user types a noncommittal "k" for "okay". User should
-;; have room to express shades of feeling, even if we don't do anything with
-;; it.
 (defun secretary-prompt (&rest strings)
   (let* (;; (default-y-or-n-p-map y-or-n-p-map)
          ;; (default-cmd (lookup-key y-or-n-p-map (kbd "k")))
@@ -275,17 +336,32 @@ using.")
           (secretary-emit prompt)
           (define-key y-or-n-p-map (kbd "o") #'secretary-special-handle-current-query)
           (define-key y-or-n-p-map (kbd "i") #'secretary-special-handle-current-query)
-          (define-key y-or-n-p-map (kbd "k") #'y-or-n-p-insert-y)
-          (if (y-or-n-p prompt)
-              (progn
-                (insert " y" "\n")
-                t)
-            (insert " n" "\n")
-            nil))
+          (define-key y-or-n-p-map (kbd "k") #'secretary--y-or-n-p-insert-k)
+	  (let ((result (y-or-n-p prompt)))
+		(if secretary--k
+		    (progn
+		      (setq secretary--k nil)
+		      (insert " Okay. \n")
+		      t)
+		  (if result
+		      (progn
+			(insert " Yes" "\n")
+			t)
+		    (insert " n" "\n")
+		    nil))))
       (dolist (x '("o" "i" "k"))
         (define-key y-or-n-p-map (kbd x) #'y-or-n-p-insert-other)))))
 ;; (secretary-prompt "Test")
 ;; (y-or-n-p "Test")
+
+(defvar secretary--k nil)
+(defun secretary--y-or-n-p-insert-k ()
+  "Mostly like `y-or-n-p-insert-y'."
+  (interactive)
+  (delete-minibuffer-contents)
+  (insert "y")
+  (setq secretary--k t)
+  (exit-minibuffer))
 
 (defun secretary--idle-seconds ()
   "Stub to be redefined."
@@ -798,23 +874,6 @@ of `secretary-greeting'. Mutually exclusive with
       (secretary-emit "Weight today: " (secretary-last-value-in-tsv path) " kg"))
     (sit-for secretary-sit-short)))
 
-;; (defun secretary-query-weight ()
-;;   (interactive)
-;;   (with-temp-buffer
-;;     (let* ((require-final-newline nil)
-;;            (last-wt (progn (insert-file-contents "/home/kept/Self_data/weight.csv")
-;;                            (goto-char (point-max))
-;;                            (search-backward ",")
-;;                            (forward-char)
-;;                            (buffer-substring (point) (line-end-position))))
-;;            (wt (completing-read "What do you weigh today? " nil nil nil last-wt))
-;;            (newline-maybe (if (string= "\n" (buffer-substring (- (point-max) 1) (point-max)))
-;;                               ""
-;;                             "\n")))
-;;       (if (= 0 (string-to-number wt))
-;;           (secretary-emit "Ok, I'll ask you later.")
-;;         (f-append (concat newline-maybe (ts-format "%F") "," wt) 'utf-8 "/home/kept/Self_data/weight.csv")))))
-
 (defun secretary-check-yesterday-sleep ()
   (let* ((today-rows (secretary-get-all-today-in-date-indexed-csv
 	       "/home/kept/Self_data/sleep.tsv" (ts-dec 'day 1 (ts-now))))
@@ -979,6 +1038,7 @@ are minutes and numbers below are hours."
     (secretary-welcome)))
 ;;(secretary-call-from-reschedule)
 
+;; TODO: Don't re-ask the same questions the neglect-check asked.
 ;; TODO: Show the results of changing date via `secretary-special-handle-current-query'.
 (defun secretary-welcome (&optional just-idled-p)
   (setq secretary--date (ts-now))
@@ -1145,7 +1205,9 @@ When DATE is nil, use today.
 When DIR is nil, use `org-journal-dir'.
 When FILE-FORMAT is nil, use `org-journal-file-format'."
   (let* ((dir (or dir org-journal-dir))
-	 (file-format (or file-format org-journal-file-format))
+	 (file-format (or file-format (and (boundp 'org-journal-file-type)
+					   (eq org-journal-file-type 'daily)
+					   org-journal-file-format)))
 	 (file (--find (string-match-p
 			(ts-format file-format date) it)
                        (directory-files dir))))
@@ -1172,11 +1234,11 @@ When FILE-FORMAT is nil, use `org-journal-file-format'."
 ;; TODO: try creating a sparse tree, so user can edit in-place
 ;; TODO: show also the agenda for each date if not empty
 ;;;###autoload
-(defun secretary-present-diary (&optional _date)
+(defun secretary-present-diary (&optional date)
   (interactive)
   (let* ((buffer (get-buffer-create (concat "*" secretary-ai-name ": Selected diary entries*")))
-         (dates-to-check (funcall secretary-past-sample-function))
-         (discrete-files-found (--keep (secretary-existing-diary "/home/kept/Diary" it) dates-to-check))
+         (dates-to-check (funcall secretary-past-sample-function date))
+         (discrete-files-found (--keep (secretary-existing-diary it "/home/kept/Diary") dates-to-check))
          (datetree-found-count (secretary-make-indirect-datetree buffer dates-to-check))
          (total-found-count (+ (length discrete-files-found) datetree-found-count)))
     (if (secretary-prompt "Found " (int-to-string total-found-count) " past diary "
@@ -1195,8 +1257,6 @@ When FILE-FORMAT is nil, use `org-journal-file-format'."
 
 
 ;;;; Handle idling & reboots & crashes
-;; Refactor? Make it easier to write unit tests that don't need to wait 60
-;; seconds.
 
 (defvar secretary--timer nil)
 
@@ -1274,40 +1334,6 @@ separate function from `secretary--user-is-active'."
       (setq secretary--idle-beginning (ts-now))
       (secretary--start-next-timer))))
 
-;; TODO
-;; Test: save ts-now, wait, run secretary--user-is-active, compare.
-;; Use a special function that runs the timers very fast for testing.
-;; (ert-deftest idle-beginning-does-update ()
-;;   (lambda (&optional force-idle)
-;;     (if (or force-idle (secretary-idle-p))
-;; 	(setq secretary--timer (run-with-timer 1 nil #'secretary--user-is-idle)))
-;;     (setq secretary--timer (run-with-timer 1 nil #'secretary--user-is-active)))
-;;   )
-
-
-;; TODO: Watch for secretary--timer dying and alert the user. Ask user about
-;; respawning it.
-
-;; we could simply use catch and throw in the body of the timer's function to
-;; ensure it respawns itself
-
-
-;; TODO: use length-of-last-idle to check it's not that i just restarted emacs.
-;; relevant: this will mainly (only?) run on init after setting length of last
-;; idle time.  so if length is very short, i probably just restarted emacs and
-;; should start the secretary.
-;; can we simply check for the presence of other emacs processes?
-;;
-;; relevant: there are probably people with the usage pattern of starting a new
-;; emacs before they kill the old one. also there are people who run an
-;; ERC-dedicated emacs all the time.  should the secretary mode just stay on
-;; and wait for other emacsen to die before starting up its work?
-(defun secretary--another-secretary-running-p ()
-  (when (file-exists-p "/tmp/secretary/pid")
-    (let ((pid (string-to-number (f-read "/tmp/secretary/pid" 'utf-8))))
-      (and (/= pid (emacs-pid))
-	   (member pid (list-system-processes))))))
-
 (defun secretary--keepalive ()
   (unless (member (named-timer-get :secretary) timer-list)
     (message "[%s] secretary timer found dead, reviving it."
@@ -1315,6 +1341,12 @@ separate function from `secretary--user-is-active'."
     (secretary--start-next-timer)))
 
 
+
+(defun secretary--another-secretary-running-p ()
+  (when (file-exists-p "/tmp/secretary/pid")
+    (let ((pid (string-to-number (f-read-bytes "/tmp/secretary/pid"))))
+      (and (/= pid (emacs-pid))
+	   (member pid (list-system-processes))))))
 
 (defun secretary--restore-variables-from-disk ()
   (when (f-exists-p secretary-idle-beginning-file-name)

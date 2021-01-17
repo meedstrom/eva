@@ -27,6 +27,7 @@ my_packages <- c(
   "lubridate", "patchwork", "usethis", "testthat", "ggthemes"
 )
 missing <- setdiff(my_packages, rownames(installed.packages()))
+
 install.packages(missing, dependencies = T, source = T)
 
 fast_strptime("2020-12-12 10:00", "%Y-%m-%d %H:%M")
@@ -47,9 +48,10 @@ as_datetime("2020-12-12T10:00:00+0100", tz = "+0100")
 ##   arrange(date)
 
 
-%>%
-  mutate(sleep_hrs = as.period(sleep_hrs)) %>%
-  mutate(sleep_block = interval(end = time, start = time - hour(sleep_hrs)))
+
+mutate(sleep_hrs = as.period(sleep_hrs)) %>%
+  mutate(sleep_block = interval(end = time, start = time - hour(sleep_hrs))) %>%
+  sdfsdfg
 
 
 # so what do we model?
@@ -76,14 +78,14 @@ activity ~ weight + mood_score + sleep_hrs
 # buffer change will coincide exactly with the measurement.
 
 
-d <- read_csv("/home/kept/Self_data/buffers.csv",
+d <- read_tsv("/home/kept/Self_data/buffer-existence.tsv",
               col_names = c("uuid", "buf_name", "file", "mode", "created")) %>%
   mutate(created = as_datetime(created))
 d
 
 d$buf_name
 
-# This is where 80% of the magic happens. When unsure, just don't classify,
+# This is where most of the magic happens. When unsure, just don't classify,
 # leave a NA. Also, the categories don't need to map to your clock categories.
 # Ideally the categories here are slighly more granular. Imagine you change the
 # clock categories later, these should remain meaningful to the modelling
@@ -112,7 +114,7 @@ d2 <- d %>%
     str_detect(file, "/home/kept/Code") ~ "coding",
     str_detect(file, "/home/kept/Guix") ~ "OS",
     str_detect(file, "/home/kept/Dotfiles") ~ "OS",
-    str_detect(file, "/home/kept/Private dotfiles") ~ "OS",
+    str_detect(file, "/home/kept/Private.dotfiles") ~ "OS",
     str_detect(file, "/home/kept/Coursework") ~ "studying",
     str_detect(file, "/home/kept/Flashcards") ~ "studying",
     str_detect(file, "/home/kept/Diary") ~ "org",
@@ -120,6 +122,7 @@ d2 <- d %>%
     str_detect(file, "/home/me/bin") ~ "coding",
     str_detect(file, "/home/me/\\.") ~ "OS",
     str_detect(mode, "emacs-lisp-mode|lisp") ~ "emacs",
+    str_detect(mode, "prog-mode") ~ "coding",
     str_detect(mode, "^org") ~ "org",
     str_detect(mode, "ess") ~ "coding"
   ))
@@ -128,7 +131,7 @@ d2 <- d %>%
 #       to ask what buffer was active at a specific time and not risk hitting
 #       one of the gaps. This can be done either by including the subsecond
 #       intervals we deleted, or extending their neighbors.
-d3 <- read_csv("/home/kept/Self_data/buffer-focus.csv",
+d3 <- read_tsv("/home/kept/Self_data/buffer-focus.tsv",
          col_names = c("focused_in", "uuid")) %>%
   mutate(focused_in = as_datetime(focused_in)) %>%
   mutate(activity = factor("Unknown",
@@ -138,8 +141,8 @@ d3 <- read_csv("/home/kept/Self_data/buffer-focus.csv",
   left_join(d2)
 
 test_that("there's no overlap", {
-  block <- as_tibble_col(d3$focused_block)
-  overlap <- map2(block, lead(block), int_overlaps)
+  time_block <- as_tibble_col(d3$focused_block)
+  overlap <- map2(time_block, lead(time_block), int_overlaps)
   overlap_without_last_na <- unlist(unname(overlap)) %>% head(-1)
   expect_false(
     any(overlap_without_last_na)

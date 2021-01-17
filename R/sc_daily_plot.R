@@ -17,22 +17,24 @@ source("sc_common.R")
 #theme_set(theme_solarized(light = FALSE))
 theme_set(theme_hc(style = "darkunica"))
 
+WIDTH <- 10
 WIDTH <- as.numeric(commandArgs(TRUE)[[1]])
+BY <- -0.1
 BY <- as.numeric(commandArgs(TRUE)[[2]])
 
 #wt <- read_csv("/home/kept/Self_data/weight.csv", col_names = c("date", "weight_kg"))
 
-wt <- lazy_dt(read_tsv("/home/kept/Self_data/weight.tsv",
-                       col_names = c("posted", "weight_kg"))) %>%
+wt <- read_tsv("/home/kept/Self_data/weight.tsv",
+               col_names = c("posted", "weight_kg")) %>%
   mutate(posted = as_datetime(posted)) %>%
-  mutate(weighed = posted)
+  mutate(weighed = as_date(posted))
 
 projected_wt <-
   tibble(weight_kg = seq(from = 85, to = 59, by = BY)) %>%
-  mutate(date = today() + days(row_number())) %>%
-  mutate(note = if_else(mday(date) == 1, weight_kg, NULL))
+  mutate(weighed = today() + days(row_number())) %>%
+  mutate(note = if_else(mday(weighed) == 1, weight_kg, NULL)) # for geom_text
 
-ggplot(as_tibble(wt), aes(date, weight_kg)) +
+ggplot(as_tibble(wt), aes(weighed, weight_kg)) +
   ylim(75, 86) +
   scale_x_date(date_breaks = "1 month",
                date_labels = "%b", # %B for full month name
@@ -41,7 +43,7 @@ ggplot(as_tibble(wt), aes(date, weight_kg)) +
   geom_point() +
   geom_point(data = projected_wt, color = "blue") +
   geom_vline(xintercept = ymd("2020-06-01") + months(0:12), color = "#555555") +
-  geom_text(data = projected_wt, aes(date, weight_kg, label = note))
+  geom_text(data = projected_wt, aes(weighed, weight_kg, label = note))
 
 ggsave("/tmp/secretary/sc_plot1.png",
        height = 5,
@@ -50,15 +52,16 @@ ggsave("/tmp/secretary/sc_plot1.png",
        dpi = 96)
 
 mood <- read_tsv("/home/kept/Self_data/mood.tsv",
-                 col_names = c("unix", "_", "mood_score", "mood_desc")) %>%
-  mutate(time = as_datetime(unix)) %>%
-  select(time, mood_score, mood_desc)
+                 col_names = c("time", "mood_score", "mood_desc")) %>%
+  mutate(time = as_datetime(time)) %>%
+  drop_na(mood_score)
 mood
 
-ggplot(mood, aes(date, mood_score, label = mood_desc)) +
-  scale_x_date(date_breaks = "2 days",
-               ## date_labels = "%B",
-               limits = c(ymd("2020-12-19"), today() + days(1))) +
+ggplot(mood, aes(time, mood_score, label = mood_desc)) +
+  scale_x_datetime(date_breaks = "2 days",
+                   ## date_labels = "%B",
+                   limits = c(now() - days(7),
+                              now() + days(1))) +
   ylim(1, 5) +
   labs(y = NULL, x = NULL) +
   geom_point() +

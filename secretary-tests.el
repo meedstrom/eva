@@ -18,6 +18,17 @@
 
 ;;; Code:
 
+;; TODO
+;; Test: save ts-now, wait, run secretary--user-is-active, compare.
+;; Use a special function that runs the timers very fast for testing.
+;; (ert-deftest idle-beginning-does-update ()
+;;   (lambda (&optional force-idle)
+;;     (if (or force-idle (secretary-idle-p))
+;; 	(setq secretary--timer (run-with-timer 1 nil #'secretary--user-is-idle)))
+;;     (setq secretary--timer (run-with-timer 1 nil #'secretary--user-is-active)))
+;;   )
+
+
 (ert-deftest ts-usage ()
   (let ((now (ts-now)))
     (should (equal (ts-dec 'month 12 now)
