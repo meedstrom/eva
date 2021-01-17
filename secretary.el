@@ -264,6 +264,8 @@ using.")
       x)))
 
 (defun secretary-do-query-maybe (fn &optional ts ignore-wait)
+  "Call the query function FN if appropriate.
+Do nothing if recently logged, reached max-entries-per-day, etc."
   (let* ((q (secretary--get-associated-struct fn))
 	 (last-called (secretary-querier-last-called q))
 	 (min-hrs (secretary-querier-min-hours-wait q))
@@ -283,11 +285,11 @@ using.")
 		  (null last-called)
 		  (< min-hrs (/ (ts-diff (ts-now) last-called) 60 60)))
 	  (setf (secretary-querier-last-called q) (ts-now))
-	  (funcall fn))))))
+	  (funcall fn ts))))))
 
-(defun test ()
-  (interactive)
-  (secretary-do-query-maybe #'secretary-query-sleep nil t))
+;; (defun test ()
+;;   (interactive)
+;;   (secretary-do-query-maybe #'secretary-query-sleep nil t))
 
 (defvar secretary-queriers
   "To be customized by user."
@@ -314,8 +316,6 @@ using.")
   (let* ((all (-map #'secretary-querier-fn secretary-queriers))
 	 (inactive (read (f-read secretary--inactive-queries-file))))
     (-difference all inactive)))
-
-;; (secretary-do-query-maybe #'secretary-query-weight)
 
 
 
@@ -723,8 +723,6 @@ of `secretary-greeting'. Mutually exclusive with
 
 (defvar secretary-known-buffers nil)
 
-;; (defvar secretary-buffer-focus-log nil)
-
 ;; TODO: recreate buffer upon disabling and reenabling secretary-mode
 (defvar secretary-buffer-focus-log-buffer
   (get-buffer-create
@@ -742,17 +740,15 @@ of `secretary-greeting'. Mutually exclusive with
     "\t" (number-to-string (/ (round secretary-length-of-last-idle) 60))))
 
 (defun secretary--save-buffer-logs-to-disk ()
-  (cl-letf ((inhibit-message t)
-	    (message (lambda (&rest _))))
-    (secretary--transact-buffer-onto-file secretary-buffer-focus-log-buffer
-			       "/home/kept/Self_data/buffer-focus.tsv")
-    (secretary--transact-buffer-onto-file secretary-buffer-existence-log-buffer
-			       "/home/kept/Self_data/buffer-existence.tsv")))
+  (secretary--transact-buffer-onto-file secretary-buffer-focus-log-buffer
+					"/home/kept/Self_data/buffer-focus.tsv")
+  (secretary--transact-buffer-onto-file secretary-buffer-existence-log-buffer
+					"/home/kept/Self_data/buffer-existence.tsv"))
 
 (defun secretary--transact-buffer-onto-file (buffer path)
   (with-current-buffer buffer
     (whitespace-cleanup)
-    (append-to-file (point-min) (point-max) path)
+    (f-append-text (buffer-string) 'utf-8 path)
     ;; TODO: delete region only if appending was successful
     (delete-region (point-min) (point-max))))
 
@@ -782,21 +778,14 @@ of `secretary-greeting'. Mutually exclusive with
           (push buffer-record secretary-known-buffers)
 	  (with-current-buffer secretary-buffer-existence-log-buffer
 	    (goto-char (point-max))
-	    (insert "\n" (string-join (cdr buffer-record) "\t")))
-	  ;; (secretary-append "/home/kept/Self_data/buffers.tsv"
-	  ;;   (string-join (cdr buffer-record) "\t"))
-	  )
-        ;; (push focus-record secretary-buffer-focus-log)
+	    (insert "\n" (string-join (cdr buffer-record) "\t"))))
 	(with-current-buffer secretary-buffer-focus-log-buffer
 	  (goto-char (point-max))
-	  (insert "\n" (string-join focus-record "\t")))
-        ;; (secretary-append "/home/kept/Self_data/buffer-focus.tsv"
-	;;   (string-join focus-record "\t"))
-	))))
+	  (insert "\n" (string-join focus-record "\t")))))))
 
 ;; TODO: make the dataset append-only
 ;;;###autoload
-(defun secretary-query-ingredients ()
+(defun secretary-query-ingredients (&optional ts)
   (interactive)
   (let* ((response (read-string "Comma-separated list of ingredients: "))
          (formatted-response (->> response
@@ -805,7 +794,7 @@ of `secretary-greeting'. Mutually exclusive with
                                   (s-replace "\"" "'")))
          (path "/home/kept/Self_data/ingredients.tsv"))
     (secretary-append path
-		      (ts-format "%F")
+		      (ts-format ts)
 		      "\t" "\"" formatted-response "\"")
     (secretary-emit "Recorded so far today: "
 		    (s-replace "^.*?," ""
@@ -836,15 +825,16 @@ of `secretary-greeting'. Mutually exclusive with
 	     :id "ac93c132-ab74-455f-a456-71d7b5ee88a6"
 	     :cost-false-pos 3
 	     :cost-false-neg 3
-	     :querier #'secretary-query-sleep)
+	     :query #'secretary-query-sleep)
 	    (secretary-activity-create
 	     :name "studying"
 	     :id "24553859-2214-4fb0-bdc9-84e7f3d04b2b"
 	     :cost-false-pos 8
-	     :cost-false-neg 8)))
+	     :cost-false-neg 8)
+	    ))
 
 (defun secretary-random-p (&rest _args)
-  "Return t or nil at random."
+  "Return t or nil, at random."
   (declare (side-effect-free t))
   (> 0 (random)))
 
@@ -917,7 +907,7 @@ of `secretary-greeting'. Mutually exclusive with
 ;;       at 01:00. Notice the unusual hour change and ask if user meant 23
 ;;       yesterday.
 ;;;###autoload
-(defun secretary-query-sleep ()
+(defun secretary-query-sleep (&optional ts)
   "Query you for wake-up time and sleep quantity for one sleep block today.
 You are free to decline either query, but you should not later
 register sleep quantity from this same block in order to \"get
@@ -927,7 +917,7 @@ having an unknown nonzero quantity of sleep on top of what you
 add."
   (interactive)
   (secretary-check-yesterday-sleep)
-  (let* ((now (ts-now))
+  (let* ((now (or ts (ts-now)))
          (wakeup-time
           (if (secretary-prompt "Did you wake around now?")
               (ts-dec 'minute 10 now)
@@ -955,6 +945,33 @@ add."
 		      "\t" (ts-format "%F" secretary--date)
 		      "\t" (when wakeup-time (ts-format "%T" wakeup-time))
 		      "\t" (number-to-string sleep-minutes))))
+
+;; WIP
+(defun secretary-read (prompt collection default)
+  (let* ((background-info (concat "Applying to date: "
+				  (ts-format "%Y-%B-%d" secretary--date) "\n"
+				  secretary--last-msg "\n"
+				  ))
+	 (extra-collection '("Skip to presentations"
+			     "Don't disturb me"))
+	 (prompt2 (concat (ts-format "[%H:%M] ") prompt))
+	 (result (completing-read (concat background-info
+					  prompt2
+					  (when default
+					    " (default " default "): "))
+				  (append collection extra-collection)
+				  nil nil nil nil
+				  default)))
+    (setq secretary--last-msg prompt2)
+    (secretary-emit prompt) ;; TODO: use prompt2
+    (if (string-match-p "skip" result)
+	(progn
+	  ;; (minibuffer-keyboard-quit)
+	  (secretary-present-diary)
+	  (keyboard-quit))
+      result)))
+
+;; (secretary-read "question" nil nil)
 
 (defun secretary-query-meditation (&optional date)
   (interactive)
