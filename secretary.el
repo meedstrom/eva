@@ -263,18 +263,31 @@ using.")
 	(goto-char (line-end-position)))
       x)))
 
-(defun secretary-do-query-maybe (fn &optional ts)
+(defun secretary-do-query-maybe (fn &optional ts ignore-wait)
   (let* ((q (secretary--get-associated-struct fn))
 	 (last-called (secretary-querier-last-called q))
 	 (min-hrs (secretary-querier-min-hours-wait q))
+	 (min-secs (* 60 60 min-hrs))
 	 (file (secretary-querier-log-file q))
-	 (max-entries (secretary-querier-max-entries-per-day q)))
-    (when (or (null max-entries)
-	      (> max-entries (length (secretary--get-entries-in-tsv file ts))))
-      (when (or (null last-called)
-		(< min-hrs (/ (ts-diff (ts-now) last-called) 60 60)))
-	(setf (secretary-querier-last-called q) (ts-now))
-	(funcall fn)))))
+	 (max-entries (secretary-querier-max-entries-per-day q))
+	 (recently-logged
+	  (when (file-exists-p file)
+	    (> min-secs
+	       (ts-diff (ts-now)
+			(ts-parse (car (secretary--last-in-tsv file))))))))
+    (unless (and recently-logged (null ts))
+      (when (or (null max-entries)
+		(not (file-exists-p file))
+		(> max-entries (length (secretary--get-entries-in-tsv file ts))))
+	(when (or ignore-wait
+		  (null last-called)
+		  (< min-hrs (/ (ts-diff (ts-now) last-called) 60 60)))
+	  (setf (secretary-querier-last-called q) (ts-now))
+	  (funcall fn))))))
+
+(defun test ()
+  (interactive)
+  (secretary-do-query-maybe #'secretary-query-sleep nil t))
 
 (defvar secretary-queriers
   "To be customized by user."
@@ -302,11 +315,6 @@ using.")
 	 (inactive (read (f-read secretary--inactive-queries-file))))
     (-difference all inactive)))
 
-;; Call all queries.
-(defun secretary--call2 ()
-  (dolist (x secretary--active-queries)
-    (secretary--do-query-maybe x)))
-
 ;; (secretary-do-query-maybe #'secretary-query-weight)
 
 
@@ -323,10 +331,13 @@ using.")
                       (org-id-goto (car x))
                       (-last-item (org--get-outline-path-1)))))))
 
+(defvar secretary--last-msg (ts-format "[%H:%M] Recorded blah"))
 (defun secretary-prompt (&rest strings)
   (let* (;; (default-y-or-n-p-map y-or-n-p-map)
          ;; (default-cmd (lookup-key y-or-n-p-map (kbd "k")))
-         (prompt (string-join strings)))
+	 (info (concat "Applying to date: " (ts-format "%Y-%B-%d" secretary--date) "\n"
+		       secretary--last-msg "\n"))
+	 (prompt (string-join strings)))
     (unwind-protect
         (progn
           (switch-to-buffer (secretary-buffer-chat))
@@ -337,18 +348,21 @@ using.")
           (define-key y-or-n-p-map (kbd "o") #'secretary-special-handle-current-query)
           (define-key y-or-n-p-map (kbd "i") #'secretary-special-handle-current-query)
           (define-key y-or-n-p-map (kbd "k") #'secretary--y-or-n-p-insert-k)
-	  (let ((result (y-or-n-p prompt)))
-		(if secretary--k
-		    (progn
-		      (setq secretary--k nil)
-		      (insert " Okay. \n")
-		      t)
-		  (if result
-		      (progn
-			(insert " Yes" "\n")
-			t)
-		    (insert " n" "\n")
-		    nil))))
+	  (let ((result (y-or-n-p (concat info prompt))))
+	    (if secretary--k
+		(progn
+		  (setq secretary--k nil)
+		  (insert " Okay")
+		  t)
+	      (if result
+		  (progn
+		    (insert " Yes")
+		    t)
+		(insert " No")
+		nil)))
+	  (setq secretary--last-msg (buffer-substring (line-beginning-position)
+						      (line-end-position)))
+	  (insert "\n"))
       (dolist (x '("o" "i" "k"))
         (define-key y-or-n-p-map (kbd x) #'y-or-n-p-insert-other)))))
 ;; (secretary-prompt "Test")
@@ -444,6 +458,16 @@ using.")
 
 ;; (defun secretary-update-or-append-in-date-indexed-csv (path &optional ts)
 ;;   (secretary-get-first-today-in-date-indexed-csv path ts))
+
+(defun secretary--last-in-tsv (path)
+  (with-temp-buffer
+    (insert-file-contents path)
+    (goto-char (point-max))
+    (when (looking-back "^") ;; if empty line
+      (forward-line -1))
+    (split-string (buffer-substring (line-beginning-position)
+				    (line-end-position))
+		  "\t")))
 
 ;; REVIEW
 (defun secretary-get-first-today-in-date-indexed-csv (path &optional ts)
@@ -1005,6 +1029,15 @@ are minutes and numbers below are hours."
 
 
 ;;;; Welcomers
+
+;; TODO: Also call presenters &c.
+;; Call all queries, new version.
+(defun secretary--call2 ()
+  (interactive)
+  (setq secretary--date (ts-now))
+  (secretary-with-frame
+   (dolist (x secretary--active-queries)
+     (secretary-do-query-maybe x secretary--date (interactive-p)))))
 
 (defun secretary-call (&optional arg)
   "Call your secretary. Useful when you're unsure what to do."
