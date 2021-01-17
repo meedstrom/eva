@@ -971,6 +971,19 @@ add."
 	  (keyboard-quit))
       result)))
 
+(defun secretary--visual-chime ()
+  (let ((orig-fringe-bg (face-background 'fringe)))
+    (set-face-attribute 'fringe nil :background "green")
+    (run-with-timer .2 nil (lambda () (set-face-attribute 'fringe nil :background "#aca")))
+    (run-with-timer .3 nil (lambda () (set-face-attribute 'fringe nil :background "#7a7")))
+    (run-with-timer .4 nil (lambda () (set-face-attribute 'fringe nil :background "#696")))
+    (run-with-timer .5 nil (lambda () (set-face-attribute 'fringe nil :background "#363")))
+    (run-with-timer .6 nil (lambda () (set-face-attribute 'fringe nil :background orig-fringe-bg)))))
+
+;; (secretary--chime-visual)
+;; (secretary--chime-aural)
+
+;; (set-face-attribute 'fringe nil :foreground "grey")
 ;; (secretary-read "question" nil nil)
 
 (defun secretary-query-meditation (&optional date)
