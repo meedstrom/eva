@@ -574,17 +574,24 @@ do so again."
 
 (defun secretary-greeting ()
   "Return a greeting string."
-  ;; If it's morning, always use a variant of "good morning"
-  (if (> 10 (ts-hour (ts-now)) 5)
-      (seq-random-elt (secretary--daytime-appropriate-greetings))
-    (eval (seq-random-elt (append secretary-greetings
-                                  (-list (secretary--daytime-appropriate-greetings)))))))
+  (let ((bday (ts-parse secretary-user-birthday)))
+    (cond ((ts-in bday bday (ts-now))
+	   (concat "Happy birthday, " secretary-user-name "."))
+	  ;; If it's morning, always use a variant of "good morning"
+	  ((> 10 (ts-hour (ts-now)) 5)
+	   (eval (seq-random-elt (secretary--daytime-appropriate-greetings))
+		 t))
+	  (t 
+	   (eval (seq-random-elt (append secretary-greetings
+					 (-list (secretary--daytime-appropriate-greetings))))
+		 t)))))
 ;; (secretary-greeting)
 
 ;; NOTE: I considered making external variables for morning, day and evening
-;; lists, but users might also want to change the daytime boundaries or even add
-;; new boundaries. Too many possibilities, this is a case where it's ok to make
-;; the user override the defun as a primary means of customization.
+;;       lists, but users might also want to change the daytime boundaries or
+;;       even add new boundaries. Too many possibilities, this is a case where
+;;       it's ok to make the user override the defun as a primary means of
+;;       customization.
 (defun secretary--daytime-appropriate-greetings ()
   (cond ((> 5 (ts-hour (ts-now)))
          (list "You're up late, Master."
