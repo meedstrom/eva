@@ -314,11 +314,12 @@ max-entries-per-day, etc."
 		    (insert " Yes.")
 		    t)
 		(insert " No.")
-		nil)))
-	  (setq secretary--last-msg (buffer-substring (line-beginning-position)
-						      (line-end-position)))
-	  (insert "\n")
-	  result)
+		nil))
+	    (setq secretary--last-msg (buffer-substring (line-beginning-position)
+							(line-end-position))))
+	  ;;(insert "\n")
+	  ;; result
+	  )
       (dolist (x '("o" "i" "k" "<SPC>"))
         (define-key y-or-n-p-map (kbd x) #'y-or-n-p-insert-other)))))
 ;; (secretary-prompt "Test")
@@ -639,6 +640,8 @@ of `secretary-greeting'. Mutually exclusive with
 					"/home/kept/Self_data/buffer-existence.tsv"))
 
 (defun secretary--transact-buffer-onto-file (buffer path)
+  (when-let ((visiting (get-file-buffer path)))
+    (kill-buffer visiting))
   (with-current-buffer buffer
     (whitespace-cleanup)
     (f-append-text (buffer-string) 'utf-8 path)
@@ -696,7 +699,7 @@ of `secretary-greeting'. Mutually exclusive with
 ;; (defalias #'secretary-query-food #'secretary-query-ingredients)
 
 ;;;###autoload
-(defun secretary-query-activity ()
+(defun secretary-query-activity (&optional _ts)
   (interactive)
   (when (called-interactively-p)
     (setq secretary--date (ts-now)))
