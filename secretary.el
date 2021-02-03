@@ -210,7 +210,8 @@ using.")
   max-entries-per-day
   (min-hours-wait 3)
   last-called
-  (rejections 0))
+  (rejections 0)
+  use-posted)
 
 (defun secretary--get-associated-struct (fn)
   (--find (equal fn (secretary-querier-fn it)) secretary-queriers))
@@ -233,16 +234,21 @@ Do nothing if it's been recently logged, reached its
 max-entries-per-day, etc."
   (let* ((q (secretary--get-associated-struct fn))
 	 (last-called (secretary-querier-last-called q))
-	 (min-hrs (secretary-querier-min-hours-wait q))
-	 (min-secs (* 60 60 min-hrs))
 	 (file (secretary-querier-log-file q))
 	 (max-entries (secretary-querier-max-entries-per-day q))
+	 (use-posted (secretary-querier-use-posted q))
+	 (min-hrs (secretary-querier-min-hours-wait q))
+	 (min-secs (* 60 60 min-hrs))
 	 (recently-logged
 	  (when (file-exists-p file)
 	    (> min-secs
-	       (ts-diff (ts-now)
-			(ts-parse (secretary-last-timestamp-in-tsv file)))))))
-    (unless (and recently-logged (null ts))
+	       (if use-posted
+		   (- (ts-unix (ts-now))
+		      (string-to-number (car (secretary--last-in-tsv file))))
+		 (ts-diff (ts-now)
+			  (ts-parse (secretary-last-timestamp-in-tsv file))))))))
+    (unless (and recently-logged
+		 (null ts))
       (when (or (null max-entries)
 		(not (file-exists-p file))
 		(> max-entries (length (secretary--get-entries-in-tsv file ts))))
@@ -259,7 +265,8 @@ max-entries-per-day, etc."
 (defvar secretary-queriers
   (list (secretary-querier-create :fn #'secretary-query-sleep
 				  :log-file "/home/kept/Self_data/sleep.tsv"
-				  :min-hours-wait 5)
+				  :min-hours-wait 5
+				  :use-posted t)
 	(secretary-querier-create :fn #'secretary-query-weight
 				  :log-file "/home/kept/Self_data/weight.tsv"
 				  :max-entries-per-day 1)
