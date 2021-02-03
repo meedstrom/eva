@@ -47,8 +47,6 @@
 (require 'named-timer)
 
 (autoload #'secretary-log-buffer "org-id")
-(autoload #'org-mac-idle-seconds "org-clock")
-(autoload #'org-x11-idle-seconds "org-clock")
 (autoload #'org-clock-in "org-clock")
 (autoload #'org-id-uuid "org-id")
 (autoload #'org-id-goto "org-id")
@@ -143,8 +141,7 @@ of messages. See also `secretary-sit-long' and
 ;; REVIEW: see that there's no problem if you delete secretary-dir
 (defvar secretary-mood-alist nil
   "For suggesting a score in the `secretary-log-mood' prompt.
-Merely a convenience for auto-completion; the scores are not
-forced.
+Merely a convenience for auto-completion.
 
 The variable populates itself through use, and syncs with a file
 at `secretary-mood-alist-file-name'.")
@@ -155,6 +152,7 @@ at `secretary-mood-alist-file-name'.")
 ;; 			 ("annoyed" . "3")
 ;; 			 ("depressed" . "1")))
 
+;; DEPRECATED
 (defvar secretary-tsv-alist
   '(("/home/kept/Self_data/weight.tsv" secretary-query-weight)
     ("/home/kept/Self_data/mood.tsv" secretary-query-mood)
@@ -163,11 +161,6 @@ at `secretary-mood-alist-file-name'.")
     ("/home/kept/Self_data/meditation.tsv" secretary-query-meditation)
     ("/home/kept/Self_data/cold.tsv" secretary-query-cold)))
 
-(defvar secretary-log-alist
-  '(("/home/kept/Self_data/buffers.tsv" secretary-log-buffer)
-    ("/home/kept/Self_data/buffer_focus.tsv" secretary-log-buffer)
-    ("/home/kept/Self_data/idle.tsv" secretary-log-idle)))
-
 (defvar secretary--date (ts-now)
   "Date to which to apply the current query.
 Can be set anytime during a welcome to override the date to which
@@ -175,14 +168,22 @@ some queries apply, for example to log something for yesterday.
 This may not apply, check the source for the welcomer you are
 using.")
 
-(defvar secretary-chime-sound-file
+(defcustom secretary-chat-log-file
+  (expand-file-name "chat-log.txt" secretary-dir)
+  "Where to save chat log across sessions. Can be nil."
+  :group 'secretary
+  :type 'string)
+
+(defcustom secretary-chime-audio-file
   (expand-file-name
    ;; From https://freesound.org/people/josepharaoh99/sounds/380482/
    "assets/Chime Notification-380482.wav"
    ;; From https://bigsoundbank.com/detail-0319-knock-on-a-glass-door-1.html
    ;; "assets/DOORKnck_Knock on a glass door 1 (ID 0319)_BSB.wav"
    (f-dirname (find-library-name "secretary")))
-  "Sound to play when a welcomer is triggered unannounced.")
+  "Sound to play when a welcomer is triggered unannounced."
+  :group 'secretary
+  :type 'string)
 
 (defvar secretary-greetings '("Welcome back, Master."
 			      (concat "Nice to see you again, " secretary-user-name ".")
@@ -196,20 +197,20 @@ using.")
   id
   cost-false-pos
   cost-false-neg
-  query-struct)
+  query)
 
 (defun secretary-activity-by-name (name)
   (declare (side-effect-free t))
   (--find (equal name (secretary-activity-name it)) secretary-activities))
 
-;; TODO: There's no need to use a name, the query-fn symbol can be its identifier.
 (cl-defstruct (secretary-querier (:constructor secretary-querier-create)
-			(:copier nil))
+				 (:copier nil))
   fn
   log-file
   max-entries-per-day
   (min-hours-wait 3)
-  last-called)
+  last-called
+  (rejections 0))
 
 (defun secretary--get-associated-struct (fn)
   (--find (equal fn (secretary-querier-fn it)) secretary-queriers))
@@ -228,7 +229,8 @@ using.")
 
 (defun secretary-do-query-maybe (fn &optional ts ignore-wait)
   "Call the query function FN if appropriate.
-Do nothing if recently logged, reached max-entries-per-day, etc."
+Do nothing if it's been recently logged, reached its
+max-entries-per-day, etc."
   (let* ((q (secretary--get-associated-struct fn))
 	 (last-called (secretary-querier-last-called q))
 	 (min-hrs (secretary-querier-min-hours-wait q))
@@ -255,7 +257,6 @@ Do nothing if recently logged, reached max-entries-per-day, etc."
 ;;   (secretary-do-query-maybe #'secretary-query-sleep nil t))
 
 (defvar secretary-queriers
-  "To be customized by user."
   (list (secretary-querier-create :fn #'secretary-query-sleep
 				  :log-file "/home/kept/Self_data/sleep.tsv"
 				  :min-hours-wait 5)
@@ -269,7 +270,8 @@ Do nothing if recently logged, reached max-entries-per-day, etc."
 				  :min-hours-wait 5)
 	(secretary-querier-create :fn #'secretary-query-cold-shower
 				  :log-file "/home/kept/Self_data/cold.tsv"
-				  :max-entries-per-day 1)))
+				  :max-entries-per-day 1))
+    "To be customized by user.")
 
 (defvar secretary--inactive-queries-file
   "/home/kept/Emacs/secretary/pseudo-userdir/inactive-queries.el")
@@ -282,15 +284,17 @@ Do nothing if recently logged, reached max-entries-per-day, etc."
 
 
 
-(defun secretary-play-chime ()
+(defun secretary--chime-audio ()
   (and (executable-find "aplay")
-       (file-exists-p secretary-chime-sound-file)
-       (start-process "aplay" nil "aplay" secretary-chime-sound-file)))
+       (file-exists-p secretary-chime-audio-file)
+       (start-process "aplay" nil "aplay" secretary-chime-audio-file)))
 
 (defun secretary-activities-names ()
   (-map #'secretary-activity-name secretary-activities))
 
 (defvar secretary--last-msg (ts-format "[%H:%M] Recorded blah"))
+(defvar secretary--last-msg-2 "")
+
 (defun secretary-prompt (&rest strings)
   (let* (;; (default-y-or-n-p-map y-or-n-p-map)
          ;; (default-cmd (lookup-key y-or-n-p-map (kbd "k")))
@@ -448,7 +452,6 @@ Do nothing if recently logged, reached max-entries-per-day, etc."
 
 ;; WONTFIX: check for recent activity (if user awake thru the night)
 (defun secretary-logged-today (file)
-  (declare (side-effect-free t))
   (when (file-exists-p file)
     ;; don't act like it's a new day if the time is <5am.
     (let ((day (if (> 5 (ts-hour (ts-now)))
@@ -507,6 +510,7 @@ load org."
       (current-buffer))))
 
 (defvar secretary--frame nil)
+
 (defmacro secretary--raise-frame-and-do (&rest body)
   `(progn
      (and (frame-live-p secretary--frame)
@@ -517,13 +521,15 @@ load org."
      (select-frame-set-input-focus secretary--frame t)
      ,@body))
 
+;; We choose tab-separated values.
 ;; The IANA standard disallows tabs within fields, simplifying sanity checks.
 ;; https://www.iana.org/assignments/media-types/text/tab-separated-values
 (defun secretary-append-tsv (path &rest fields)
-  "Append a line to the file located at PATH, creating it and its
-parent directories if it doesn't exist, and making sure it begins
-on a newline. Treat each form in FIELDS as a separate data
-field, inserting a tab character in between."
+  "Append a line to the file located at PATH.
+Create the file and its parent directories if it doesn't exist,
+and make sure the line begins on a newline.  Treat each argument
+in FIELDS... as a separate data field, inserting a tab character
+in between, and warn if a field contains a tab character."
   (declare (indent defun))
   (unless (file-exists-p path)
     (make-empty-file path t))
@@ -717,7 +723,7 @@ of `secretary-greeting'. Mutually exclusive with
 (defun secretary-log-buffer (&optional _arg)
   (unless (minibufferp)
     (let* ((buf (current-buffer))
-           (mode (symbol-name (secretary-buffer-mode buf)))
+           (mode (symbol-name (buffer-local-value 'major-mode buf)))
            (known (assoc buf secretary-known-buffers))
            (timestamp (s-pad-right 18 "0" (number-to-string (ts-unix (ts-now)))))
            (buffer-record (unless (and known
@@ -786,6 +792,7 @@ of `secretary-greeting'. Mutually exclusive with
 	     :cost-false-pos 3
 	     :cost-false-neg 3
 	     :query #'secretary-query-sleep)
+
 	    (secretary-activity-create
 	     :name "studying"
 	     :id "24553859-2214-4fb0-bdc9-84e7f3d04b2b"
@@ -793,30 +800,30 @@ of `secretary-greeting'. Mutually exclusive with
 	     :cost-false-neg 8)
 	    ))
 
-(defun secretary-random-p (&rest _args)
+(defun secretary--random-p (&rest _args)
   "Return t or nil, at random."
   (declare (side-effect-free t))
   (> 0 (random)))
 
 ;;;###autoload
-(defun secretary-query-mood (&optional prompt)
+(defun secretary-query-mood (&optional ts prompt)
   (interactive)
-  (let* ((mood-desc (completing-read
+  (let* ((mood-desc (secretary-read
 		     (or prompt "Your mood: ")
 		     (cl-sort (mapcar #'car secretary-mood-alist)
-			      #'secretary-random-p)))
+			      #'secretary--random-p)))
          (old-score (cdr (assoc mood-desc secretary-mood-alist)))
          (prompt-for-score
           (concat "Score from 1 to 5"
                   (when old-score " (default " old-score ")")
-                  ":"))
+                  ": "))
          (score (read-string prompt-for-score nil nil old-score))
          (score-num (string-to-number score))
-         (now (ts-now)))
-    (secretary-append "/home/kept/Self_data/mood.tsv"
-		      (ts-format now)
-		      "\t" (s-replace "," "." score)
-		      "\t" mood-desc)
+         (now (or ts (ts-now))))
+    (secretary-append-tsv "/home/kept/Self_data/mood.tsv"
+      (ts-format now)
+      (s-replace "," "." score)
+      mood-desc)
     ;; Update secretary-mood-alist.
     (if (assoc mood-desc secretary-mood-alist)
         (setq secretary-mood-alist
@@ -988,6 +995,7 @@ are minutes and numbers below are hours."
 
 ;; (define-key minibuffer-local-completion-map (kbd "C-o") #'secretary-special-handle-current-query)
 
+;; TODO: Merge with `secretary-read'
 (defun secretary-special-handle-current-query ()
   (interactive)
   (let ((input (completing-read "Yes? " '(
@@ -1025,7 +1033,7 @@ are minutes and numbers below are hours."
 (defun secretary--call2 ()
   (interactive)
   (setq secretary--date (ts-now))
-  (secretary-with-frame
+  (secretary--raise-frame-and-do
    (dolist (x secretary--active-queries)
      (secretary-do-query-maybe x secretary--date (interactive-p)))))
 
@@ -1043,7 +1051,8 @@ are minutes and numbers below are hours."
       (when (> secretary-length-of-last-idle secretary-long-idle-threshold)
         (unless (frame-focus-state)
           (notifications-notify :title secretary-ai-name :body (secretary-greeting)))
-	(secretary-play-chime)
+	(secretary--chime-audio)
+	(secretary--chime-visual)
         (secretary-check-neglect)
 	;; check neglect overlaps with the stuff asked in the following prompt.
         (when (secretary-prompt (secretary-greeting) " Do you have time for some questions?")
@@ -1053,7 +1062,8 @@ are minutes and numbers below are hours."
 ;; (secretary-call-from-idle)
 
 (defun secretary-call-from-reschedule ()
-  (secretary-play-chime)
+  (secretary--chime-audio)
+  (secretary--chime-visual)
   (secretary-emit "Hello, " secretary-user-short-title ". ")
   (sit-for secretary-sit-medium)
   (when (secretary-prompt "1 hour ago, you asked to be reminded. Is now a good time?")
@@ -1286,7 +1296,7 @@ When FILE-FORMAT is nil, use `org-journal-file-format'."
 (defvar secretary--idle-beginning (ts-now))
 
 (defvar secretary-length-of-last-idle 0
-  "Duration in seconds.")
+  "Length of the last idle period, in seconds.")
 
 (defcustom secretary-idle-threshold (* 10 60)
   "Duration in seconds, above which the user is considered idle."
@@ -1294,7 +1304,7 @@ When FILE-FORMAT is nil, use `org-journal-file-format'."
   :type 'number)
 
 (defcustom secretary-long-idle-threshold (* 90 60)
-  "Be idle at least this long to be greeted upon return."
+  "Be idle at least this many seconds to be greeted upon return."
   :group 'secretary
   :type 'number)
 
@@ -1305,12 +1315,12 @@ You'll probably want your hook to be conditional on some value of
 the last Emacs shutdown or crash (technically, last time
 `secretary-mode' was running)."
   :group 'secretary
-  :type '(restricted-sexp :match-alternatives #'listp))
+  :type '(repeat function))
 
 (defcustom secretary-periodic-not-idle-hook nil
   "Hook run every minute when the user is not idle."
   :group 'secretary
-  :type '(restricted-sexp :match-alternatives #'listp))
+  :type '(repeat function))
 
 (defun secretary--start-next-timer (&optional assume-idle)
   "Start one or the other timer depending on idleness. If
@@ -1321,7 +1331,8 @@ overhead: useful if the caller has already checked it."
     (named-timer-run :secretary 60 nil #'secretary--user-is-active)))
 
 (defun secretary--user-is-active ()
-  "This function is meant to be called by `secretary--start-next-timer'
+  "Do stuff assuming the user is active (not idle).
+This function is called by `secretary--start-next-timer'
 repeatedly for as long as the user is active (not idle).
 
 Refresh some variables and sync all variables to disk."
@@ -1336,7 +1347,8 @@ Refresh some variables and sync all variables to disk."
     (run-hooks 'secretary-periodic-not-idle-hook)))
 
 (defun secretary--user-is-idle (&optional decrement)
-  "This function is meant to be called by `secretary--start-next-timer'
+  "Do stuff assuming the user is idle.
+This function is called by `secretary--start-next-timer'
 repeatedly for as long as the user is idle.
 
 When the user comes back, this function will be called one last
@@ -1344,7 +1356,7 @@ time, at which point the idleness condition will fail and it sets
 `secretary-length-of-last-idle' and runs
 `secretary-return-from-idle-hook'.  That it has to run exactly
 once with a failing condition that normally succeeds, as opposed
-to running zero or infinity times, is the reason it has to be a
+to running never or forever, is the reason it has to be a
 separate function from `secretary--user-is-active'."
   (if (secretary-idle-p)
       (secretary--start-next-timer 'assume-idle)
@@ -1366,10 +1378,14 @@ separate function from `secretary--user-is-active'."
 
 
 (defun secretary--another-secretary-running-p ()
+  "Return t if another Emacs instance has secretary-mode on.
+Return nil if only the current Emacs or none has it on.
+Behavior indeterminate you've forced it on in several Emacsen."
   (when (file-exists-p "/tmp/secretary/pid")
     (let ((pid (string-to-number (f-read-bytes "/tmp/secretary/pid"))))
       (and (/= pid (emacs-pid))
 	   (member pid (list-system-processes))))))
+;; (secretary--another-secretary-running-p)
 
 (defun secretary--restore-variables-from-disk ()
   (when (f-exists-p secretary-idle-beginning-file-name)
@@ -1385,7 +1401,7 @@ separate function from `secretary--user-is-active'."
   (f-write (prin1-to-string secretary-mood-alist) 'utf-8 secretary-mood-alist-file-name))
 
 (defun secretary-unload-function ()
-  "For `unload-feature' (is this unnecessary?)."
+  "For `unload-feature' (is this necessary?)."
   (secretary-mode 0))
 
 ;;;###autoload
@@ -1395,19 +1411,23 @@ separate function from `secretary--user-is-active'."
   (if secretary-mode
       (when (and
 	     (cond ((eq system-type 'darwin)
-		    (fset #'secretary--idle-seconds #'org-mac-idle-seconds))
+		    (autoload #'org-mac-idle-seconds "org-clock")
+		    (fset 'secretary--idle-seconds #'org-mac-idle-seconds)
+		    t)
                    ((and (eq window-system 'x)
                          (executable-find secretary--x11idle-program-name))
-		    (fset #'secretary--idle-seconds #'secretary--x11-idle-seconds))
+		    (fset 'secretary--idle-seconds #'secretary--x11-idle-seconds)
+		    t)
                    (t
 		    (secretary-mode 0)
 		    (message secretary-ai-name ": Not able to detect idleness, "
 			     "I'll be useless. Disabling secretary-mode.")
 		    nil))
 	     (if (secretary--another-secretary-running-p)
-		 (prog1 nil
+		 (progn
 		   (message "Another secretary active.")
-		   (secretary-mode 0))
+		   (secretary-mode 0)
+		   nil)
 	       t))
 	(mkdir "/tmp/secretary/" t)
 	(f-write (number-to-string (emacs-pid))
@@ -1418,13 +1438,14 @@ separate function from `secretary--user-is-active'."
 	(add-hook 'secretary-periodic-not-idle-hook #'secretary--save-buffer-logs-to-disk)
         (add-hook 'window-buffer-change-functions #'secretary-log-buffer)
         (add-hook 'window-selection-change-functions #'secretary-log-buffer)
-	(add-hook 'after-init-hook #'secretary--restore-variables-from-disk -1)
-        (add-hook 'after-init-hook #'secretary--start-next-timer 91)
+	(add-hook 'after-init-hook #'secretary--restore-variables-from-disk -90)
+        (add-hook 'after-init-hook #'secretary--start-next-timer 90)
 	(named-timer-run :secretary-keepalive 300 300 #'secretary--keepalive)
         ;; (add-function :after #'after-focus-change-function #'secretary-log-buffer)
         (when after-init-time
           (progn
-            (when (-any #'null '(secretary-idle-beginning secretary-mood-alist))
+            (when (-any #'null '(secretary-idle-beginning
+				 secretary-mood-alist))
               (secretary--restore-variables-from-disk))
             (secretary--start-next-timer))))
     (f-delete "/tmp/secretary/pid")
