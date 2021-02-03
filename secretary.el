@@ -282,13 +282,14 @@ max-entries-per-day, etc."
 (defun secretary-activities-names ()
   (-map #'secretary-activity-name secretary-activities))
 
-(defvar secretary--last-msg (ts-format "[%H:%M] Recorded blah"))
+(defvar secretary--last-msg "")
 (defvar secretary--last-msg-2 "")
 
 (defun secretary-prompt (&rest strings)
   (let* (;; (default-y-or-n-p-map y-or-n-p-map)
          ;; (default-cmd (lookup-key y-or-n-p-map (kbd "k")))
 	 (info (concat "Applying to date: " (ts-format "%Y-%B-%d" secretary--date) "\n"
+		       secretary--last-msg-2 "\n"
 		       secretary--last-msg "\n"))
 	 (prompt (string-join strings)))
     (unwind-protect
@@ -316,7 +317,8 @@ max-entries-per-day, etc."
 		nil)))
 	  (setq secretary--last-msg (buffer-substring (line-beginning-position)
 						      (line-end-position)))
-	  (insert "\n"))
+	  (insert "\n")
+	  result)
       (dolist (x '("o" "i" "k" "<SPC>"))
         (define-key y-or-n-p-map (kbd x) #'y-or-n-p-insert-other)))))
 ;; (secretary-prompt "Test")
