@@ -43,7 +43,6 @@
 (require 'f)
 (require 's)
 (require 'dash)
-(require 'parse-csv)
 (require 'named-timer)
 
 (autoload #'secretary-log-buffer "org-id")
@@ -403,17 +402,19 @@ meant to get."
 ;; (parse-csv-string-rows
 ;;  (f-read "/home/kept/Self_data/weight.csv") (string-to-char ",") (string-to-char " ") "\n")
 
-;; REVIEW
-(defun secretary-get-all-today-in-date-indexed-csv (path &optional ts)
+
+(defun secretary-get-all-today-in-tsv (path &optional ts)
   (with-temp-buffer
-    (insert-file-contents-literally path)
+    (insert-file-contents path)
     (let (x)
       (while (search-forward (ts-format "%F" ts) nil t)
-        (push (parse-csv->list (buffer-substring (line-beginning-position)
-                                                 (line-end-position)))
+        (push (split-string (buffer-substring (line-beginning-position)
+                                              (line-end-position))
+			    "\t")
               x))
       x)))
-;; (secretary-get-all-today-in-date-indexed-csv "/home/kept/Self_data/sleep.csv" (ts-dec 'day 1 (ts-now)))
+
+;; (secretary-get-all-today-in-tsv "/home/kept/Self_data/sleep.csv" (ts-dec 'day 1 (ts-now)))
 
 ;; (defun secretary-update-or-append-in-date-indexed-csv (path &optional ts)
 ;;   (secretary-get-first-today-line-in-file path ts))
@@ -777,7 +778,7 @@ of `secretary-greeting'. Mutually exclusive with
     (sit-for secretary-sit-short)))
 
 (defun secretary-check-yesterday-sleep ()
-  (let* ((today-rows (secretary-get-all-today-in-date-indexed-csv
+  (let* ((today-rows (secretary-get-all-today-in-tsv
 	       "/home/kept/Self_data/sleep.tsv" (ts-dec 'day 1 (ts-now))))
          (total-yesterday (-sum (--map (string-to-number (nth 2 it)) today-rows))))
     (if (> (* 60 4) total-yesterday)
