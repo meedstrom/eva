@@ -211,7 +211,7 @@ using.")
   max-entries-per-day
   (min-hours-wait 3)
   last-called
-  (rejections 0)
+  (dismissals 0)
   use-posted)
 
 (defun secretary--get-associated-struct (fn)
@@ -238,6 +238,7 @@ max-entries-per-day, etc."
 	 (file (secretary-querier-log-file q))
 	 (max-entries (secretary-querier-max-entries-per-day q))
 	 (use-posted (secretary-querier-use-posted q))
+	 (dismissals (secretary-querier-dismissals q))
 	 (min-hrs (secretary-querier-min-hours-wait q))
 	 (min-secs (* 60 60 min-hrs))
 	 (recently-logged
@@ -256,20 +257,42 @@ max-entries-per-day, etc."
 	(when (or ignore-wait
 		  (null last-called)
 		  (< min-hrs (/ (ts-diff (ts-now) last-called) 60 60)))
-	  (setf (secretary-querier-last-called q) (ts-now))
-	  (funcall fn ts))))))
+	  (unless (and (>= dismissals 3)
+		       (when (secretary-prompt
+			      "You have been dismissing "
+			      (symbol-name fn)
+			      ", shall I stop tracking it for now?")
+			 (secretary-disable-query fn)
+			 t))
+	    (setf (secretary-querier-last-called q) (ts-now))
+	    (funcall fn ts)))))))
+
+(defun secretary-disable-query (fn)
+  (f-write (prin1-to-string (remove fn (secretary--active-queries)))
+	   'utf-8
+	   secretary-inactive-queries-file)
+  (setq secretary--active-queries (secretary--active-queries)))
 
 ;; (defun test ()
 ;;   (interactive)
-;;   (secretary-do-query-maybe #'secretary-query-sleep nil t))
+;;   (secretary-do-query-maybe #'secretary-query-mood nil t))
+;; (secretary-querier-dismissals (secretary--get-associated-struct #'secretary-query-weight))
 
-(defvar secretary--inactive-queries-file
-  "/home/kept/Emacs/secretary/pseudo-userdir/inactive-queries.el")
+(defcustom secretary-inactive-queries-file
+  "/home/kept/Emacs/secretary/pseudo-userdir/inactive-queries.el"
+  nil
+  :group 'secretary
+  :type 'string)
 
 ;; TODO: move to read/save on disk functions
 (defvar secretary--active-queries
-  (let* ((all (-map #'secretary-querier-fn secretary-queriers))
-	 (inactive (read (f-read secretary--inactive-queries-file))))
+  (let ((all (-map #'secretary-querier-fn secretary-queriers))
+	(inactive (read (f-read secretary-inactive-queries-file))))
+    (-difference all inactive)))
+
+(defun secretary--active-queries ()
+  (let ((all (-map #'secretary-querier-fn secretary-queriers))
+	(inactive (read (f-read secretary-inactive-queries-file))))
     (-difference all inactive)))
 
 
@@ -385,10 +408,11 @@ meant to get."
 (defun secretary-last-timestamp-in-tsv (path)
   "In file at PATH, get the second field of last row."
   (with-temp-buffer
-    (insert-file-contents-literally path)
+    (insert-file-contents path)
     (goto-char (point-max))
     (when (looking-back "^" nil)
       (forward-line -1))
+    (goto-char (line-beginning-position))
     (search-forward "\t")
     (buffer-substring (point) (- (search-forward "\t") 1))))
 
@@ -768,10 +792,12 @@ of `secretary-greeting'. Mutually exclusive with
       (minibuffer-keyboard-quit)
     (transient--pop-keymap 'secretary-query-keymap) ;; just in case
     ;; the main reason for this wrapper
-    (cl-incf (secretary-querier-rejections
+    (cl-incf (secretary-querier-dismissals
 	      (secretary--get-associated-struct secretary--current-fn)))
     (setq secretary--current-fn nil)
-    (keyboard-quit)))
+    (if (minibufferp)
+	(abort-recursive-edit)
+      (keyboard-quit))))
 
 (defvar secretary--current-fn)
 (defvar secretary-query-keymap (make-sparse-keymap))
@@ -797,7 +823,10 @@ of `secretary-greeting'. Mutually exclusive with
       (secretary-append-tsv path
 	(ts-format now)
 	(s-replace "," "." wt))
-      (secretary-emit "Weight today: " (secretary-last-value-in-tsv path) " kg"))
+      (secretary-emit "Weight today: " (secretary-last-value-in-tsv path) " kg")
+      (setf (secretary-querier-dismissals
+	     (secretary--get-associated-struct secretary--current-fn))
+	    0))
     (sit-for secretary-sit-short)))
 
 (defun secretary-check-yesterday-sleep ()
@@ -828,9 +857,10 @@ different sleep block and continue to count the original one as
 having an unknown nonzero quantity of sleep on top of what you
 add."
   (interactive)
-  (secretary-check-yesterday-sleep)
+  ;; FIXME: the keyboard quit doesnt increment dismissals
   (setq secretary--current-fn #'secretary-query-sleep)
   (set-transient-map 'secretary-query-keymap #'active-minibuffer-window)
+  (secretary-check-yesterday-sleep)
   (let* ((now (or ts (ts-now)))
          (wakeup-time
           (if (secretary-prompt "Did you wake around now?")
@@ -1054,7 +1084,7 @@ are minutes and numbers below are hours."
              (d (ts-parse (secretary-last-datestamp-in-file path)))
              (diff-days (round (/ (ts-diff (ts-now) d) 60 60 24))))
 	(and (< 3 diff-days)
-	     ;; TODO: ask about quitting to log this thing
+	     ;; FIXME: Increment the dismissals upon a "no".
 	     (secretary-prompt "It's been " (number-to-string diff-days)
 			       " days since you logged " (file-name-base path)
 			       ". Do you want to log it now?")
@@ -1093,6 +1123,7 @@ custom plots.")
 
 ;;;###autoload
 (defun secretary-plot-weight ()
+  (interactive)
   (let* ((default-directory "/tmp/secretary")
          (script (expand-file-name "R/sc_daily_plot.R"
 				   (f-dirname (find-library-name "secretary"))))
@@ -1124,7 +1155,7 @@ custom plots.")
 (defun secretary-past-sample-default (&optional ts)
   "Return a list of ts.el objects referring to yesterday, this
 weekday the last 4 weeks, this day of the month the last 12
-months, and this date from all past years."
+months, and this date from 99 past years."
   (let ((now (or ts (ts-now))))
     (-uniq (append
             (--iterate (ts-dec 'day 1 it) now 1)
@@ -1165,15 +1196,17 @@ months, and this date from all past years."
 FILE-FORMAT is handled by `parse-time-string'. The value returned
 is a full filesystem path or nil.
 
-When DATE is nil, use today.
+When DATE is nil, use today.  Should be a ts object.
 When DIR is nil, use `org-journal-dir'.
-When FILE-FORMAT is nil, use `org-journal-file-format'."
-  (let* ((dir (or dir org-journal-dir))
+When FILE-FORMAT is nil, use `org-journal-file-format'.
+
+Note that org-journal is not needed."
+  (let* ((dir (or dir (bound-and-true-p org-journal-dir)))
 	 (file-format (or file-format (and (boundp 'org-journal-file-type)
 					   (eq org-journal-file-type 'daily)
 					   org-journal-file-format)))
-	 (file (--find (string-match-p
-			(ts-format file-format date) it)
+	 (file (--find (string-match-p (ts-format file-format date)
+				       it)
                        (directory-files dir))))
     (unless (null file)
       (expand-file-name file dir))))
@@ -1218,6 +1251,10 @@ When FILE-FORMAT is nil, use `org-journal-file-format'."
                 (view-file x))))
       (kill-buffer buffer))))
 ;; (secretary-present-diary (ts-now))
+
+(defun secretary-make-ods ()
+  "Make an ODS spreadsheet of variables for you to play with."
+  (interactive))
 
 
 ;;;; Handle idling & reboots & crashes
