@@ -54,9 +54,6 @@
 
 (defvar secretary-debug-p t)
 
-(defvar secretary-queriers)
-(defvar secretary-aphorisms)
-
 (defgroup secretary nil "The Emacs in-house secretary."
   :prefix "secretary-"
   :group 'convenience)
@@ -139,6 +136,12 @@ of messages. See also `secretary-sit-long' and
   :group 'secretary
   :type 'number)
 
+(defcustom secretary-chat-log-file
+  (expand-file-name "chat-log.txt" secretary-dir)
+  "Where to save chat log across sessions. Can be nil."
+  :group 'secretary
+  :type 'string)
+
 ;; REVIEW: see that there's no problem if you delete secretary-dir
 (defvar secretary-mood-alist nil
   "For suggesting a score in the `secretary-log-mood' prompt.
@@ -162,6 +165,10 @@ at `secretary-mood-alist-file-name'.")
     ("/home/kept/Self_data/meditation.tsv" secretary-query-meditation)
     ("/home/kept/Self_data/cold.tsv" secretary-query-cold)))
 
+(defvar secretary-queriers)
+
+(defvar secretary-aphorisms)
+
 (defvar secretary--date (ts-now)
   "Date to which to apply the current query.
 Can be set anytime during a welcome to override the date to which
@@ -169,29 +176,10 @@ some queries apply, for example to log something for yesterday.
 This may not apply, check the source for the welcomer you are
 using.")
 
-(defcustom secretary-chat-log-file
-  (expand-file-name "chat-log.txt" secretary-dir)
-  "Where to save chat log across sessions. Can be nil."
-  :group 'secretary
-  :type 'string)
-
-(defcustom secretary-chime-audio-file
-  (expand-file-name
-   ;; From https://freesound.org/people/josepharaoh99/sounds/380482/
-   "assets/Chime Notification-380482.wav"
-   ;; From https://bigsoundbank.com/detail-0319-knock-on-a-glass-door-1.html
-   ;; "assets/DOORKnck_Knock on a glass door 1 (ID 0319)_BSB.wav"
-   (f-dirname (find-library-name "secretary")))
-  "Sound to play when a welcomer is triggered unannounced."
-  :group 'secretary
-  :type 'string)
-
-(defvar secretary-greetings '("Welcome back, Master."
-			      (concat "Nice to see you again, " secretary-user-name ".")
-			      (concat "Greetings, " secretary-user-name "."))
-  "Greeting phrases which can initiate a conversation.")
-
+
+;;; Structs
 ;; Q: What's cl-defstruct? A: https://nullprogram.com/blog/2018/02/14/
+
 (cl-defstruct (secretary-activity (:constructor secretary-activity-create)
 				  (:copier nil))
   name
@@ -200,9 +188,14 @@ using.")
   cost-false-neg
   query)
 
+(defvar secretary-activities)
+
 (defun secretary-activity-by-name (name)
   (declare (side-effect-free t))
   (--find (equal name (secretary-activity-name it)) secretary-activities))
+
+(defun secretary-activities-names ()
+  (-map #'secretary-activity-name secretary-activities))
 
 (cl-defstruct (secretary-querier (:constructor secretary-querier-create)
 				 (:copier nil))
@@ -216,18 +209,6 @@ using.")
 
 (defun secretary--get-associated-struct (fn)
   (--find (equal fn (secretary-querier-fn it)) secretary-queriers))
-
-(defun secretary--get-entries-in-tsv (path &optional ts)
-  (with-temp-buffer
-    (insert-file-contents-literally path)
-    (let (x)
-      (while (search-forward (ts-format "%F" ts) nil t)
-        (push (split-string (buffer-substring (line-beginning-position)
-					      (line-end-position))
-			    "\t")
-              x)
-	(goto-char (line-end-position)))
-      x)))
 
 (defun secretary-do-query-maybe (fn &optional ts ignore-wait)
   "Call the query function FN if appropriate.
@@ -284,29 +265,26 @@ max-entries-per-day, etc."
   :group 'secretary
   :type 'string)
 
-;; TODO: move to read/save on disk functions
-(defvar secretary--active-queries
-  (let ((all (-map #'secretary-querier-fn secretary-queriers))
-	(inactive (read (f-read secretary-inactive-queries-file))))
-    (-difference all inactive)))
-
+;; TODO: Move to read/save on disk functions? This is atypical.
 (defun secretary--active-queries ()
   (let ((all (-map #'secretary-querier-fn secretary-queriers))
 	(inactive (read (f-read secretary-inactive-queries-file))))
     (-difference all inactive)))
 
 
-
-(defun secretary--chime-audio ()
-  (and (executable-find "aplay")
-       (file-exists-p secretary-chime-audio-file)
-       (start-process "aplay" nil "aplay" secretary-chime-audio-file)))
-
-(defun secretary-activities-names ()
-  (-map #'secretary-activity-name secretary-activities))
+;;; Library
 
 (defvar secretary--last-msg "")
 (defvar secretary--last-msg-2 "")
+
+(defvar secretary--k nil)
+(defun secretary--y-or-n-p-insert-k ()
+  "Mostly like `y-or-n-p-insert-y'."
+  (interactive)
+  (delete-minibuffer-contents)
+  (insert "y")
+  (setq secretary--k t)
+  (exit-minibuffer))
 
 (defun secretary-prompt (&rest strings)
   (let* (;; (default-y-or-n-p-map y-or-n-p-map)
@@ -317,6 +295,7 @@ max-entries-per-day, etc."
 	 (prompt (string-join strings)))
     (unwind-protect
         (progn
+	  (secretary-print-new-date-maybe)
           (switch-to-buffer (secretary-buffer-chat))
           (unless (< 20 (car (window-fringes)))
             (set-window-fringes nil 20 20))
@@ -342,26 +321,68 @@ max-entries-per-day, etc."
 ;; (secretary-prompt "Test")
 ;; (y-or-n-p "Test")
 
-(defvar secretary--k nil)
-(defun secretary--y-or-n-p-insert-k ()
-  "Mostly like `y-or-n-p-insert-y'."
-  (interactive)
-  (delete-minibuffer-contents)
-  (insert "y")
-  (setq secretary--k t)
-  (exit-minibuffer))
+(defun secretary-read (prompt &optional collection default)
+  (let* ((background-info (concat "[Current date: "
+				  (ts-format "%Y-%b-%d" secretary--date) "]\n"
+				  secretary--last-msg-2 "\n"
+				  secretary--last-msg "\n"
+				  ))
+	 (extra-collection '("Skip to presentations"
+			     "Don't disturb me"))
+	 (result (completing-read
+		  (concat background-info
+			  (ts-format "[%H:%M] ")
+			  prompt
+			  (when (stringp default)
+			    " (default " default "): "))
+		  (append collection extra-collection)
+		  nil nil nil nil
+		  (when (stringp default)
+		    default))))
+    (secretary-emit prompt)
+    (if (string-match-p "skip" result)
+	(progn
+	  ;; (minibuffer-keyboard-quit)
+	  (secretary-present-diary)
+	  (keyboard-quit))
+      result)))
 
-(defun secretary--idle-seconds ()
-  "Stub to be redefined."
-  (warn "Code ended up in an impossible place."))
+(defcustom secretary-chime-audio-file
+  (expand-file-name
+   ;; From https://freesound.org/people/josepharaoh99/sounds/380482/
+   "assets/Chime Notification-380482.wav"
+   ;; From https://bigsoundbank.com/detail-0319-knock-on-a-glass-door-1.html
+   ;; "assets/DOORKnck_Knock on a glass door 1 (ID 0319)_BSB.wav"
+   (f-dirname (find-library-name "secretary")))
+  "Sound to play when a welcomer is triggered unannounced."
+  :group 'secretary
+  :type 'string)
 
-(defvar secretary--last-edited (ts-now)
-  "Timestamp updated whenever `secretary-emit' runs.")
+(defun secretary--chime-audio ()
+  (and (executable-find "aplay")
+       (file-exists-p secretary-chime-audio-file)
+       (start-process "aplay" nil "aplay" secretary-chime-audio-file)))
 
-;; TODO: Just keep open a file-visiting buffer.
+(defun secretary--chime-visual ()
+  (let ((colors '((.1 . "green")
+		   (.2 . "#aca")
+		   (.3 . "#7a7")
+		   (.4 . "#696")
+		   (.5 . "#363"))))
+    (let ((orig (face-background 'fringe)))
+      (dolist (x colors)
+	(run-with-timer (car x) nil #'set-face-background 'fringe (cdr x)))
+      (run-with-timer .6 nil #'set-face-background 'fringe orig))
+
+    (when (facep 'solaire-fringe-face)
+      (let ((orig (face-background 'solaire-fringe-face)))
+	(dolist (x colors)
+	  (run-with-timer (car x) nil #'set-face-background 'solaire-fringe-face (cdr x)))
+	(run-with-timer .6 nil #'set-face-background 'solaire-fringe-face orig)))
+    nil))
+
 (defun secretary-emit (&rest strings)
   (secretary-print-new-date-maybe)
-  (setq secretary--last-edited (ts-now))
   (prog1 (message (string-join strings))
     (let ((msg (concat "\n[" (ts-format "%H:%M") "] " (string-join strings))))
       (setq secretary--last-msg-2 secretary--last-msg)
@@ -369,16 +390,21 @@ max-entries-per-day, etc."
       (with-current-buffer (secretary-buffer-chat)
 	(goto-char (point-max))
 	(insert msg))
+      ;; TODO: Just keep open a file-visiting buffer instead of syncing a virtual buffer.
       (when secretary-chat-log-file
 	(ignore-errors
 	  (secretary-append secretary-chat-log-file msg))))))
+
+(defvar secretary--last-edited (ts-now)
+  "Timestamp updated whenever the chat is written to.")
 
 (defun secretary-print-new-date-maybe ()
   (when (/= (ts-day (ts-now))
             (ts-day secretary--last-edited))
     (with-current-buffer (secretary-buffer-chat)
       (goto-char (point-max))
-      (insert "\n\n" (ts-format "%Y, %B %d") (secretary--holiday-maybe) "\n"))))
+      (insert "\n\n" (ts-format "%Y, %B %d") (secretary--holiday-maybe) "\n"))
+    (setq secretary--last-edited (ts-now))))
 ;; (secretary-print-new-date-maybe)
 
 (defun secretary--holiday-maybe ()
@@ -388,88 +414,20 @@ max-entries-per-day, etc."
       (concat " -- " (s-join " " foo))
     ""))
 
-(defun secretary--buffer-r ()
-  (get-buffer-create (concat "*" secretary-ai-name ": R*")))
-
 (defun secretary-reschedule ()
   (run-with-timer 3600 nil #'secretary-call-from-reschedule))
 
-(defun secretary-last-datestamp-in-file (path)
-  "Get the last match of YYYY-MM-DD in PATH.
-Beware that if PATH has instances of such where you don't expect
-it (in additional columns), you might not get the datestamp you
-meant to get."
-  (with-temp-buffer
-    (insert-file-contents-literally path)
-    (goto-char (point-max))
-    (re-search-backward (rx (= 4 digit) "-" (= 2 digit) "-" (= 2 digit)))
-    (buffer-substring (point) (+ 10 (point)))))
+(defun secretary--random-p (&rest _args)
+  "Return t or nil, at random."
+  (> 0 (random)))
 
-(defun secretary-last-timestamp-in-tsv (path)
-  "In file at PATH, get the second field of last row."
-  (with-temp-buffer
-    (insert-file-contents path)
-    (goto-char (point-max))
-    (when (looking-back "^" nil)
-      (forward-line -1))
-    (goto-char (line-beginning-position))
-    (search-forward "\t")
-    (buffer-substring (point) (- (search-forward "\t") 1))))
-
-;; (secretary-last-datestamp-in-file "/home/kept/Self_data/weight.tsv")
-;; (secretary-last-datestamp-in-file "/home/kept/Self_data/mood.tsv")
-;; (secretary-last-timestamp-in-tsv "/home/kept/Self_data/sleep.tsv")
-;; (secretary-get-all-today-in-tsv "/home/kept/Self_data/sleep.csv" (ts-dec 'day 1 (ts-now)))
-
-(defun secretary-get-all-today-in-tsv (path &optional ts)
-  (with-temp-buffer
-    (insert-file-contents path)
-    (let (x)
-      (while (search-forward (ts-format "%F" ts) nil t)
-        (push (split-string (buffer-substring (line-beginning-position)
-                                              (line-end-position))
-			    "\t")
-              x))
-      x)))
-
-(defun secretary--last-in-tsv (path)
-  (with-temp-buffer
-    (insert-file-contents path)
-    (goto-char (point-max))
-    (when (looking-back "^" nil) ;; if empty line
-      (forward-line -1))
-    (split-string (buffer-substring (line-beginning-position)
-				    (line-end-position))
-		  "\t")))
-
-(defun secretary-get-first-today-line-in-file (path &optional ts)
-  (with-temp-buffer
-    (insert-file-contents path)
-    (search-forward (ts-format "%F" ts))
-    (buffer-substring (line-beginning-position) (line-end-position))))
-;; (secretary-get-first-today-line-in-file "/home/kept/Self_data/ingredients.csv")
-
-(defun secretary-last-value-in-tsv (path)
-  (when (file-exists-p path)
-    (with-temp-buffer
-      (insert-file-contents-literally path)
-      (goto-char (point-max))
-      (search-backward "\t")
-      (forward-char)
-      (buffer-substring (point) (line-end-position)))))
-
-;; WONTFIX: check for recent activity (if user awake thru the night)
-(defun secretary-logged-today (file)
-  (when (file-exists-p file)
-    ;; don't act like it's a new day if the time is <5am.
-    (let ((day (if (> 5 (ts-hour (ts-now)))
-                   (ts-dec 'day 1 (ts-now))
-                 (ts-now))))
-      (with-temp-buffer
-        (insert-file-contents-literally file)
-        (ignore-errors (search-forward (ts-format "%F" day)))))))
-;; (secretary-logged-today "/home/kept/Self_data/weight.tsv")
-;; (secretary-logged-today "/home/kept/Self_data/buffers.tsv")
+(defun secretary--transact-buffer-onto-file (buffer path)
+  (when-let ((visiting (get-file-buffer path)))
+    (kill-buffer visiting))
+  (with-current-buffer buffer
+    (whitespace-cleanup)
+    (f-append-text (buffer-string) 'utf-8 path)
+    (delete-region (point-min) (point-max))))
 
 (defmacro secretary--process-output-to-string (program &rest args)
   "Similar to `shell-command-to-string', but skips the shell
@@ -485,6 +443,10 @@ passed on to `call-process'."
   (declare (debug (&rest form)))
   `(string-to-number (secretary--process-output-to-string ,program ,@args)))
 
+(defun secretary--idle-seconds ()
+  "Stub to be redefined."
+  (warn "Code ended up in an impossible place."))
+
 (defun secretary-idle-p ()
   (> (secretary--idle-seconds) secretary-idle-threshold))
 
@@ -493,6 +455,9 @@ passed on to `call-process'."
 (defun secretary--x11-idle-seconds ()
   "Like `org-x11-idle-seconds' without need for /bin/sh or org."
   (/ (secretary--process-output-to-number secretary-x11idle-program-name) 1000))
+
+(defun secretary--buffer-r ()
+  (get-buffer-create (concat "*" secretary-ai-name ": R*")))
 
 ;; - Needs to be a function because something might kill the buffer.
 ;; - Can't use get-buffer-create because I want to turn on `visual-line-mode'.
@@ -573,7 +538,89 @@ begins on a newline."
   (setq secretary--date (ts-dec 'day 1 (ts-now))))
 
 
+;;; Log-file look-uppers
+
+(defun secretary-last-datestamp-in-file (path)
+  "Get the last match of YYYY-MM-DD in PATH.
+Beware that if PATH has instances of such where you don't expect
+it (in additional columns), you might not get the datestamp you
+meant to get."
+  (with-temp-buffer
+    (insert-file-contents-literally path)
+    (goto-char (point-max))
+    (re-search-backward (rx (= 4 digit) "-" (= 2 digit) "-" (= 2 digit)))
+    (buffer-substring (point) (+ 10 (point)))))
+
+(defun secretary-last-timestamp-in-tsv (path)
+  "In file at PATH, get the second field of last row."
+  (with-temp-buffer
+    (insert-file-contents path)
+    (goto-char (point-max))
+    (when (looking-back "^" nil) ;; if trailing newline
+      (forward-line -1))
+    (goto-char (line-beginning-position))
+    (search-forward "\t")
+    (buffer-substring (point) (- (search-forward "\t") 1))))
+
+(defalias 'secretary-get-all-today-in-tsv #'secretary--get-entries-in-tsv)
+(defun secretary--get-entries-in-tsv (path &optional ts)
+  (with-temp-buffer
+    (insert-file-contents-literally path)
+    (let (x)
+      (while (search-forward (ts-format "%F" ts) nil t)
+        (push (split-string (buffer-substring (line-beginning-position)
+					      (line-end-position))
+			    "\t")
+              x)
+	(goto-char (line-end-position)))
+      x)))
+
+(defun secretary--last-in-tsv (path)
+  (with-temp-buffer
+    (insert-file-contents path)
+    (goto-char (point-max))
+    (when (looking-back "^" nil) ;; if empty line
+      (forward-line -1))
+    (split-string (buffer-substring (line-beginning-position)
+				    (line-end-position))
+		  "\t")))
+
+(defun secretary-get-first-today-line-in-file (path &optional ts)
+  (with-temp-buffer
+    (insert-file-contents path)
+    (search-forward (ts-format "%F" ts))
+    (buffer-substring (line-beginning-position) (line-end-position))))
+;; (secretary-get-first-today-line-in-file "/home/kept/Self_data/ingredients.csv")
+
+(defun secretary-last-value-in-tsv (path)
+  (when (file-exists-p path)
+    (with-temp-buffer
+      (insert-file-contents-literally path)
+      (goto-char (point-max))
+      (search-backward "\t")
+      (forward-char)
+      (buffer-substring (point) (line-end-position)))))
+
+;; WONTFIX: check for recent activity (if user awake thru the night)
+(defun secretary-logged-today (file)
+  (when (file-exists-p file)
+    ;; don't act like it's a new day if the time is <5am.
+    (let ((day (if (> 5 (ts-hour (ts-now)))
+                   (ts-dec 'day 1 (ts-now))
+                 (ts-now))))
+      (with-temp-buffer
+        (insert-file-contents-literally file)
+        (ignore-errors (search-forward (ts-format "%F" day)))))))
+;; (secretary-logged-today "/home/kept/Self_data/weight.tsv")
+;; (secretary-logged-today "/home/kept/Self_data/buffers.tsv")
+
+
 ;;;; Greetings
+
+(defvar secretary-greetings '("Welcome back, Master."
+			      (concat "Nice to see you again, " secretary-user-name ".")
+			      (concat "Greetings, " secretary-user-name "."))
+  "Greeting phrases which can initiate a conversation.")
 
 (defun secretary-greeting-curt ()
   "Return a greeting appropriate in the midst of a workday.
@@ -594,7 +641,6 @@ do so again."
 	   (eval (seq-random-elt (append secretary-greetings
 					 (-list (secretary--daytime-appropriate-greetings))))
 		 t)))))
-;; (secretary-greeting)
 
 ;; NOTE: I considered making external variables for morning, day and evening
 ;;       lists, but users might also want to change the daytime boundaries or
@@ -627,7 +673,12 @@ of `secretary-greeting'. Mutually exclusive with
                  '("How may I help?")))))
 
 
-;;;; Data collection
+;;;; Loggers
+
+(defun secretary-log-idle ()
+  (secretary-append "/home/kept/Self_data/idle.tsv"
+    (ts-format)
+    "\t" (number-to-string (/ (round secretary-length-of-last-idle) 60))))
 
 (defvar secretary-last-buffer nil)
 
@@ -644,35 +695,25 @@ of `secretary-greeting'. Mutually exclusive with
    (concat (unless secretary-debug-p " ")
 	   "*" secretary-ai-name ": Buffer existence log*")))
 
-(defun secretary-log-idle ()
-  (secretary-append "/home/kept/Self_data/idle.tsv"
-    (ts-format)
-    "\t" (number-to-string (/ (round secretary-length-of-last-idle) 60))))
-
 (defun secretary--save-buffer-logs-to-disk ()
   (secretary--transact-buffer-onto-file secretary-buffer-focus-log-buffer
 					"/home/kept/Self_data/buffer-focus.tsv")
   (secretary--transact-buffer-onto-file secretary-buffer-existence-log-buffer
 					"/home/kept/Self_data/buffer-existence.tsv"))
 
-(defun secretary--transact-buffer-onto-file (buffer path)
-  (when-let ((visiting (get-file-buffer path)))
-    (kill-buffer visiting))
-  (with-current-buffer buffer
-    (whitespace-cleanup)
-    (f-append-text (buffer-string) 'utf-8 path)
-    (delete-region (point-min) (point-max))))
-
-;; TODO: When buffer mode changes, count it as a new buffer. Note that (assoc
-;; buf secretary-known-buffers) will still work.
+;; TODO: When buffer major mode changes, count it as a new buffer. Note that
+;; (assoc buf secretary-known-buffers) will still work.
 ;; TODO: Optimize
 (defun secretary-log-buffer (&optional _arg)
+  "Log the buffer just switched to.
+Put this on `window-buffer-change-functions' and
+`window-selection-change-functions'."
   (unless (minibufferp)
     (let* ((buf (current-buffer))
            (mode (symbol-name (buffer-local-value 'major-mode buf)))
            (known (assoc buf secretary-known-buffers))
            (timestamp (s-pad-right 18 "0" (number-to-string (ts-unix (ts-now)))))
-           (buffer-record (unless (and known
+           (exist-record (unless (and known
                                        (string= mode (nth 4 known))) ;; doesnt do it
                             (list buf
                                   (org-id-uuid)
@@ -682,18 +723,57 @@ of `secretary-greeting'. Mutually exclusive with
                                   timestamp ;; time the buffer was first opened
                                   )))
            (focus-record (list timestamp ;; time the buffer was switched to
-                               (if known (cadr known) (cadr buffer-record)) ;; uuid
+                               (if known (cadr known) (cadr exist-record)) ;; uuid
                                )))
       (unless (eq secretary-last-buffer buf) ;; happens if you only entered and left minibuffer
         (setq secretary-last-buffer buf)
         (unless known
-          (push buffer-record secretary-known-buffers)
+          (push exist-record secretary-known-buffers)
 	  (with-current-buffer secretary-buffer-existence-log-buffer
 	    (goto-char (point-max))
-	    (insert "\n" (string-join (cdr buffer-record) "\t"))))
+	    (insert "\n" (string-join (cdr exist-record) "\t"))))
 	(with-current-buffer secretary-buffer-focus-log-buffer
 	  (goto-char (point-max))
 	  (insert "\n" (string-join focus-record "\t")))))))
+
+
+;;; Queries
+
+(defun secretary-midquery-keyboard-quit ()
+  "Quit, and record which query was quit."
+  (interactive)
+  (if (or (> (recursion-depth) 1)
+	  (and (minibufferp) delete-selection-mode (region-active-p)))
+      (minibuffer-keyboard-quit)
+    (transient--pop-keymap 'secretary-query-keymap) ;; just in case
+    ;; the main reason for this wrapper
+    (cl-incf (secretary-querier-dismissals
+	      (secretary--get-associated-struct secretary--current-fn)))
+    (setq secretary--current-fn nil)
+    (if (minibufferp)
+	(abort-recursive-edit)
+      (keyboard-quit))))
+
+(defvar secretary--current-fn)
+(defvar secretary-query-keymap (make-sparse-keymap))
+(define-key secretary-query-keymap [remap keyboard-quit] #'secretary-midquery-keyboard-quit)
+(define-key secretary-query-keymap [remap minibuffer-keyboard-quit] #'secretary-midquery-keyboard-quit)
+(define-key secretary-query-keymap [remap abort-recursive-edit] #'secretary-midquery-keyboard-quit)
+(define-key secretary-query-keymap [remap doom/escape] #'secretary-midquery-keyboard-quit)
+
+(defun secretary-check-yesterday-sleep ()
+  (let* ((today-rows (secretary-get-all-today-in-tsv
+	       "/home/kept/Self_data/sleep.tsv" (ts-dec 'day 1 (ts-now))))
+         (total-yesterday (-sum (--map (string-to-number (nth 2 it)) today-rows))))
+    (if (> (* 60 4) total-yesterday)
+        (if (secretary-prompt "Yesterday, you slept "
+			      (number-to-string (round (/ total-yesterday 60.0)))
+			      " hours, is this about right?")
+            nil
+          (secretary-emit "You may edit the history at "
+			  "/home/kept/Self_data/sleep.tsv"
+			  ". For now, let's talk about today.")
+          (sit-for secretary-sit-short)))))
 
 ;; TODO: make the dataset append-only
 ;;;###autoload
@@ -731,24 +811,6 @@ of `secretary-greeting'. Mutually exclusive with
       (secretary-activity-id (secretary-activity-by-name name)))))
 ;; (secretary-query-activity)
 
-(defvar secretary-activities nil)
-(setq secretary-activities
-      (list (secretary-activity-create
-	     :name "sleep"
-	     :id "ac93c132-ab74-455f-a456-71d7b5ee88a6"
-	     :cost-false-pos 3
-	     :cost-false-neg 3
-	     :query #'secretary-query-sleep)
-	    (secretary-activity-create
-	     :name "studying"
-	     :id "24553859-2214-4fb0-bdc9-84e7f3d04b2b"
-	     :cost-false-pos 8
-	     :cost-false-neg 8)))
-
-(defun secretary--random-p (&rest _args)
-  "Return t or nil, at random."
-  (> 0 (random)))
-
 ;;;###autoload
 (defun secretary-query-mood (&optional ts prompt)
   (interactive)
@@ -784,28 +846,6 @@ of `secretary-greeting'. Mutually exclusive with
         3
       score-num)))
 
-(defun secretary-keyboard-quit ()
-  "Quit, and record which query was quit."
-  (interactive)
-  (if (or (> (recursion-depth) 1)
-	  (and (minibufferp) delete-selection-mode (region-active-p)))
-      (minibuffer-keyboard-quit)
-    (transient--pop-keymap 'secretary-query-keymap) ;; just in case
-    ;; the main reason for this wrapper
-    (cl-incf (secretary-querier-dismissals
-	      (secretary--get-associated-struct secretary--current-fn)))
-    (setq secretary--current-fn nil)
-    (if (minibufferp)
-	(abort-recursive-edit)
-      (keyboard-quit))))
-
-(defvar secretary--current-fn)
-(defvar secretary-query-keymap (make-sparse-keymap))
-(define-key secretary-query-keymap [remap keyboard-quit] #'secretary-keyboard-quit)
-(define-key secretary-query-keymap [remap minibuffer-keyboard-quit] #'secretary-keyboard-quit)
-(define-key secretary-query-keymap [remap abort-recursive-edit] #'secretary-keyboard-quit)
-(define-key secretary-query-keymap [remap doom/escape] #'secretary-keyboard-quit)
-
 ;;;###autoload
 (defun secretary-query-weight (&optional ts)
   (interactive)
@@ -829,19 +869,6 @@ of `secretary-greeting'. Mutually exclusive with
 	    0))
     (sit-for secretary-sit-short)))
 
-(defun secretary-check-yesterday-sleep ()
-  (let* ((today-rows (secretary-get-all-today-in-tsv
-	       "/home/kept/Self_data/sleep.tsv" (ts-dec 'day 1 (ts-now))))
-         (total-yesterday (-sum (--map (string-to-number (nth 2 it)) today-rows))))
-    (if (> (* 60 4) total-yesterday)
-        (if (secretary-prompt "Yesterday, you slept "
-			      (number-to-string (round (/ total-yesterday 60.0)))
-			      " hours, is this about right?")
-            nil
-          (secretary-emit "You may edit the history at "
-			  "/home/kept/Self_data/sleep.tsv"
-			  ". For now, let's talk about today.")
-          (sit-for secretary-sit-short)))))
 
 ;; TODO: (Feature) Let user say "since 5" instead of quantity
 ;; TODO: Fix the case where someone wakes up at 23:00 but replies to the query
@@ -888,56 +915,6 @@ add."
       (ts-format "%F" secretary--date) ;; date
       (when wakeup-time (ts-format "%T" wakeup-time)) ;; time (optional)
       (when sleep-minutes (number-to-string sleep-minutes)))))
-
-(defun secretary-read (prompt &optional collection default)
-  (let* ((background-info (concat "[Current date: "
-				  (ts-format "%Y-%b-%d" secretary--date) "]\n"
-				  secretary--last-msg-2 "\n"
-				  secretary--last-msg "\n"
-				  ))
-	 (extra-collection '("Skip to presentations"
-			     "Don't disturb me"))
-	 (result (completing-read
-		  (concat background-info
-			  (ts-format "[%H:%M] ")
-			  prompt
-			  (when (stringp default)
-			    " (default " default "): "))
-		  (append collection extra-collection)
-		  nil nil nil nil
-		  (when (stringp default)
-		    default))))
-    (secretary-emit prompt)
-    (if (string-match-p "skip" result)
-	(progn
-	  ;; (minibuffer-keyboard-quit)
-	  (secretary-present-diary)
-	  (keyboard-quit))
-      result)))
-
-(defun secretary--chime-visual ()
-  (let* ((orig-fringe-bg (face-background 'fringe))
-	 (colors `((.1 . "green")
-		   (.2 . "#aca")
-		   (.3 . "#7a7")
-		   (.4 . "#696")
-		   (.5 . "#363"))))
-    (let ((orig (face-background 'fringe)))
-      (dolist (x colors)
-	(run-with-timer (car x) nil #'set-face-background 'fringe (cdr x)))
-      (run-with-timer .6 nil #'set-face-background 'fringe orig))
-    (when (facep 'solaire-fringe-face)
-      (let ((orig (face-background 'solaire-fringe-face)))
-	(dolist (x colors)
-	  (run-with-timer (car x) nil #'set-face-background 'solaire-fringe-face (cdr x)))
-	(run-with-timer .6 nil #'set-face-background 'solaire-fringe-face orig)))
-    nil))
-
-;; (secretary--chime-visual)
-;; (secretary--chime-audio)
-
-;; (set-face-attribute 'fringe nil :foreground "grey")
-;; (secretary-read "question" nil nil)
 
 (defun secretary-query-meditation (&optional ts)
   (interactive)
@@ -995,7 +972,7 @@ are minutes and numbers below are hours."
   (interactive)
   (setq secretary--date (ts-now))
   (secretary--raise-frame-and-do
-   (dolist (x secretary--active-queries)
+   (dolist (x (secretary--active-queries))
      (secretary-do-query-maybe x secretary--date (called-interactively-p)))))
 
 (defun secretary-call (&optional arg)
@@ -1252,12 +1229,13 @@ Note that org-journal is not needed."
       (kill-buffer buffer))))
 ;; (secretary-present-diary (ts-now))
 
+;; WIP
 (defun secretary-make-ods ()
   "Make an ODS spreadsheet of variables for you to play with."
   (interactive))
 
 
-;;;; Handle idling & reboots & crashes
+;;;; Handle idle & reboots & crashes
 
 (defvar secretary--timer nil)
 
@@ -1339,13 +1317,13 @@ separate function from `secretary--user-is-active'."
       (setq secretary--idle-beginning (ts-now))
       (secretary--start-next-timer))))
 
+
+
 (defun secretary--keepalive ()
   (unless (member (named-timer-get :secretary) timer-list)
     (message "[%s] secretary timer found dead, reviving it."
 	     (format-time-string "%H:%M"))
     (secretary--start-next-timer)))
-
-
 
 (defun secretary--another-secretary-running-p ()
   "Return t if another Emacs instance has secretary-mode on.

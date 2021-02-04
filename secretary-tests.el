@@ -37,6 +37,11 @@
                                   (--iterate (ts-dec 'month 1 it) now 12)
                                   (--iterate (ts-dec 'year 1 it) now 5))))))))
 
+;; (secretary-last-datestamp-in-file "/home/kept/Self_data/weight.tsv")
+;; (secretary-last-datestamp-in-file "/home/kept/Self_data/mood.tsv")
+;; (secretary-last-timestamp-in-tsv "/home/kept/Self_data/sleep.tsv")
+;; (secretary-get-all-today-in-tsv "/home/kept/Self_data/sleep.csv" (ts-dec 'day 1 (ts-now)))
+
 (let ((var1-file-name "/tmp/...")
       (var2-file-name "/tmp/...")))
 

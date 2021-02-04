@@ -39,6 +39,19 @@
 				  :log-file "/home/kept/Self_data/cold.tsv"
 				  :max-entries-per-day 1)))
 
+(setq secretary-activities
+      (list (secretary-activity-create
+	     :name "sleep"
+	     :id "ac93c132-ab74-455f-a456-71d7b5ee88a6"
+	     :cost-false-pos 3
+	     :cost-false-neg 3
+	     :query #'secretary-query-sleep)
+	    (secretary-activity-create
+	     :name "studying"
+	     :id "24553859-2214-4fb0-bdc9-84e7f3d04b2b"
+	     :cost-false-pos 8
+	     :cost-false-neg 8)))
+
 ;; TODO: Merge with `secretary-read'
 (defun secretary-special-handle-current-query ()
   (interactive)
