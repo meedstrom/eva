@@ -156,17 +156,6 @@ at `secretary-mood-alist-file-name'.")
 ;; 			 ("annoyed" . "3")
 ;; 			 ("depressed" . "1")))
 
-;; DEPRECATED
-(defvar secretary-tsv-alist
-  '(("/home/kept/Self_data/weight.tsv" secretary-query-weight)
-    ("/home/kept/Self_data/mood.tsv" secretary-query-mood)
-    ("/home/kept/Self_data/ingredients.tsv" secretary-query-ingredients)
-    ("/home/kept/Self_data/sleep.tsv" secretary-query-sleep)
-    ("/home/kept/Self_data/meditation.tsv" secretary-query-meditation)
-    ("/home/kept/Self_data/cold.tsv" secretary-query-cold)))
-
-(defvar secretary-queriers)
-
 (defvar secretary-aphorisms)
 
 (defvar secretary--date (ts-now)
@@ -177,7 +166,7 @@ This may not apply, check the source for the welcomer you are
 using.")
 
 
-;;; Structs
+;;; Activity structs
 ;; Q: What's cl-defstruct? A: https://nullprogram.com/blog/2018/02/14/
 
 (cl-defstruct (secretary-activity (:constructor secretary-activity-create)
@@ -191,11 +180,15 @@ using.")
 (defvar secretary-activities)
 
 (defun secretary-activity-by-name (name)
-  (declare (side-effect-free t))
   (--find (equal name (secretary-activity-name it)) secretary-activities))
 
 (defun secretary-activities-names ()
   (-map #'secretary-activity-name secretary-activities))
+
+
+;;; Querier structs
+;; Q: What's cl-defstruct? A: https://nullprogram.com/blog/2018/02/14/
+;; TODO: come up with a better name for "querier"
 
 (cl-defstruct (secretary-querier (:constructor secretary-querier-create)
 				 (:copier nil))
@@ -207,14 +200,26 @@ using.")
   (dismissals 0)
   use-posted)
 
-(defun secretary--get-associated-struct (fn)
+(defvar secretary-queriers)
+
+(defun secretary--querier-by-fn (fn)
+  "Get the querier struct associated with the query function FN."
   (--find (equal fn (secretary-querier-fn it)) secretary-queriers))
+
+(defun secretary--querier-by-log-file (path)
+  "Get the querier struct associated with the log file at PATH."
+  (--find (equal path (secretary-querier-log-file it)) secretary-queriers))
+
+;; probably unneccessary
+;; unused
+(defun secretary--all-querier-log-files ()
+  (-map #'secretary-querier-log-file secretary-queriers))
 
 (defun secretary-do-query-maybe (fn &optional ts ignore-wait)
   "Call the query function FN if appropriate.
 Do nothing if it's been recently logged, reached its
 max-entries-per-day, etc."
-  (let* ((q (secretary--get-associated-struct fn))
+  (let* ((q (secretary--querier-by-fn fn))
 	 (last-called (secretary-querier-last-called q))
 	 (file (secretary-querier-log-file q))
 	 (max-entries (secretary-querier-max-entries-per-day q))
@@ -257,7 +262,7 @@ max-entries-per-day, etc."
 ;; (defun test ()
 ;;   (interactive)
 ;;   (secretary-do-query-maybe #'secretary-query-mood nil t))
-;; (secretary-querier-dismissals (secretary--get-associated-struct #'secretary-query-weight))
+;; (secretary-querier-dismissals (secretary--querier-by-fn #'secretary-query-weight))
 
 (defcustom secretary-inactive-queries-file
   "/home/kept/Emacs/secretary/pseudo-userdir/inactive-queries.el"
@@ -748,7 +753,7 @@ Put this on `window-buffer-change-functions' and
     (transient--pop-keymap 'secretary-query-keymap) ;; just in case
     ;; the main reason for this wrapper
     (cl-incf (secretary-querier-dismissals
-	      (secretary--get-associated-struct secretary--current-fn)))
+	      (secretary--querier-by-fn secretary--current-fn)))
     (setq secretary--current-fn nil)
     (if (minibufferp)
 	(abort-recursive-edit)
@@ -865,7 +870,7 @@ Put this on `window-buffer-change-functions' and
 	(s-replace "," "." wt))
       (secretary-emit "Weight today: " (secretary-last-value-in-tsv path) " kg")
       (setf (secretary-querier-dismissals
-	     (secretary--get-associated-struct secretary--current-fn))
+	     (secretary--querier-by-fn secretary--current-fn))
 	    0))
     (sit-for secretary-sit-short)))
 
@@ -1049,23 +1054,25 @@ are minutes and numbers below are hours."
   (secretary-present-plots)
   ;; and (secretary-prompt "Would you like me to suggest an activity?")
   (secretary-present-diary (ts-now))
-  (and (-all-p #'null (-map #'secretary-logged-today (-map #'car secretary-tsv-alist)))
+  (and (-all-p #'not
+	       (-map #'secretary-logged-today
+		     (-map #'secretary-querier-log-file secretary-queriers)))
        (secretary-prompt "Shall I come back in an hour?")
        (run-with-timer 3600 nil #'secretary-call-from-idle)))
 
 (defun secretary-check-neglect ()
   (interactive)
-  (dolist (cell secretary-tsv-alist)
-    (when (file-exists-p (car cell))
-      (let* ((path (car cell))
-             (d (ts-parse (secretary-last-datestamp-in-file path)))
-             (diff-days (round (/ (ts-diff (ts-now) d) 60 60 24))))
-	(and (< 3 diff-days)
-	     ;; FIXME: Increment the dismissals upon a "no".
-	     (secretary-prompt "It's been " (number-to-string diff-days)
-			       " days since you logged " (file-name-base path)
-			       ". Do you want to log it now?")
-	     (call-interactively (cadr cell)))))))
+  (dolist (q secretary-queriers)
+    (let ((path (secretary-querier-log-file q)))
+      (when (file-exists-p path)
+	(let* ((d (ts-parse (secretary-last-datestamp-in-file path)))
+               (diff-days (round (/ (ts-diff (ts-now) d) 60 60 24))))
+	  (and (< 3 diff-days)
+	       ;; FIXME: Increment the dismissals upon a "no".
+	       (secretary-prompt "It's been " (number-to-string diff-days)
+				 " days since you logged " (file-name-base path)
+				 ". Do you want to log it now?")
+	       (call-interactively (secretary-querier-fn q))))))))
 
 
 ;;;; Presenters
