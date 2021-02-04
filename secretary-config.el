@@ -23,21 +23,21 @@
 (require 'secretary)
 
 (setq secretary-queriers
-  (list (secretary-querier-create :fn #'secretary-query-sleep
-				  :log-file "/home/kept/Self_data/sleep.tsv"
-				  :min-hours-wait 5
-				  :use-posted t)
-	(secretary-querier-create :fn #'secretary-query-weight
-				  :log-file "/home/kept/Self_data/weight.tsv"
-				  :max-entries-per-day 1)
-	(secretary-querier-create :fn #'secretary-query-mood
-				  :log-file "/home/kept/Self_data/mood.tsv")
-	(secretary-querier-create :fn #'secretary-query-ingredients
-				  :log-file "/home/kept/Self_data/ingredients.tsv"
-				  :min-hours-wait 5)
-	(secretary-querier-create :fn #'secretary-query-cold-shower
-				  :log-file "/home/kept/Self_data/cold.tsv"
-				  :max-entries-per-day 1)))
+      (list (secretary-querier-create :fn #'secretary-query-sleep
+				      :log-file "/home/kept/Self_data/sleep.tsv"
+				      :min-hours-wait 5
+				      :use-posted t)
+	    (secretary-querier-create :fn #'secretary-query-weight
+				      :log-file "/home/kept/Self_data/weight.tsv"
+				      :max-entries-per-day 1)
+	    (secretary-querier-create :fn #'secretary-query-mood
+				      :log-file "/home/kept/Self_data/mood.tsv")
+	    (secretary-querier-create :fn #'secretary-query-ingredients
+				      :log-file "/home/kept/Self_data/ingredients.tsv"
+				      :min-hours-wait 5)
+	    (secretary-querier-create :fn #'secretary-query-cold-shower
+				      :log-file "/home/kept/Self_data/cold.tsv"
+				      :max-entries-per-day 1)))
 
 (setq secretary-activities
       (list (secretary-activity-create
