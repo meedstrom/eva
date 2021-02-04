@@ -22,7 +22,7 @@
 
 (require 'secretary)
 
-(defvar secretary-queriers
+(setq secretary-queriers
   (list (secretary-querier-create :fn #'secretary-query-sleep
 				  :log-file "/home/kept/Self_data/sleep.tsv"
 				  :min-hours-wait 5
@@ -37,8 +37,7 @@
 				  :min-hours-wait 5)
 	(secretary-querier-create :fn #'secretary-query-cold-shower
 				  :log-file "/home/kept/Self_data/cold.tsv"
-				  :max-entries-per-day 1))
-  "To be customized by user.")
+				  :max-entries-per-day 1)))
 
 ;; TODO: Merge with `secretary-read'
 (defun secretary-special-handle-current-query ()

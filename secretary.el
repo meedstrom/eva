@@ -54,7 +54,8 @@
 
 (defvar secretary-debug-p t)
 
-(defvar secretary-queriers nil)
+(defvar secretary-queriers)
+(defvar secretary-aphorisms)
 
 (defgroup secretary nil "The Emacs in-house secretary."
   :prefix "secretary-"
@@ -71,9 +72,8 @@ We assume these files have names such as \"201228.org\".  Used by
 (defcustom secretary-location-diary-datetree "/home/kept/Journal/diary2.org"
   "The file name of your main datetree, if you have one.
 Only relevant if you have one you use as a big archive file, see
-Info node `(org) Moving subtrees', or just write/capture
-everything directly into it.  Used by
-`secretary-present-diary'."
+Info node `(org) Moving subtrees', or you write/capture
+everything directly into.  Used by `secretary-present-diary'."
   :group 'secretary
   :type 'string)
 
@@ -395,10 +395,7 @@ meant to get."
 ;; (secretary-last-datestamp-in-file "/home/kept/Self_data/weight.tsv")
 ;; (secretary-last-datestamp-in-file "/home/kept/Self_data/mood.tsv")
 ;; (secretary-last-timestamp-in-tsv "/home/kept/Self_data/sleep.tsv")
-
-;; (parse-csv-string-rows
-;;  (f-read "/home/kept/Self_data/weight.csv") (string-to-char ",") (string-to-char " ") "\n")
-
+;; (secretary-get-all-today-in-tsv "/home/kept/Self_data/sleep.csv" (ts-dec 'day 1 (ts-now)))
 
 (defun secretary-get-all-today-in-tsv (path &optional ts)
   (with-temp-buffer
@@ -410,11 +407,6 @@ meant to get."
 			    "\t")
               x))
       x)))
-
-;; (secretary-get-all-today-in-tsv "/home/kept/Self_data/sleep.csv" (ts-dec 'day 1 (ts-now)))
-
-;; (defun secretary-update-or-append-in-date-indexed-csv (path &optional ts)
-;;   (secretary-get-first-today-line-in-file path ts))
 
 (defun secretary--last-in-tsv (path)
   (with-temp-buffer
@@ -472,8 +464,7 @@ passed on to `call-process'."
 (defun secretary-idle-p ()
   (> (secretary--idle-seconds) secretary-idle-threshold))
 
-(defvar secretary-x11idle-program-name
-  (or org-clock-x11idle-program-name "xprintidle"))
+(defvar secretary-x11idle-program-name "x11idle")
 
 (defun secretary--x11-idle-seconds ()
   "Like `org-x11-idle-seconds' without need for /bin/sh or org."
@@ -684,6 +675,8 @@ of `secretary-greeting'. Mutually exclusive with
 ;;;###autoload
 (defun secretary-query-ingredients (&optional ts)
   (interactive)
+  (setq secretary--current-fn #'secretary-query-ingredients)
+  (set-transient-map 'secretary-query-keymap #'active-minibuffer-window)
   (let* ((response (read-string "Comma-separated list of ingredients: "))
          (formatted-response (->> response
                                   (s-split (rx (+ (any "," blank))))
@@ -702,6 +695,8 @@ of `secretary-greeting'. Mutually exclusive with
 ;;;###autoload
 (defun secretary-query-activity (&optional _ts)
   (interactive)
+  (setq secretary--current-fn #'secretary-query-activity)
+  (set-transient-map 'secretary-query-keymap #'active-minibuffer-window)
   (when (called-interactively-p)
     (setq secretary--date (ts-now)))
   (let* ((name (secretary-read "What are you up to? " (secretary-activities-names))))
@@ -712,6 +707,7 @@ of `secretary-greeting'. Mutually exclusive with
       (secretary-activity-id (secretary-activity-by-name name)))))
 ;; (secretary-query-activity)
 
+(defvar secretary-activities nil)
 (setq secretary-activities
       (list (secretary-activity-create
 	     :name "sleep"
@@ -719,22 +715,21 @@ of `secretary-greeting'. Mutually exclusive with
 	     :cost-false-pos 3
 	     :cost-false-neg 3
 	     :query #'secretary-query-sleep)
-
 	    (secretary-activity-create
 	     :name "studying"
 	     :id "24553859-2214-4fb0-bdc9-84e7f3d04b2b"
 	     :cost-false-pos 8
-	     :cost-false-neg 8)
-	    ))
+	     :cost-false-neg 8)))
 
 (defun secretary--random-p (&rest _args)
   "Return t or nil, at random."
-  (declare (side-effect-free t))
   (> 0 (random)))
 
 ;;;###autoload
 (defun secretary-query-mood (&optional ts prompt)
   (interactive)
+  (setq secretary--current-fn #'secretary-query-mood)
+  (set-transient-map 'secretary-query-keymap #'active-minibuffer-window)
   (let* ((mood-desc (secretary-read
 		     (or prompt "Your mood: ")
 		     (cl-sort (mapcar #'car secretary-mood-alist)
@@ -765,9 +760,31 @@ of `secretary-greeting'. Mutually exclusive with
         3
       score-num)))
 
+(defun secretary-keyboard-quit ()
+  "Quit, and record which query was quit."
+  (interactive)
+  (if (or (> (recursion-depth) 1)
+	  (and (minibufferp) delete-selection-mode (region-active-p)))
+      (minibuffer-keyboard-quit)
+    (transient--pop-keymap 'secretary-query-keymap) ;; just in case
+    ;; the main reason for this wrapper
+    (cl-incf (secretary-querier-rejections
+	      (secretary--get-associated-struct secretary--current-fn)))
+    (setq secretary--current-fn nil)
+    (keyboard-quit)))
+
+(defvar secretary--current-fn)
+(defvar secretary-query-keymap (make-sparse-keymap))
+(define-key secretary-query-keymap [remap keyboard-quit] #'secretary-keyboard-quit)
+(define-key secretary-query-keymap [remap minibuffer-keyboard-quit] #'secretary-keyboard-quit)
+(define-key secretary-query-keymap [remap abort-recursive-edit] #'secretary-keyboard-quit)
+(define-key secretary-query-keymap [remap doom/escape] #'secretary-keyboard-quit)
+
 ;;;###autoload
 (defun secretary-query-weight (&optional ts)
   (interactive)
+  (setq secretary--current-fn #'secretary-query-weight)
+  (set-transient-map secretary-query-keymap #'active-minibuffer-window)
   (let* ((now (or ts (ts-now)))
 	 (path "/home/kept/Self_data/weight.tsv")
          (last-wt (secretary-last-value-in-tsv path))
@@ -812,6 +829,8 @@ having an unknown nonzero quantity of sleep on top of what you
 add."
   (interactive)
   (secretary-check-yesterday-sleep)
+  (setq secretary--current-fn #'secretary-query-sleep)
+  (set-transient-map 'secretary-query-keymap #'active-minibuffer-window)
   (let* ((now (or ts (ts-now)))
          (wakeup-time
           (if (secretary-prompt "Did you wake around now?")
@@ -890,22 +909,27 @@ add."
 ;; (set-face-attribute 'fringe nil :foreground "grey")
 ;; (secretary-read "question" nil nil)
 
-(defun secretary-query-meditation (&optional date)
+(defun secretary-query-meditation (&optional ts)
   (interactive)
+  (setq secretary--current-fn #'secretary-query-meditation)
+  (set-transient-map 'secretary-query-keymap #'active-minibuffer-window)
   (when (secretary-prompt "Did you meditate today?")
-    (let ((x (read-string "Do you know how long (in minutes)? ")))
-      (secretary-append "/home/kept/Self_data/meditation.tsv"
-			(ts-format date)
-			"\t" "TRUE"
-			"\t" x))))
+    (let* ((mins (read-string "Do you know how long (in minutes)? "))
+	   (cleaned-mins (number-to-string (string-to-number x)))) ;; ugly, I know
+      (secretary-append-tsv "/home/kept/Self_data/meditation.tsv"
+	(ts-format ts)
+	"TRUE"
+	(unless (string= "0" cleaned-mins) cleaned-mins)))))
 
-(defun secretary-query-cold-shower (&optional date)
+(defun secretary-query-cold-shower (&optional ts)
   (interactive)
-  (let ((x (read-string "Cold rating? "))
+  (setq secretary--current-fn #'secretary-query-cold-shower)
+  (set-transient-map 'secretary-query-keymap #'active-minibuffer-window)
+  (let ((rating (read-string "Cold rating? "))
 	(path "/home/kept/Self_data/cold.tsv"))
-    (secretary-append path
-		      (ts-format date)
-		      "\t" x)))
+    (secretary-append-tsv path
+      (ts-format ts)
+      rating)))
 
 
 ;;;; Parsers
@@ -1216,7 +1240,8 @@ When FILE-FORMAT is nil, use `org-journal-file-format'."
   :type 'number)
 
 (defcustom secretary-return-from-idle-hook nil
-  "Note: An Emacs startup also counts as a return from idleness.
+  "Hook run when user returns from a period of idleness.
+Note: An Emacs startup also counts as a return from idleness.
 You'll probably want your hook to be conditional on some value of
 `secretary-length-of-last-idle', which at startup is calculated from
 the last Emacs shutdown or crash (technically, last time
@@ -1270,7 +1295,8 @@ separate function from `secretary--user-is-active'."
     ;; Take the idle threshold into account and correct the idle begin point.
     (when decrement
       (ts-decf (ts-sec secretary--idle-beginning) secretary-idle-threshold))
-    (setq secretary-length-of-last-idle (ts-diff (ts-now) secretary--idle-beginning))
+    (setq secretary-length-of-last-idle (ts-diff (ts-now)
+						 secretary--idle-beginning))
     (unwind-protect
 	(run-hooks 'secretary-return-from-idle-hook)
       (setq secretary--idle-beginning (ts-now))
@@ -1341,7 +1367,7 @@ Behavior indeterminate you've forced it on in several Emacsen."
 			  '(secretary-aphorisms
 			    secretary-queriers))
 		 t
-	       (message "Needed variables not set, see manual or do %s."
+	       (message "Needed variables not set, read manual or do %s."
 			"M-x load-library secretary-config")
 	       (secretary-mode 0)
 	       nil))
