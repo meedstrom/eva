@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-source("sc_common.R")
+source("common.R")
 #theme_set(theme_solarized(light = FALSE))
 theme_set(theme_hc(style = "darkunica"))
 
