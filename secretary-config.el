@@ -24,47 +24,47 @@
 
 (setq secretary-queriers
       (list (secretary-querier-create :fn #'secretary-query-sleep
-				      :log-file "/home/kept/Self_data/sleep.tsv"
-				      :min-hours-wait 5
-				      :use-posted t)
-	    (secretary-querier-create :fn #'secretary-query-weight
-				      :log-file "/home/kept/Self_data/weight.tsv"
-				      :max-entries-per-day 1)
-	    (secretary-querier-create :fn #'secretary-query-mood
-				      :log-file "/home/kept/Self_data/mood.tsv")
-	    (secretary-querier-create :fn #'secretary-query-ingredients
-				      :log-file "/home/kept/Self_data/ingredients.tsv"
-				      :min-hours-wait 5)
-	    (secretary-querier-create :fn #'secretary-query-cold-shower
-				      :log-file "/home/kept/Self_data/cold.tsv"
-				      :max-entries-per-day 1)))
+                                      :log-file "/home/kept/Self_data/sleep.tsv"
+                                      :min-hours-wait 5
+                                      :use-posted t)
+            (secretary-querier-create :fn #'secretary-query-weight
+                                      :log-file "/home/kept/Self_data/weight.tsv"
+                                      :max-entries-per-day 1)
+            (secretary-querier-create :fn #'secretary-query-mood
+                                      :log-file "/home/kept/Self_data/mood.tsv")
+            (secretary-querier-create :fn #'secretary-query-ingredients
+                                      :log-file "/home/kept/Self_data/ingredients.tsv"
+                                      :min-hours-wait 5)
+            (secretary-querier-create :fn #'secretary-query-cold-shower
+                                      :log-file "/home/kept/Self_data/cold.tsv"
+                                      :max-entries-per-day 1)))
 
 (setq secretary-activities
       (list (secretary-activity-create
-	     :name "sleep"
-	     :id "ac93c132-ab74-455f-a456-71d7b5ee88a6"
-	     :cost-false-pos 3
-	     :cost-false-neg 3
-	     :query #'secretary-query-sleep)
-	    (secretary-activity-create
-	     :name "studying"
-	     :id "24553859-2214-4fb0-bdc9-84e7f3d04b2b"
-	     :cost-false-pos 8
-	     :cost-false-neg 8)))
+             :name "sleep"
+             :id "ac93c132-ab74-455f-a456-71d7b5ee88a6"
+             :cost-false-pos 3
+             :cost-false-neg 3
+             :query #'secretary-query-sleep)
+            (secretary-activity-create
+             :name "studying"
+             :id "24553859-2214-4fb0-bdc9-84e7f3d04b2b"
+             :cost-false-pos 8
+             :cost-false-neg 8)))
 
 ;; TODO: Merge with `secretary-read'
 (defun secretary-special-handle-current-query ()
   (interactive)
   (let ((input (completing-read "Yes? " '(
-					  "Never mind, let me reply normally."
-					  "Remind me about this one later."
-					  "Skip this."
-					  "Back to previous query."
-					  "Yes."
-					  "No."
-					  "Apply this query to a different date."
-					  "Apply this query to yesterday."
-					  "Tell me something profound."))))
+                                          "Never mind, let me reply normally."
+                                          "Remind me about this one later."
+                                          "Skip this."
+                                          "Back to previous query."
+                                          "Yes."
+                                          "No."
+                                          "Apply this query to a different date."
+                                          "Apply this query to yesterday."
+                                          "Tell me something profound."))))
     (cond ((string-match-p (rx (or "remind" "later" "l8r" "resched")) input)
            'reschedule)
           ((string-match-p (rx (or "food" "ingred")) input)

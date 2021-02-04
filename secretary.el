@@ -151,10 +151,10 @@ The variable populates itself through use, and syncs with a file
 at `secretary-mood-alist-file-name'.")
 
 ;; (setq secretary-mood-alist '(("bemused" . "3")
-;; 			 ("amused" . "5")
-;; 			 ("great"  . "5")
-;; 			 ("annoyed" . "3")
-;; 			 ("depressed" . "1")))
+;;     ("amused" . "5")
+;;     ("great"  . "5")
+;;     ("annoyed" . "3")
+;;     ("depressed" . "1")))
 
 (defvar secretary-aphorisms)
 
@@ -230,7 +230,7 @@ max-entries-per-day, etc."
 	 (recently-logged
 	  (when (file-exists-p file)
 	    (> min-secs
-	       (if use-posted
+               (if use-posted
 		   (- (ts-unix (ts-now))
 		      (string-to-number (car (secretary--last-in-tsv file))))
 		 (ts-diff (ts-now)
@@ -370,10 +370,10 @@ max-entries-per-day, etc."
 
 (defun secretary--chime-visual ()
   (let ((colors '((.1 . "green")
-		   (.2 . "#aca")
-		   (.3 . "#7a7")
-		   (.4 . "#696")
-		   (.5 . "#363"))))
+		  (.2 . "#aca")
+		  (.3 . "#7a7")
+		  (.4 . "#696")
+		  (.5 . "#363"))))
     (let ((orig (face-background 'fringe)))
       (dolist (x colors)
 	(run-with-timer (car x) nil #'set-face-background 'fringe (cdr x)))
@@ -482,7 +482,7 @@ passed on to `call-process'."
 	  (not (= 1 (length (frames-on-display-list))))
 	  (delete-frame secretary--frame t))
      (setq secretary--frame (make-frame '((name . "Secretary")
-					 (buffer-predicate . nil))))
+					  (buffer-predicate . nil))))
      (select-frame-set-input-focus secretary--frame t)
      ,@body))
 
@@ -642,7 +642,7 @@ do so again."
 	  ((> 10 (ts-hour (ts-now)) 5)
 	   (eval (seq-random-elt (secretary--daytime-appropriate-greetings))
 		 t))
-	  (t 
+	  (t
 	   (eval (seq-random-elt (append secretary-greetings
 					 (-list (secretary--daytime-appropriate-greetings))))
 		 t)))))
@@ -719,14 +719,14 @@ Put this on `window-buffer-change-functions' and
            (known (assoc buf secretary-known-buffers))
            (timestamp (s-pad-right 18 "0" (number-to-string (ts-unix (ts-now)))))
            (exist-record (unless (and known
-                                       (string= mode (nth 4 known))) ;; doesnt do it
-                            (list buf
-                                  (org-id-uuid)
-                                  (buffer-name buf)
-                                  (buffer-file-name buf)
-                                  mode
-                                  timestamp ;; time the buffer was first opened
-                                  )))
+                                      (string= mode (nth 4 known))) ;; doesnt do it
+                           (list buf
+                                 (org-id-uuid)
+                                 (buffer-name buf)
+                                 (buffer-file-name buf)
+                                 mode
+                                 timestamp ;; time the buffer was first opened
+                                 )))
            (focus-record (list timestamp ;; time the buffer was switched to
                                (if known (cadr known) (cadr exist-record)) ;; uuid
                                )))
@@ -768,7 +768,7 @@ Put this on `window-buffer-change-functions' and
 
 (defun secretary-check-yesterday-sleep ()
   (let* ((today-rows (secretary-get-all-today-in-tsv
-	       "/home/kept/Self_data/sleep.tsv" (ts-dec 'day 1 (ts-now))))
+		      "/home/kept/Self_data/sleep.tsv" (ts-dec 'day 1 (ts-now))))
          (total-yesterday (-sum (--map (string-to-number (nth 2 it)) today-rows))))
     (if (> (* 60 4) total-yesterday)
         (if (secretary-prompt "Yesterday, you slept "
@@ -1055,7 +1055,7 @@ are minutes and numbers below are hours."
   ;; and (secretary-prompt "Would you like me to suggest an activity?")
   (secretary-present-diary (ts-now))
   (and (-all-p #'not
-	       (-map #'secretary-logged-today
+               (-map #'secretary-logged-today
 		     (-map #'secretary-querier-log-file secretary-queriers)))
        (secretary-prompt "Shall I come back in an hour?")
        (run-with-timer 3600 nil #'secretary-call-from-idle)))
@@ -1068,11 +1068,11 @@ are minutes and numbers below are hours."
 	(let* ((d (ts-parse (secretary-last-datestamp-in-file path)))
                (diff-days (round (/ (ts-diff (ts-now) d) 60 60 24))))
 	  (and (< 3 diff-days)
-	       ;; FIXME: Increment the dismissals upon a "no".
-	       (secretary-prompt "It's been " (number-to-string diff-days)
+               ;; FIXME: Increment the dismissals upon a "no".
+               (secretary-prompt "It's been " (number-to-string diff-days)
 				 " days since you logged " (file-name-base path)
 				 ". Do you want to log it now?")
-	       (call-interactively (secretary-querier-fn q))))))))
+               (call-interactively (secretary-querier-fn q))))))))
 
 
 ;;;; Presenters
@@ -1383,19 +1383,19 @@ Behavior indeterminate you've forced it on in several Emacsen."
 		   (message "Another secretary active.")
 		   (secretary-mode 0)
 		   nil)
-	       t)
+               t)
 	     (if (--all-p (and (boundp it)
 			       (not (null it)))
 			  '(secretary-aphorisms
 			    secretary-queriers))
 		 t
-	       (message "Needed variables not set, read manual or do %s."
+               (message "Needed variables not set, read manual or do %s."
 			"M-x load-library secretary-config")
-	       (secretary-mode 0)
-	       nil))
+               (secretary-mode 0)
+               nil))
 	(mkdir "/tmp/secretary/" t)
 	(f-write (number-to-string (emacs-pid))
-	   'utf-8 "/tmp/secretary/pid")
+		 'utf-8 "/tmp/secretary/pid")
         (add-hook 'secretary-return-from-idle-hook #'secretary-log-idle -90)
         (add-hook 'secretary-return-from-idle-hook #'secretary-call-from-idle 90)
 	(add-hook 'secretary-periodic-not-idle-hook #'secretary--save-variables-to-disk)
