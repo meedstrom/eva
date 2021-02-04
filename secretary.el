@@ -307,19 +307,13 @@ max-entries-per-day, etc."
 	    (if secretary--k
 		(progn
 		  (setq secretary--k nil)
-		  (insert " Okay...")
-		  t)
+		  (insert " Okay..."))
 	      (if result
-		  (progn
-		    (insert " Yes.")
-		    t)
-		(insert " No.")
-		nil))
+		  (insert " Yes.")
+		(insert " No.")))
 	    (setq secretary--last-msg (buffer-substring (line-beginning-position)
-							(line-end-position))))
-	  ;;(insert "\n")
-	  ;; result
-	  )
+							(line-end-position)))
+	    result))
       (dolist (x '("o" "i" "k" "<SPC>"))
         (define-key y-or-n-p-map (kbd x) #'y-or-n-p-insert-other)))))
 ;; (secretary-prompt "Test")
