@@ -428,7 +428,12 @@ max-entries-per-day, etc."
 
 (defun secretary--transact-buffer-onto-file (buffer path)
   (when-let ((visiting (get-file-buffer path)))
-    (kill-buffer visiting))
+    (with-current-buffer visiting
+      ;; (undo-only 999)
+      (save-buffer))
+    (kill-buffer visiting)
+    (message "Killed buffer to prevent edit war. %s"
+	     "To edit, disable `secretary-mode' first."))
   (with-current-buffer buffer
     (whitespace-cleanup)
     (f-append-text (buffer-string) 'utf-8 path)
@@ -476,7 +481,8 @@ passed on to `call-process'."
 
 (defvar secretary--frame nil)
 
-(defmacro secretary--raise-frame-and-do (&rest body)
+(defmacro secretary-raise-frame-and-do (&rest body)
+  "Kill any previous secretary frame, raise new one, focus it."
   `(progn
      (and (frame-live-p secretary--frame)
 	  (not (= 1 (length (frames-on-display-list))))
@@ -976,7 +982,7 @@ are minutes and numbers below are hours."
 (defun secretary--call2 ()
   (interactive)
   (setq secretary--date (ts-now))
-  (secretary--raise-frame-and-do
+  (secretary-raise-frame-and-do
    (dolist (x (secretary--active-queries))
      (secretary-do-query-maybe x secretary--date (called-interactively-p)))))
 
@@ -1075,17 +1081,11 @@ are minutes and numbers below are hours."
                (call-interactively (secretary-querier-fn q))))))))
 
 
-;;;; Presenters
+;;;; Plot presenter
 
 (defvar secretary-plot-hook nil
   "Hook called to print plots. A convenient place to add your
 custom plots.")
-
-;;;###autoload
-(defun secretary-report-mood ()
-  (interactive)
-  (view-file "/home/kept/Self_data/mood.tsv")
-  (auto-revert-mode))
 
 ;;;###autoload
 (defun secretary-plot-mood ()
@@ -1105,7 +1105,6 @@ custom plots.")
         (goto-char (point-max))
         (insert "\n")))))
 
-;;;###autoload
 (defun secretary-plot-weight ()
   (interactive)
   (let* ((default-directory "/tmp/secretary")
@@ -1125,6 +1124,30 @@ custom plots.")
         (insert "\n")))))
 
 ;;;###autoload
+(defun secretary-plot-weight-ascii ()
+  (interactive)
+  (let* ((default-directory "/tmp/secretary")
+         (r-script (expand-file-name "R/make_data_for_plots.R"
+				   (f-dirname (find-library-name "secretary"))))
+	 (gnuplot-script (expand-file-name "weight.gnuplot"
+					   (f-dirname (find-library-name "secretary")))))
+    (switch-to-buffer (secretary-buffer-chat))
+    (secretary-emit "Plotting weight...")
+    ;; TODO: reuse secretary's R process to minimize package load time.
+    (set-process-sentinel
+     ;; TODO: pass start-date (today minus 3mo) and projection incline, letting
+     ;; user change the incline (persist for future plots too)
+     (start-process secretary-ai-name nil "Rscript" r-script)
+     `(lambda (_process _event)
+	(switch-to-buffer (secretary-buffer-chat))
+	(goto-char (point-max))
+	(call-process "gnuplot" ,gnuplot-script (secretary-buffer-chat))
+	;; Strip formfeed inserted by gnuplot.
+	(search-backward "\f")
+	(replace-match "")
+	(goto-char (point-max))))))
+
+;;;###autoload
 (defun secretary-present-plots ()
   (interactive)
   (unless (null secretary-plot-hook)
@@ -1133,6 +1156,31 @@ custom plots.")
 				      "Here are some projections!"
 				      "Data is beautiful, don't you think?")))
     (run-hooks 'secretary-plot-hook)))
+
+
+;;;; Other presenters
+
+;;;###autoload
+(defun secretary-present-mood ()
+  (interactive)
+  (view-file "/home/kept/Self_data/mood.tsv")
+  (auto-revert-mode))
+
+;; WIP
+(defun secretary-present-ledger ()
+  (interactive)
+  (when (fboundp #'ledger-report)
+    (let ((file "/home/kept/Journal/Finances/clean_start.ledger"))
+      (with-current-buffer (get-buffer-create file)
+	(ledger-report (car ledger-reports) nil)))))
+
+;; WIP
+(defun secretary-make-ods ()
+  "Make an ODS spreadsheet of variables for you to play with."
+  (interactive))
+
+
+;;;; Diary presenter
 
 (defvar secretary-past-sample-function #'secretary-past-sample-default)
 
@@ -1173,7 +1221,6 @@ months, and this date from 99 past years."
       (kill-buffer buffer))
     counter))
 ;; (secretary-make-indirect-datetree (get-buffer-create "test")
-;;      (--iterate (ts-dec 'month 1 it) (ts-now) 40))
 
 (defun secretary-existing-diary (&optional date dir file-format)
   "Return the first file in DIR matching FILE-FORMAT.
@@ -1235,11 +1282,6 @@ Note that org-journal is not needed."
                 (view-file x))))
       (kill-buffer buffer))))
 ;; (secretary-present-diary (ts-now))
-
-;; WIP
-(defun secretary-make-ods ()
-  "Make an ODS spreadsheet of variables for you to play with."
-  (interactive))
 
 
 ;;;; Handle idle & reboots & crashes
