@@ -52,6 +52,9 @@
              :cost-false-pos 8
              :cost-false-neg 8)))
 
+(add-to-list 'secretary-plot-hook #'secretary-plot-mood-ascii)
+(add-to-list 'secretary-plot-hook #'secretary-plot-weight-ascii)
+
 ;; TODO: Merge with `secretary-read'
 (defun secretary-special-handle-current-query ()
   (interactive)
@@ -82,7 +85,7 @@
           (t
            (secretary-emit "Override not understood.")))))
 
-(defvar secretary-aphorisms
+(setq secretary-aphorisms
   '("The affairs of the world will go on forever. Do not delay the practice of meditation." ;; not koanish
     "It takes all the running you can do, to keep in the same place."
     "You can't hate yourself into someone that loves who they are."

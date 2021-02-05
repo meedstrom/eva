@@ -765,7 +765,9 @@ Put this on `window-buffer-change-functions' and
 	(abort-recursive-edit)
       (keyboard-quit))))
 
-(defvar secretary--current-fn)
+(defvar secretary--current-fn nil
+  "Information used by `secretary-midquery-keyboard-quit'.")
+
 (defvar secretary-query-keymap (make-sparse-keymap))
 (define-key secretary-query-keymap [remap keyboard-quit] #'secretary-midquery-keyboard-quit)
 (define-key secretary-query-keymap [remap minibuffer-keyboard-quit] #'secretary-midquery-keyboard-quit)
@@ -815,8 +817,8 @@ Put this on `window-buffer-change-functions' and
   (when (called-interactively-p)
     (setq secretary--date (ts-now)))
   (let* ((name (secretary-read "What are you up to? " (secretary-activities-names))))
-    (secretary-append-tsv "/home/kept/Self_data/activity.tsv"
-      (ts-format) ;; time posted
+    (secretary-append-tsv (secretary-querier-log-file
+			   (secretary--querier-by-fn secretary--current-fn))
       (ts-format secretary--date) ;; time the datapoint concerns
       name
       (secretary-activity-id (secretary-activity-by-name name)))))
@@ -827,6 +829,8 @@ Put this on `window-buffer-change-functions' and
   (interactive)
   (setq secretary--current-fn #'secretary-query-mood)
   (set-transient-map 'secretary-query-keymap #'active-minibuffer-window)
+  (when (called-interactively-p)
+    (setq secretary--date (ts-now)))
   (let* ((mood-desc (secretary-read
 		     (or prompt "Your mood: ")
 		     (cl-sort (mapcar #'car secretary-mood-alist)
@@ -1087,7 +1091,29 @@ are minutes and numbers below are hours."
   "Hook called to print plots. A convenient place to add your
 custom plots.")
 
-;;;###autoload
+(defmacro secretary--plot-ascii (gnuplot-script message &rest after-body)
+  "Make an ascii plot.
+Emit MESSAGE and run GNUPLOT-SCRIPT. After the plotting is done,
+run any forms in AFTER-BODY."
+  `(let* ((default-directory "/tmp/secretary")
+          (r-script (expand-file-name "R/make_data_for_plots.R"
+				      (f-dirname (find-library-name "secretary")))))
+     (mkdir "/tmp/secretary" t)
+     ;; TODO: reuse secretary's R process to minimize package load time, so
+     ;; we can use use call-process for easier reasoning.
+     (set-process-sentinel
+      (start-process secretary-ai-name nil "Rscript" r-script)
+      (lambda (_process _event)
+	(secretary-emit ,message)
+	(switch-to-buffer (secretary-buffer-chat))
+	(goto-char (point-max))
+	(call-process "gnuplot" ,gnuplot-script (secretary-buffer-chat))
+	;; Strip formfeed inserted by gnuplot.
+	(search-backward "\f")
+	(replace-match "")
+	(goto-char (point-max))
+	,@after-body))))
+
 (defun secretary-plot-mood ()
   (interactive)
   (let* ((default-directory "/tmp/secretary")
@@ -1104,6 +1130,22 @@ custom plots.")
         (insert-image-file ,plot)
         (goto-char (point-max))
         (insert "\n")))))
+
+;;;###autoload
+(defun secretary-plot-mood-ascii ()
+  (interactive)
+  (secretary--plot-ascii
+   (expand-file-name "mood.gnuplot"
+		     (f-dirname (find-library-name "secretary")))
+   "Plotting mood..."
+   (search-backward "Plotting mood...")
+   (forward-line 1)
+   (goto-char (line-end-position))
+   (just-one-space)
+   (insert-rectangle (last
+		      (split-string (f-read "/tmp/secretary/mood_desc.txt"))
+		      16))
+   (goto-char (point-max))))
 
 (defun secretary-plot-weight ()
   (interactive)
@@ -1131,14 +1173,14 @@ custom plots.")
 				   (f-dirname (find-library-name "secretary"))))
 	 (gnuplot-script (expand-file-name "weight.gnuplot"
 					   (f-dirname (find-library-name "secretary")))))
-    (switch-to-buffer (secretary-buffer-chat))
-    (secretary-emit "Plotting weight...")
+    (mkdir "/tmp/secretary" t)
     ;; TODO: reuse secretary's R process to minimize package load time.
     (set-process-sentinel
      ;; TODO: pass start-date (today minus 3mo) and projection incline, letting
      ;; user change the incline (persist for future plots too)
      (start-process secretary-ai-name nil "Rscript" r-script)
      `(lambda (_process _event)
+	(secretary-emit "Plotting weight...")
 	(switch-to-buffer (secretary-buffer-chat))
 	(goto-char (point-max))
 	(call-process "gnuplot" ,gnuplot-script (secretary-buffer-chat))
@@ -1151,11 +1193,13 @@ custom plots.")
 (defun secretary-present-plots ()
   (interactive)
   (unless (null secretary-plot-hook)
-    (switch-to-buffer (secretary-buffer-chat))
     (secretary-emit (seq-random-elt '("I have plotted the latest intel, boss."
 				      "Here are some projections!"
 				      "Data is beautiful, don't you think?")))
-    (run-hooks 'secretary-plot-hook)))
+    ;; HACK: because of async; want sync.
+    (dolist (hook secretary-plot-hook)
+      (funcall hook)
+      (sit-for .5))))
 
 
 ;;;; Other presenters
