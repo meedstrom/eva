@@ -1358,13 +1358,57 @@ run any forms in AFTER-BODY."
   (view-file "/home/kept/Self_data/mood.tsv")
   (auto-revert-mode))
 
-;; WIP
-(defun secretary-present-ledger ()
+(defun secretary-present-ledger-report ()
   (interactive)
-  (when (fboundp #'ledger-report)
-    (let ((file "/home/kept/Journal/Finances/clean_start.ledger"))
-      (with-current-buffer (get-buffer-create file)
-	(ledger-report (car ledger-reports) nil)))))
+  (when (or (featurep 'ledger-mode-autoloads)
+	    (fboundp #'ledger-report))
+    (require 'ledger-mode)
+    (let ((file secretary-ledger-file-path))
+      ;; for some reason, (with-current-buffer (get-buffer-create file)) leads
+      ;; to all kinds of errors, so we have to use find-file
+      (find-file-noselect file)
+      (call-interactively #'ledger-report))))
+
+(defun secretary-make-ods-for-finance-2020 ()
+  "Make and open an ODS spreadsheet generated from Ledger data."
+  (interactive)
+  (let* ((r-script "/home/kept/Journal/Finances/R/generate_an_ods.R")
+	 (default-directory (f-dirname (f-dirname r-script))))
+    (call-process "Rscript" nil nil nil r-script "l.ledger" "2020.ods" "SEK")
+    (start-process "soffice" nil "soffice" "2020.ods")))
+
+(defun secretary-make-ods-for-finance ()
+  "Make and open an ODS spreadsheet from Ledger data.
+Requires the ssconvert program that comes with Gnumeric."
+  (interactive)
+  (let* ((script (expand-file-name "R/generate_an_ods.R"
+				   (f-dirname (find-library-name "secretary"))))
+	 (sheet (expand-file-name ".tmp_finances.ods"
+				  secretary-dir))
+	 (default-directory (f-dirname script))
+	 (app (seq-find #'executable-find '("gnumeric"
+					    "soffice"
+					    "open"
+					    "mimeopen"
+					    "xdg-open"))))
+    (secretary--run "Rscript" script secretary-ledger-file-path sheet)
+    (secretary--run-async app sheet)))
+
+(defmacro secretary--run-async (program &rest args)
+  "Wrapper for `start-process' with fewer arguments."
+  `(start-process ,program (secretary--debug-buf) ,program ,@args))
+
+(defmacro secretary--run (program &rest args)
+  "Wrapper for `call-process' with fewer arguments."
+  `(call-process ,program nil (secretary--debug-buf) nil ,@args))
+
+(defun secretary--debug-buf ()
+  (when secretary-debug-p (get-buffer-create "*Process Output*")))
+
+(defcustom secretary-ledger-file-path "/home/kept/Journal/Finances/2021.ledger"
+  "Ledger file to read or visit; we will never modify it."
+  :group 'secretary
+  :type 'string)
 
 ;; WIP
 (defun secretary-make-ods ()
