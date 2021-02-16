@@ -478,12 +478,18 @@ work correctly next time."
 	(run-with-timer .6 nil #'set-face-background 'solaire-fringe-face orig)))
     nil))
 
+(defface secretary-old-msg-face '((t . (:foreground "grey")))
+  "Face for old messages."
+  :group 'secretary)
+
 (defun secretary-emit (&rest strings)
   (secretary-print-new-date-maybe)
   (prog1 (message (string-join strings))
     (let ((msg (concat "\n[" (ts-format "%H:%M") "] " (string-join strings))))
       (setq secretary--last-msg-2 secretary--last-msg)
-      (setq secretary--last-msg msg)
+      ;; (setq secretary--last-msg msg)
+      ;; (setq secretary--last-msg (propertize msg 'face '(:foreground "grey")))
+      (setq secretary--last-msg (propertize msg 'face 'secretary-old-msg-face))
       (with-current-buffer (secretary-buffer-chat)
 	(goto-char (point-max))
 	(insert msg))
