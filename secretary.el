@@ -167,7 +167,7 @@ using.")
 
 
 ;;; Activity structs
-;; Q: What's cl-defstruct? A: https://nullprogram.com/blog/2018/02/14/
+;; Q: What's cl-defstruct?  A: https://nullprogram.com/blog/2018/02/14/
 
 (cl-defstruct (secretary-activity (:constructor secretary-activity-create)
 				  (:copier nil))
@@ -187,9 +187,10 @@ using.")
 
 
 ;;; Querier structs
-;; Q: What's cl-defstruct? A: https://nullprogram.com/blog/2018/02/14/
-;; TODO: come up with a better name for "querier"
+;; Q: What's cl-defstruct?  A: https://nullprogram.com/blog/2018/02/14/
 
+;; TODO: come up with a better name for "querier"
+;; TODO: Refactor away the weird "use-posted" key
 (cl-defstruct (secretary-querier (:constructor secretary-querier-create)
 				 (:copier nil))
   fn
@@ -210,11 +211,12 @@ using.")
   "Get the querier struct associated with the log file at PATH."
   (--find (equal path (secretary-querier-log-file it)) secretary-queriers))
 
-;; probably unneccessary
+;; probably unneccessary, but instructive
 ;; unused
 (defun secretary--all-querier-log-files ()
   (-map #'secretary-querier-log-file secretary-queriers))
 
+;; DEPRECATED: Old big function
 (defun secretary-do-query-maybe (fn &optional ts ignore-wait)
   "Call the query function FN if appropriate.
 Do nothing if it's been recently logged, reached its
@@ -227,6 +229,9 @@ max-entries-per-day, etc."
 	 (dismissals (secretary-querier-dismissals q))
 	 (min-hrs (secretary-querier-min-hours-wait q))
 	 (min-secs (* 60 60 min-hrs))
+	 (called-today (when last-called
+			 (and (= (ts-day last-called) (ts-day (ts-now)))
+			      (> (ts-H last-called) 4))))
 	 (recently-logged
 	  (when (file-exists-p file)
 	    (> min-secs
@@ -237,7 +242,8 @@ max-entries-per-day, etc."
 			  (ts-parse (secretary-last-timestamp-in-tsv file))))))))
     (unless (and recently-logged
 		 (null ts))
-      (when (or (null max-entries)
+      (when (or (not called-today)
+		(null max-entries)
 		(not (file-exists-p file))
 		(> max-entries (length (secretary--get-entries-in-tsv file ts))))
 	(when (or ignore-wait
@@ -251,13 +257,66 @@ max-entries-per-day, etc."
 			 (secretary-disable-query fn)
 			 t))
 	    (setf (secretary-querier-last-called q) (ts-now))
+	    (setf (secretary-querier-dismissals q) 0)
 	    (funcall fn ts)))))))
+
+(defun secretary-do-query-check-dismissals (fn)
+  "Call a query, but react specially if it's been dismissed many times.
+Also update :last-called so that `secretary--pending-p' will
+work correctly next time."
+  (let* ((q (secretary--querier-by-fn fn))
+	 (dismissals (secretary-querier-dismissals q)))
+    (unless (and (>= dismissals 3)
+		 (when (secretary-prompt
+			"You have been dismissing "
+			(symbol-name fn)
+			", shall I stop tracking it for now?")
+		   (secretary-disable-query fn)
+		   t))
+      (setf (secretary-querier-last-called q) (ts-now))
+      (setf (secretary-querier-dismissals q) 0)
+      (funcall fn secretary--date))))
+
+(defun secretary--pending-p (query-fn)
+  (let* ((q (secretary--querier-by-fn query-fn))
+	 (last-called (secretary-querier-last-called q))
+	 (log-file (secretary-querier-log-file q))
+	 (max-entries (secretary-querier-max-entries-per-day q))
+	 (use-posted (secretary-querier-use-posted q))
+	 (dismissals (secretary-querier-dismissals q))
+	 (min-hrs (secretary-querier-min-hours-wait q))
+	 (min-secs (* 60 60 min-hrs))
+	 (called-today (when last-called
+			 (and (= (ts-day last-called) (ts-day (ts-now)))
+			      (> (ts-H last-called) 4))))
+	 (recently-logged
+	  (when (file-exists-p log-file)
+	    (> min-secs
+               (if use-posted
+		   (- (ts-unix (ts-now))
+		      (string-to-number (car (secretary--last-in-tsv log-file))))
+		 (ts-diff (ts-now)
+			  (ts-parse (secretary-last-timestamp-in-tsv log-file)))))))
+	 ;; Even if we didn't log yet, we don't quite want to be that persistent
+	 (recently-called (> (ts-diff (ts-now) last-called)
+			     ;; num of hours multiplied by n dismissals
+			     (* dismissals 60 60))))
+    (unless recently-logged
+      (when (or (not called-today)
+		(not (file-exists-p log-file))
+		(null max-entries)
+		(> max-entries (length (secretary--get-entries-in-tsv log-file))))
+	(unless recently-called
+	  t)))))
+
+;;(secretary--pending-p #'secretary-query-weight)
+;;(secretary--pending-p #'secretary-query-sleep)
+;;(secretary--pending-p #'secretary-query-mood)
 
 (defun secretary-disable-query (fn)
   (f-write (prin1-to-string (remove fn (secretary--active-queries)))
 	   'utf-8
-	   secretary-inactive-queries-file)
-  (setq secretary--active-queries (secretary--active-queries)))
+	   secretary-inactive-queries-file))
 
 ;; (defun test ()
 ;;   (interactive)
@@ -363,7 +422,7 @@ max-entries-per-day, etc."
   :group 'secretary
   :type 'string)
 
-(defun secretary--chime-audio ()
+(defun secretary--chime-aural ()
   (and (executable-find "aplay")
        (file-exists-p secretary-chime-audio-file)
        (start-process "aplay" nil "aplay" secretary-chime-audio-file)))
@@ -573,6 +632,7 @@ meant to get."
     (search-forward "\t")
     (buffer-substring (point) (- (search-forward "\t") 1))))
 
+(defalias 'secretary-tsv-all-this-date #'secretary--get-entries-in-tsv)
 (defalias 'secretary-get-all-today-in-tsv #'secretary--get-entries-in-tsv)
 (defun secretary--get-entries-in-tsv (path &optional ts)
   (with-temp-buffer
@@ -714,6 +774,7 @@ of `secretary-greeting'. Mutually exclusive with
 
 ;; TODO: When buffer major mode changes, count it as a new buffer. Note that
 ;; (assoc buf secretary-known-buffers) will still work.
+;; TODO: When eww url changes, count it as a new buffer
 ;; TODO: Optimize
 (defun secretary-log-buffer (&optional _arg)
   "Log the buffer just switched to.
@@ -724,6 +785,9 @@ Put this on `window-buffer-change-functions' and
            (mode (symbol-name (buffer-local-value 'major-mode buf)))
            (known (assoc buf secretary-known-buffers))
            (timestamp (s-pad-right 18 "0" (number-to-string (ts-unix (ts-now)))))
+	   ;; TODO: use this
+	   (eww-url (when (eq buf "eww-mode")
+		      (eww-current-url)))
            (exist-record (unless (and known
                                       (string= mode (nth 4 known))) ;; doesnt do it
                            (list buf
@@ -736,7 +800,7 @@ Put this on `window-buffer-change-functions' and
            (focus-record (list timestamp ;; time the buffer was switched to
                                (if known (cadr known) (cadr exist-record)) ;; uuid
                                )))
-      (unless (eq secretary-last-buffer buf) ;; happens if you only entered and left minibuffer
+      (unless (eq secretary-last-buffer buf) ;; you only entered and left minibuffer
         (setq secretary-last-buffer buf)
         (unless known
           (push exist-record secretary-known-buffers)
@@ -809,12 +873,13 @@ Put this on `window-buffer-change-functions' and
 
 ;; (defalias #'secretary-query-food #'secretary-query-ingredients)
 
+;; This fn is half boilerplate, lol.
 ;;;###autoload
-(defun secretary-query-activity (&optional _ts)
-  (interactive)
+(defun secretary-query-activity (&optional _ts interactive)
+  (interactive "i\np")
   (setq secretary--current-fn #'secretary-query-activity)
   (set-transient-map 'secretary-query-keymap #'active-minibuffer-window)
-  (when (called-interactively-p)
+  (when interactive
     (setq secretary--date (ts-now)))
   (let* ((name (secretary-read "What are you up to? " (secretary-activities-names))))
     (secretary-append-tsv (secretary-querier-log-file
@@ -829,7 +894,7 @@ Put this on `window-buffer-change-functions' and
   (interactive)
   (setq secretary--current-fn #'secretary-query-mood)
   (set-transient-map 'secretary-query-keymap #'active-minibuffer-window)
-  (when (called-interactively-p)
+  (when (called-interactively-p 'any)
     (setq secretary--date (ts-now)))
   (let* ((mood-desc (secretary-read
 		     (or prompt "Your mood: ")
@@ -937,7 +1002,7 @@ add."
   (set-transient-map 'secretary-query-keymap #'active-minibuffer-window)
   (when (secretary-prompt "Did you meditate today?")
     (let* ((mins (read-string "Do you know how long (in minutes)? "))
-	   (cleaned-mins (number-to-string (string-to-number x)))) ;; ugly, I know
+	   (cleaned-mins (number-to-string (string-to-number mins)))) ;; ugly, I know
       (secretary-append-tsv "/home/kept/Self_data/meditation.tsv"
 	(ts-format ts)
 	"TRUE"
@@ -981,6 +1046,20 @@ are minutes and numbers below are hours."
 
 ;;;; Welcomers
 
+;; FIXME: why doesn't the minibuffer prompt show fully? is it my font? does it work if i don't raise new frame?
+(defun secretary--call-timidly ()
+  "Run pending queries if any."
+  (setq secretary--date (ts-now))
+  (when-let ((fns (-filter #'secretary--pending-p (secretary--active-queries))))
+    (secretary--chime-aural)
+    (secretary--chime-visual)
+    (run-with-timer 1 nil `(lambda ()
+			     (secretary-raise-frame-and-do
+			      (dolist (f ,fns)
+				(secretary-do-query-check-dismissals f)))))))
+;; (secretary--call-timidly)
+;; (named-timer-run :secretary-attempt (* 60 60) (* 60 60) #'secretary--call-timidly)
+
 ;; TODO: Also call presenters &c.
 ;; Call all queries, new version.
 (defun secretary--call2 ()
@@ -988,7 +1067,8 @@ are minutes and numbers below are hours."
   (setq secretary--date (ts-now))
   (secretary-raise-frame-and-do
    (dolist (x (secretary--active-queries))
-     (secretary-do-query-maybe x secretary--date (called-interactively-p)))))
+     (secretary-do-query-maybe x secretary--date (called-interactively-p 'any)))))
+;; (secretary--call2)
 
 (defun secretary-call (&optional arg)
   "Call your secretary. Useful when you're unsure what to do."
@@ -1000,28 +1080,36 @@ are minutes and numbers below are hours."
 
 (defun secretary-call-from-idle ()
   "Called by idleness-related hooks, doesn't do much if idle was not long."
-  (unwind-protect
-      (when (> secretary-length-of-last-idle secretary-long-idle-threshold)
-        (unless (frame-focus-state)
-          (notifications-notify :title secretary-ai-name :body (secretary-greeting)))
-	(secretary--chime-audio)
-	(secretary--chime-visual)
-        (secretary-check-neglect)
-	;; check neglect overlaps with the stuff asked in the following prompt.
-        (when (secretary-prompt (secretary-greeting) " Do you have time for some questions?")
-          (secretary-welcome t)))
-    (setq secretary-length-of-last-idle 0)))
+  (if (< secretary-length-of-last-idle secretary-long-idle-threshold)
+      (setq secretary-length-of-last-idle 0)
+    (unless (frame-focus-state)
+      (notifications-notify :title secretary-ai-name :body (secretary-greeting)))
+    (secretary--chime-aural)
+    (secretary--chime-visual)
+    (run-with-timer
+     1
+     nil
+     (lambda ()
+       (unwind-protect
+	   (when (secretary-prompt (secretary-greeting)
+				   " Do you have time for some questions?")
+	     ;; check neglect overlaps with the stuff asked in the following prompt.
+	     (secretary-check-neglect)
+	     (secretary-welcome t))
+	 (setq secretary-length-of-last-idle 0))))))
 ;; (run-with-timer 3 nil (lambda ()  (print (frame-focus-state))))
 ;; (secretary-call-from-idle)
 
 (defun secretary-call-from-reschedule ()
-  (secretary--chime-audio)
+  (secretary--chime-aural)
   (secretary--chime-visual)
   (secretary-emit "Hello, " secretary-user-short-title ". ")
-  (sit-for secretary-sit-medium)
-  (when (secretary-prompt "1 hour ago, you asked to be reminded. Is now a good time?")
-    (secretary-check-neglect)
-    (secretary-welcome)))
+  (run-with-timer
+   secretary-sit-long nil
+   (lambda ()
+     (when (secretary-prompt "1 hour ago, you asked to be reminded. Is now a good time?")
+       (secretary-check-neglect)
+       (secretary-welcome)))))
 ;;(secretary-call-from-reschedule)
 
 ;; TODO: Don't re-ask the same questions the neglect-check asked.
@@ -1229,15 +1317,15 @@ run any forms in AFTER-BODY."
 (defvar secretary-past-sample-function #'secretary-past-sample-default)
 
 (defun secretary-past-sample-default (&optional ts)
-  "Return a list of ts.el objects referring to yesterday, this
+  "Return a list of ts objects referring to yesterday, this
 weekday the last 4 weeks, this day of the month the last 12
-months, and this date from 99 past years."
+months, and this date the past 100 years."
   (let ((now (or ts (ts-now))))
     (-uniq (append
             (--iterate (ts-dec 'day 1 it) now 1)
             (--iterate (ts-dec 'woy 1 it) now 4)
             (--iterate (ts-dec 'month 1 it) now 12)
-            (--iterate (ts-dec 'year 1 it) now 99)))))
+            (--iterate (ts-dec 'year 1 it) now 100)))))
 
 (defun secretary-make-indirect-datetree (buffer dates)
   (require 'org)
@@ -1304,7 +1392,7 @@ Note that org-journal is not needed."
 ;; TODO: make the datetree buffer(s) the next in line when you pop the last
 ;;       discrete view
 ;; TODO: try creating a sparse tree, so user can edit in-place
-;; TODO: show also the agenda for each date if not empty
+;; TODO: show also the agenda log for each date if not empty
 ;;;###autoload
 (defun secretary-present-diary (&optional date)
   (interactive)
@@ -1441,9 +1529,15 @@ Behavior indeterminate you've forced it on in several Emacsen."
   (f-write (ts-format secretary--idle-beginning) 'utf-8 secretary-idle-beginning-file-name)
   (f-write (prin1-to-string secretary-mood-alist) 'utf-8 secretary-mood-alist-file-name))
 
+;; REVIEW: Is this necessary? See Info node: (elisp)Unloading
 (defun secretary-unload-function ()
-  "For `unload-feature' (is this necessary?)."
-  (secretary-mode 0))
+  "Unload the Secretary library."
+  (secretary-mode 0)
+  (with-demoted-errors nil
+    (unload-feature 'secretary-tests)
+    (unload-feature 'secretary-config))
+  ;; Continue standard unloading.
+  nil)
 
 ;;;###autoload
 (define-minor-mode secretary-mode
