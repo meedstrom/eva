@@ -17,6 +17,10 @@
 # just useful snippets I've used with modification as I was changing my mind
 # about data formats
 
+# TODO: make them more useful, like a series of "how do I..."
+
+try(source("renv/activate.R"), silent = TRUE)
+
 # TODO: use datetime, not just date, so we can make multiple samples in a day
 mood <- read_tsv("/home/kept/Self_data/mood.tsv",
                  col_names = c("time", "mood_score", "mood_desc")) %>%
@@ -32,6 +36,14 @@ as_datetime(origin) - today()
 origin()
 system.time(today())
 mood
+
+fast_strptime("2020-12-12 10:00", "%Y-%m-%d %H:%M")
+parse_date_time("2020-12-12 10:00", "YmdHM")
+parse_date_time2("2020-12-12 10:00", "YmdHM", tz = "UTC+1")
+as_datetime("2020-12-12 10:00", format = "%Y-%m-%d %H:%M", tz = "+0100")
+as_datetime("2020-12-12 10:00:00 +0100")
+as_datetime("2020-12-12T10:00:00+0100", tz = "+0100")
+
 
   mutate(date = parse_date_time2("2020-12-12 10:00 +0100", "YmdHMz"))
 
@@ -66,7 +78,7 @@ read_tsv("/home/kept/Self_data/mood.tsv",
          col_names = c("unix", "time", "mood_score", "mood_desc")) %>%
   mutate(time = as_datetime(unix) + hours(1)) %>%
   mutate(time = str_c(as.character(time), " +0100")) %>%
-  select(-unix) %>%
+  select(-unix)
   write_tsv("/home/kept/Self_data/mood2.tsv")
 
 

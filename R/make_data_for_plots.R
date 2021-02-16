@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-try(source("common.R"), silent = TRUE)
+try(source("renv/activate.R"), silent = TRUE)
 
 # Projected daily weight loss. Sobering to see how slow the result...
 daily_change <- -0.1

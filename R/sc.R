@@ -13,30 +13,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-
-source("sc_common.R")
-## packrat::init()
-
-my_packages <- c(
-  # normally distributed with R
-  ## "KernSmooth", "MASS", "Matrix", "boot", "class", "cluster", "codetools",
-  ## "lattice", "mgcv", "nlme", "nnet", "rpart", "spatial", "survival",
-  # my essentials
-  "tidyverse", "conflicted", # "languageserver", "styler", "lintr",
-  # for this project
-  "lubridate", "patchwork", "usethis", "testthat", "ggthemes"
-)
-missing <- setdiff(my_packages, rownames(installed.packages()))
-
-install.packages(missing, dependencies = T, source = T)
-
-fast_strptime("2020-12-12 10:00", "%Y-%m-%d %H:%M")
-parse_date_time("2020-12-12 10:00", "YmdHM")
-parse_date_time2("2020-12-12 10:00", "YmdHM", tz = "UTC+1")
-as_datetime("2020-12-12 10:00", format = "%Y-%m-%d %H:%M" tz = "+0100")
-as_datetime("2020-12-12 10:00:00 +0100")
-as_datetime("2020-12-12T10:00:00+0100", tz = "+0100")
-
+try(source("renv/activate.R"), silent = TRUE)
 
 # It should not be necessary to average for plots, we can have multiple datapoints per day.
 ## mood %>%
@@ -47,11 +24,8 @@ as_datetime("2020-12-12T10:00:00+0100", tz = "+0100")
 ## merged <- full_join(mood, wt) %>%
 ##   arrange(date)
 
-
-
 mutate(sleep_hrs = as.period(sleep_hrs)) %>%
   mutate(sleep_block = interval(end = time, start = time - hour(sleep_hrs))) %>%
-  sdfsdfg
 
 
 # so what do we model?
@@ -94,6 +68,8 @@ d$buf_name
 # names (after the tilde ~) are just suggestive and meaningless. Consider
 # giving them truly meaningless names, like "fnord" or "1", "2"... so you don't
 # fool yourself.
+# Keep in mind that this list is parsed sequentially, the first match wins.
+# Look at the printout of d to see what kind of info exists.
 d2 <- d %>%
   mutate(buf_categ = case_when(
     str_detect(buf_name, "help|describe") ~ "help",
