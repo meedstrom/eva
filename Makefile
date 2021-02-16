@@ -14,7 +14,7 @@ clean:
 	rm -f $(ELC)
 
 run: $(ELC)
-    $(EMACS) -Q -L . -l foo.elc -f foo-mode
+    $(EMACS) -Q -L . -l secretary.elc -f secretary-mode
 
 secretary-test.elc: $(ELC)
 
