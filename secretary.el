@@ -545,18 +545,38 @@ passed on to `call-process'."
   (declare (debug (&rest form)))
   `(string-to-number (secretary--process-output-to-string ,program ,@args)))
 
+(defcustom secretary-x11idle-program-name "x11idle"
+  nil
+  :group 'secretary
+  :type 'string)
+
+(defvar secretary-use-emacs-idle-only nil
+  "Track Emacs idle rather than turn off under unknown OS/DE.
+Not recommended.")
+
+(defvar secretary--idle-seconds-fn)
+
 (defun secretary--idle-seconds ()
-  "Stub to be redefined."
-  (warn "Code ended up in an impossible place."))
+  (funcall secretary--idle-seconds-fn))
 
 (defun secretary-idle-p ()
   (> (secretary--idle-seconds) secretary-idle-threshold))
 
-(defvar secretary-x11idle-program-name "x11idle")
-
 (defun secretary--x11-idle-seconds ()
   "Like `org-x11-idle-seconds' without need for /bin/sh or org."
   (/ (secretary--process-output-to-number secretary-x11idle-program-name) 1000))
+
+;; https://unix.stackexchange.com/questions/396911/how-can-i-tell-if-a-user-is-idle-in-wayland
+(defun secretary--gnome-idle-seconds ()
+  "Check Mutter's idea of idle time, even on Wayland."
+  (/ (string-to-number
+      (car (s-match (rx space (* digit) eol)
+		    (secretary--process-output-to-string
+		     "dbus-send"
+		     "--print-reply"
+		     "--dest=org.gnome.Mutter.IdleMonitor"
+		     "/org/gnome/Mutter/IdleMonitor/Core"
+		     "org.gnome.Mutter.IdleMonitor.GetIdletime")))) 1000))
 
 (defun secretary--buffer-r ()
   (get-buffer-create (concat "*" secretary-ai-name ": R*")))
@@ -1580,16 +1600,25 @@ Behavior indeterminate you've forced it on in several Emacsen."
       (when (and
 	     (cond ((eq system-type 'darwin)
 		    (autoload #'org-mac-idle-seconds "org-clock")
-		    (fset 'secretary--idle-seconds #'org-mac-idle-seconds)
+		    (setq secretary--idle-seconds-fn #'org-mac-idle-seconds)
 		    t)
                    ((and (eq window-system 'x)
                          (executable-find secretary-x11idle-program-name))
-		    (fset 'secretary--idle-seconds #'secretary--x11-idle-seconds)
+		    (setq secretary--idle-seconds-fn #'secretary--x11-idle-seconds)
+		    t)
+		   ((and (s-matches-p
+			  (rx (or "gnome" "ubuntu")) (getenv "DESKTOP_SESSION"))
+			 (not (s-contains-p "xorg" (getenv "DESKTOP_SESSION"))))
+		    (setq secretary--idle-seconds-fn #'secretary--gnome-idle-seconds)
+		    t)
+		   (secretary-use-emacs-idle-only
+		    (autoload #'org-emacs-idle-seconds "org-clock")
+		    (setq secretary--idle-seconds-fn #'org-emacs-idle-seconds)
 		    t)
                    (t
-		    (secretary-mode 0)
 		    (message secretary-ai-name ": Not able to detect idleness, "
 			     "I'll be useless. Disabling secretary-mode.")
+		    (secretary-mode 0)
 		    nil))
 	     (if (secretary--another-secretary-running-p)
 		 (progn
