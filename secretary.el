@@ -338,6 +338,39 @@ work correctly next time."
 
 ;;; Library
 
+;; WIP
+;; Would be cool:
+;;
+;; - Add an `&optional interactive-p' near end of arglist, write associated
+;;   (interactive "i\ni\ni\p") as needed, allowing end programmer to be unaware of it.
+;;   - And perhaps a (defsubst sc-called-interactively-p () (not (null interactive-p)))
+;; (cl-defmacro secretary-defquery (name arglist &optional docstring &rest body)
+;;   (declare (indent defun) (doc-string 3) (debug &rest form))
+;;   `(cl-defun ,name ,arglist
+;;      ,docstring
+;;      (setq secretary--current-fn #',name)
+;;      (set-transient-map 'secretary-query-keymap #'active-minibuffer-window)
+;;      (when (called-interactively-p 'any)
+;;        (setq secretary--date (ts-now)))
+;;      (let ((this-log-file (secretary-querier-log-file
+;; 			   (secretary--querier-by-fn secretary--current-fn))))
+;;        ,@body)))
+
+;; (ert-deftest specialty-defuns ()
+;;   (should (equal (macroexpand '(secretary-qdefun foo (x1 x2)
+;; 				 "docstr"
+;; 				 (declare (pure t))
+;; 				 (foo)
+;; 				 (bar)))
+;; 		 (macroexpand '(defun foo (x1 x2)
+;; 				 "docstr"
+;; 				 (declare (pure t))
+;; 				 (foo)
+;; 				 (bar))))))
+
+;; (macroexpand '(secretary-qdefun foo (x1 x2)))
+;; (macroexpand '(defun foo (x1 x2)))
+
 (defvar secretary--last-msg "")
 (defvar secretary--last-msg-2 "")
 
