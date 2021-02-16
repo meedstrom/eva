@@ -1250,9 +1250,10 @@ run any forms in AFTER-BODY."
      ;; we can use use call-process for easier reasoning.
      (set-process-sentinel
       (start-process secretary-ai-name nil "Rscript" r-script)
-      (lambda (_process _event)
+      (lambda (_1 _2)
 	(secretary-emit ,message)
-	(switch-to-buffer (secretary-buffer-chat))
+	(unless (get-buffer-window (secretary-buffer-chat))
+	  (display-buffer (secretary-buffer-chat)))
 	(goto-char (point-max))
 	(call-process "gnuplot" ,gnuplot-script (secretary-buffer-chat))
 	;; Strip formfeed inserted by gnuplot.
@@ -1282,8 +1283,7 @@ run any forms in AFTER-BODY."
 (defun secretary-plot-mood-ascii ()
   (interactive)
   (secretary--plot-ascii
-   (expand-file-name "mood.gnuplot"
-		     (f-dirname (find-library-name "secretary")))
+   (expand-file-name "mood.gnuplot" (f-dirname (find-library-name "secretary")))
    "Plotting mood..."
    (search-backward "Plotting mood...")
    (forward-line 1)
@@ -1328,13 +1328,14 @@ run any forms in AFTER-BODY."
      (start-process secretary-ai-name nil "Rscript" r-script)
      `(lambda (_process _event)
 	(secretary-emit "Plotting weight...")
-	(switch-to-buffer (secretary-buffer-chat))
-	(goto-char (point-max))
-	(call-process "gnuplot" ,gnuplot-script (secretary-buffer-chat))
-	;; Strip formfeed inserted by gnuplot.
-	(search-backward "\f")
-	(replace-match "")
-	(goto-char (point-max))))))
+	;; (unless (get-buffer-window (secretary-buffer-chat)) (switch-to-buffer (secretary-buffer-chat)))
+	(with-current-buffer (secretary-buffer-chat)
+	  (goto-char (point-max))
+	  (call-process "gnuplot" ,gnuplot-script (secretary-buffer-chat))
+	  ;; Strip formfeed inserted by gnuplot.
+	  (search-backward "\f")
+	  (replace-match "")
+	  (goto-char (point-max)))))))
 
 ;;;###autoload
 (defun secretary-present-plots ()
