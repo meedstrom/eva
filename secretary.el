@@ -874,6 +874,8 @@ Put this on `window-buffer-change-functions' and
 
 ;;; Queries
 
+(defvar secretary--list-for-eventual-resume nil)
+
 (defun secretary-midquery-keyboard-quit ()
   "Quit, and record which query was quit."
   (interactive)
@@ -921,13 +923,15 @@ Put this on `window-buffer-change-functions' and
   (set-transient-map 'secretary-query-keymap #'active-minibuffer-window)
   (let* ((response (read-string "Comma-separated list of ingredients: "))
          (formatted-response (->> response
-                                  (s-split (rx (+ (any "," blank))))
-                                  (s-join ", ")
-                                  (s-replace "\"" "'")))
+                               (s-split (rx (+ (any "," blank))))
+                               (s-join ", ")
+                               (s-replace "\"" "'")))
          (path "/home/kept/Self_data/ingredients.tsv"))
     (secretary-append-tsv path
       (ts-format ts)
       "\"" formatted-response "\"")
+    (setq secretary--list-for-eventual-resume
+          (remove secretary--current-fn secretary--list-for-eventual-resume))
     (secretary-emit "Recorded so far today: "
                     (s-replace "^.*?," ""
                                (secretary-get-first-today-line-in-file path)))))
@@ -946,7 +950,9 @@ Put this on `window-buffer-change-functions' and
                            (secretary--querier-by-fn secretary--current-fn))
       (ts-format secretary--date) ;; time the datapoint concerns
       name
-      (secretary-activity-id (secretary-activity-by-name name)))))
+      (secretary-activity-id (secretary-activity-by-name name)))
+    (setq secretary--list-for-eventual-resume
+          (remove secretary--current-fn secretary--list-for-eventual-resume))))
 ;; (secretary-query-activity)
 
 ;;;###autoload
@@ -972,6 +978,8 @@ Put this on `window-buffer-change-functions' and
       (ts-format now)
       (s-replace "," "." score)
       mood-desc)
+    (setq secretary--list-for-eventual-resume
+          (remove secretary--current-fn secretary--list-for-eventual-resume))
     ;; Update secretary-mood-alist.
     (if (assoc mood-desc secretary-mood-alist)
         (setq secretary-mood-alist
@@ -1002,6 +1010,8 @@ Put this on `window-buffer-change-functions' and
       (secretary-append-tsv path
         (ts-format now)
         (s-replace "," "." wt))
+      (setq secretary--list-for-eventual-resume
+            (remove secretary--current-fn secretary--list-for-eventual-resume))
       (secretary-emit "Weight today: " (secretary-last-value-in-tsv path) " kg")
       (setf (secretary-querier-dismissals
              (secretary--querier-by-fn secretary--current-fn))
@@ -1052,7 +1062,9 @@ add."
     (secretary-append-tsv "/home/kept/Self_data/sleep.tsv"
       (ts-format "%F" secretary--date) ;; date
       (when wakeup-time (ts-format "%T" wakeup-time)) ;; time (optional)
-      (when sleep-minutes (number-to-string sleep-minutes)))))
+      (when sleep-minutes (number-to-string sleep-minutes)))
+    (setq secretary--list-for-eventual-resume
+          (remove secretary--current-fn secretary--list-for-eventual-resume))))
 
 (defun secretary-query-meditation (&optional ts)
   (interactive)
@@ -1064,7 +1076,9 @@ add."
       (secretary-append-tsv "/home/kept/Self_data/meditation.tsv"
         (ts-format ts)
         "TRUE"
-        (unless (string= "0" cleaned-mins) cleaned-mins)))))
+        (unless (string= "0" cleaned-mins) cleaned-mins))
+      (setq secretary--list-for-eventual-resume
+            (remove secretary--current-fn secretary--list-for-eventual-resume)))))
 
 (defun secretary-query-cold-shower (&optional ts)
   (interactive)
@@ -1075,7 +1089,9 @@ add."
         (path "/home/kept/Self_data/cold.tsv"))
     (secretary-append-tsv path
       (ts-format ts)
-      rating)))
+      rating)
+    (setq secretary--list-for-eventual-resume
+          (remove secretary--current-fn secretary--list-for-eventual-resume))))
 
 
 ;;;; Parsers
@@ -1106,10 +1122,12 @@ are minutes and numbers below are hours."
 ;;;; Welcomers
 
 ;; FIXME: why doesn't the minibuffer prompt show fully? is it my font? does it work if i don't raise new frame?
+;; TODO: Build an actual (a)list variable instead of looping right away, so we can resume via the variable elsewhere.
 (defun secretary--call-timidly ()
   "Run pending queries if any."
   (setq secretary--date (ts-now))
   (when-let ((fns (-filter #'secretary--pending-p (secretary--active-queries))))
+    (setq secretary--list-for-eventual-resume fns)
     (secretary--chime-aural)
     (secretary--chime-visual)
     (run-with-timer 1 nil `(lambda ()
