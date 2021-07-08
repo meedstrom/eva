@@ -534,7 +534,6 @@ passed on to `call-process'."
      (buffer-string)))
 
 (defmacro secretary--process-output-to-number (program &rest args)
-  "Pipe `secretary--process-output-to-string' through `string-to-number'."
   (declare (debug (&rest form)))
   `(string-to-number (secretary--process-output-to-string ,program ,@args)))
 
@@ -562,14 +561,16 @@ Not recommended.")
 ;; https://unix.stackexchange.com/questions/396911/how-can-i-tell-if-a-user-is-idle-in-wayland
 (defun secretary--gnome-idle-seconds ()
   "Check Mutter's idea of idle time, even on Wayland."
-  (/ (string-to-number
-      (car (s-match (rx space (* digit) eol)
-                    (secretary--process-output-to-string
-                     "dbus-send"
-                     "--print-reply"
-                     "--dest=org.gnome.Mutter.IdleMonitor"
-                     "/org/gnome/Mutter/IdleMonitor/Core"
-                     "org.gnome.Mutter.IdleMonitor.GetIdletime")))) 1000))
+  (let ((idle-ms
+         (string-to-number
+          (car (s-match (rx space (* digit) eol)
+                        (secretary--process-output-to-string
+                         "dbus-send"
+                         "--print-reply"
+                         "--dest=org.gnome.Mutter.IdleMonitor"
+                         "/org/gnome/Mutter/IdleMonitor/Core"
+                         "org.gnome.Mutter.IdleMonitor.GetIdletime"))))))
+    (/ idle-ms 1000)))
 
 (defun secretary--buffer-r ()
   (get-buffer-create (concat "*" secretary-ai-name ": R*")))
