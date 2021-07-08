@@ -392,7 +392,6 @@ work correctly next time."
           (switch-to-buffer (secretary-buffer-chat))
           (unless (< 20 (car (window-fringes)))
             (set-window-fringes nil 20 20))
-          ;; (goto-char (point-max)) ;; unnecessary
           (secretary-emit prompt)
           (define-key y-or-n-p-map (kbd "o") #'secretary-special-handle-current-query)
           (define-key y-or-n-p-map (kbd "i") #'secretary-special-handle-current-query)
@@ -544,7 +543,7 @@ passed on to `call-process'."
   :group 'secretary
   :type 'string)
 
-(defvar secretary-use-emacs-idle-only nil
+(defvar secretary-fallback-on-emacs-idle-p nil
   "Track Emacs idle rather than turn off under unknown OS/DE.
 Not recommended.")
 
@@ -1306,10 +1305,13 @@ run any forms in AFTER-BODY."
     (set-process-sentinel
      (start-process secretary-ai-name nil "Rscript" script "14" "-0.1")
      `(lambda (_process _event)
-        (secretary-emit "And here's your weight, boss." "\n")
         (switch-to-buffer (secretary-buffer-chat))
-        (insert-image-file ,plot)
-        ;; (delete-file ,plot)
+        (if (insert-image-file ,plot)
+            (progn
+              (forward-char -1)
+              (secretary-emit "And here's your weight, boss." "\n")
+              (delete-file ,plot))
+          (secretary-emit "Could not plot. :'( See `secretary-plot-weight' source."))
         (goto-char (point-max))
         (insert "\n")))))
 
@@ -1664,12 +1666,14 @@ is unspecified, but it shouldn't be possible to do."
                     (setq secretary--idle-seconds-fn #'secretary--x11-idle-seconds)
                     t)
                    ;;  GNOME's Wayland compositor
-                   ((and (s-matches-p
-                          (rx (or "gnome" "ubuntu")) (getenv "DESKTOP_SESSION"))
-                         (not (s-contains-p "xorg" (getenv "DESKTOP_SESSION"))))
+                   ((and (getenv "DESKTOP_SESSION")
+                         (s-matches-p (rx (or "gnome" "ubuntu"))
+                                      (getenv "DESKTOP_SESSION"))
+                         (not (s-contains-p "xorg"
+                                            (getenv "DESKTOP_SESSION"))))
                     (setq secretary--idle-seconds-fn #'secretary--gnome-idle-seconds)
                     t)
-                   (secretary-use-emacs-idle-only
+                   (secretary-fallback-on-emacs-idle-p
                     (autoload #'org-emacs-idle-seconds "org-clock")
                     (setq secretary--idle-seconds-fn #'org-emacs-idle-seconds)
                     t)
@@ -1714,8 +1718,8 @@ is unspecified, but it shouldn't be possible to do."
                                  secretary-mood-alist))
               (secretary--restore-variables-from-disk))
             (secretary--start-next-timer))))
-    (with-demoted-errors nil
-      (f-delete secretary--pidfile))
+    ;; (with-demoted-errors nil
+    ;; (f-delete secretary--pidfile))
     (remove-hook 'secretary-return-from-idle-hook #'secretary-log-idle)
     (remove-hook 'secretary-return-from-idle-hook #'secretary-call-from-idle)
     (remove-hook 'secretary-periodic-not-idle-hook #'secretary--save-variables-to-disk)
