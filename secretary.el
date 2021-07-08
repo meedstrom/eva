@@ -1527,18 +1527,20 @@ Note that org-journal is not needed."
          (discrete-files-found (--keep (secretary-existing-diary it "/home/kept/Diary") dates-to-check))
          (datetree-found-count (secretary-make-indirect-datetree buffer dates-to-check))
          (total-found-count (+ (length discrete-files-found) datetree-found-count)))
-    (if (secretary-ynp "Found " (int-to-string total-found-count) " past diary "
-                       (if (= 1 total-found-count) "entry" "entries")
-                       " relevant to this date. Want me to open "
-                       (if (= 1 total-found-count) "it" "them")
-                       "?")
-        (progn
-          (switch-to-buffer buffer)
-          (view-mode)
-          (if (-non-nil discrete-files-found)
-              (dolist (x discrete-files-found)
-                (view-file x))))
-      (kill-buffer buffer))))
+    (if (= 0 total-found-count)
+        (secretary-emit "No diary entries relevant to this date.")
+      (if (secretary-ynp "Found " (int-to-string total-found-count) " past diary "
+                         (if (= 1 total-found-count) "entry" "entries")
+                         " relevant to this date. Want me to open "
+                         (if (= 1 total-found-count) "it" "them")
+                         "?")
+          (progn
+            (switch-to-buffer buffer)
+            (view-mode)
+            (if (-non-nil discrete-files-found)
+                (dolist (x discrete-files-found)
+                  (view-file x))))
+        (kill-buffer buffer)))))
 ;; (secretary-present-diary (ts-now))
 
 
