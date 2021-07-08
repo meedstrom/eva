@@ -1542,7 +1542,8 @@ Note that org-journal is not needed."
   :group 'secretary
   :type 'number)
 
-(defcustom secretary-return-from-idle-hook nil
+(defcustom secretary-return-from-idle-hook '(secretary-log-idle
+                                             secretary-call-from-idle)
   "Hook run when user returns from a period of idleness.
 Note: An Emacs startup also counts as a return from idleness.
 You'll probably want your hook to be conditional on some value of
@@ -1552,7 +1553,9 @@ the last Emacs shutdown or crash (technically, last time
   :group 'secretary
   :type '(repeat function))
 
-(defcustom secretary-periodic-not-idle-hook nil
+(defcustom secretary-periodic-not-idle-hook '(secretary--save-variables-to-disk
+                                              secretary--save-buffer-logs-to-disk
+                                              secretary--save-chat-log-to-disk)
   "Hook run every minute when the user is not idle."
   :group 'secretary
   :type '(repeat function))
@@ -1699,13 +1702,6 @@ is unspecified, but it shouldn't be possible to do."
                nil))
         (mkdir (file-name-directory secretary--pidfile) t)
         (f-write (number-to-string (emacs-pid)) 'utf-8 secretary--pidfile)
-        ;; TODO: put these in the hook's default value
-        (add-hook 'secretary-return-from-idle-hook #'secretary-log-idle -90)
-        (add-hook 'secretary-return-from-idle-hook #'secretary-call-from-idle 90)
-        (add-hook 'secretary-periodic-not-idle-hook #'secretary--save-variables-to-disk)
-        (add-hook 'secretary-periodic-not-idle-hook #'secretary--save-buffer-logs-to-disk)
-        (add-hook 'secretary-periodic-not-idle-hook #'secretary--save-chat-log-to-disk)
-        ;;
         (add-hook 'window-buffer-change-functions #'secretary-log-buffer)
         (add-hook 'window-selection-change-functions #'secretary-log-buffer)
         (add-hook 'after-init-hook #'secretary--restore-variables-from-disk -90)
@@ -1718,13 +1714,8 @@ is unspecified, but it shouldn't be possible to do."
                                  secretary-mood-alist))
               (secretary--restore-variables-from-disk))
             (secretary--start-next-timer))))
-    ;; (with-demoted-errors nil
-    ;; (f-delete secretary--pidfile))
-    (remove-hook 'secretary-return-from-idle-hook #'secretary-log-idle)
-    (remove-hook 'secretary-return-from-idle-hook #'secretary-call-from-idle)
-    (remove-hook 'secretary-periodic-not-idle-hook #'secretary--save-variables-to-disk)
-    (remove-hook 'secretary-periodic-not-idle-hook #'secretary--save-buffer-logs-to-disk)
-    (remove-hook 'secretary-periodic-not-idle-hook #'secretary--save-chat-log-to-disk)
+    (ignore-errors
+      (f-delete secretary--pidfile))
     (remove-hook 'window-buffer-change-functions #'secretary-log-buffer)
     (remove-hook 'window-selection-change-functions #'secretary-log-buffer)
     (remove-hook 'after-init-hook #'secretary--restore-variables-from-disk)
