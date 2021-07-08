@@ -371,9 +371,6 @@ work correctly next time."
 ;; (macroexpand '(secretary-qdefun foo (x1 x2)))
 ;; (macroexpand '(defun foo (x1 x2)))
 
-(defvar secretary--last-msg "")
-(defvar secretary--last-msg-2 "")
-
 (defvar secretary--k nil)
 (defun secretary--y-or-n-p-insert-k ()
   "Mostly like `y-or-n-p-insert-y'."
@@ -387,9 +384,7 @@ work correctly next time."
   "Wrapper around `y-or-n-p'."
   (let* (;; (default-y-or-n-p-map y-or-n-p-map)
          ;; (default-cmd (lookup-key y-or-n-p-map (kbd "k")))
-         (info (concat "Applying to date: " (ts-format "%Y-%B-%d" secretary--date) "\n"
-                       secretary--last-msg-2 "\n"
-                       secretary--last-msg "\n"))
+         (info (concat "Applying to date: " (ts-format "%Y-%B-%d" secretary--date) "\n"))
          (prompt (string-join strings)))
     (unwind-protect
         (progn
@@ -413,8 +408,6 @@ work correctly next time."
                 (if result
                     (insert " Yes.")
                   (insert " No."))))
-            (setq secretary--last-msg (buffer-substring (line-beginning-position)
-                                                        (line-end-position)))
             result))
       (dolist (x '("o" "i" "k" "<SPC>"))
         (define-key y-or-n-p-map (kbd x) #'y-or-n-p-insert-other)))))
@@ -425,8 +418,6 @@ work correctly next time."
   (set-transient-map 'secretary-query-keymap #'active-minibuffer-window)
   (let* ((background-info (concat "[Current date: "
                                   (ts-format "%Y-%b-%d" secretary--date) "]\n"
-                                  secretary--last-msg-2 "\n"
-                                  secretary--last-msg "\n"
                                   ))
          (extra-collection '("Skip to presentations"
                              "Don't disturb me"))
@@ -489,8 +480,6 @@ work correctly next time."
 (defun secretary-emit (&rest strings)
   (secretary-print-new-date-maybe)
   (let ((msg (concat "\n[" (ts-format "%H:%M") "] " (string-join strings))))
-    (setq secretary--last-msg-2 secretary--last-msg)
-    (setq secretary--last-msg (propertize msg 'face 'secretary-old-msg-face))
     (with-current-buffer (secretary-buffer-chat)
       (goto-char (point-max))
       (with-silent-modifications
