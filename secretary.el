@@ -42,17 +42,12 @@
 (require 'ts)
 (require 'f)
 (require 's)
+(require 'a)
 (require 'dash)
 (require 'named-timer)
+(require 'transient)
 
-(autoload #'secretary-log-buffer "org-id")
-(autoload #'org-clock-in "org-clock")
-(autoload #'org-id-uuid "org-id")
-(autoload #'org-id-goto "org-id")
-(autoload #'notifications-notify "notifications")
-(autoload #'calendar-check-holidays "holidays")
-
-(defvar secretary-debug-p t)
+(defvar secretary-debug-p nil)
 
 (defgroup secretary nil "The Emacs in-house secretary."
   :prefix "secretary-"
@@ -74,7 +69,7 @@ everything directly into.  Used by `secretary-present-diary'."
   :group 'secretary
   :type 'string)
 
-(defcustom secretary-ai-name "Vie"
+(defcustom secretary-ai-name "Val"
   "Your secretary's name."
   :group 'secretary
   :type 'string)
@@ -85,8 +80,8 @@ everything directly into.  Used by `secretary-present-diary'."
   :type 'string)
 
 (defcustom secretary-user-name (if (s-equals? user-full-name "")
-                                   "Mr. Bond"
-                                 (-first-item (s-split " " user-full-name)))
+                            "Mr. Bond"
+                          (-first-item (s-split " " user-full-name)))
   "Your name, that you prefer to be addressed by."
   :group 'secretary
   :type 'string)
@@ -96,24 +91,17 @@ everything directly into.  Used by `secretary-present-diary'."
   :group 'secretary
   :type 'string)
 
-;; TODO: deprecate either this or the -file-name vars
-(defcustom secretary-dir
+(defcustom secretary-memory-dir
   (expand-file-name "secretary" user-emacs-directory)
-  "Directory under which files should sit."
+  "Directory for persistent files (not your datasets)."
   :group 'secretary
   :type 'string)
 
-(defcustom secretary-idle-beginning-file-name
-  (expand-file-name "idle-beginning" secretary-dir)
-  nil
-  :group 'secretary
-  :type 'string)
+(defun secretary-idle-beginning-file-name ()
+  (expand-file-name "idle-beginning" secretary-memory-dir))
 
-(defcustom secretary-mood-alist-file-name
-  (expand-file-name "secretary-mood-alist" secretary-dir)
-  nil
-  :group 'secretary
-  :type 'string)
+(defun secretary-mood-alist-file-name ()
+  (expand-file-name "mood-alist" secretary-memory-dir))
 
 (defcustom secretary-sit-long 1
   "A duration in seconds to pause for effect after certain kinds
@@ -137,18 +125,18 @@ of messages. See also `secretary-sit-long' and
   :type 'number)
 
 (defcustom secretary-chat-log-file
-  (expand-file-name "chat-log.txt" secretary-dir)
+  (expand-file-name "chat-log.txt" secretary-memory-dir)
   "Where to save chat log across sessions. Can be nil."
   :group 'secretary
   :type 'string)
 
-;; REVIEW: see that there's no problem if you delete secretary-dir
+;; REVIEW: see that there's no problem if you delete secretary-memory-dir
 (defvar secretary-mood-alist nil
   "For suggesting a score in the `secretary-log-mood' prompt.
 Merely a convenience for auto-completion.
 
 The variable populates itself through use, and syncs with a file
-at `secretary-mood-alist-file-name'.")
+at `(secretary-mood-alist-file-name)'.")
 
 ;; (setq secretary-mood-alist '(("bemused" . "3")
 ;;     ("amused" . "5")
@@ -170,7 +158,7 @@ using.")
 ;; Q: What's cl-defstruct?  A: https://nullprogram.com/blog/2018/02/14/
 
 (cl-defstruct (secretary-activity (:constructor secretary-activity-create)
-                                  (:copier nil))
+                         (:copier nil))
   name
   id
   cost-false-pos
@@ -296,10 +284,11 @@ Needed to persist disablings across restarts."
   (exit-minibuffer))
 
 (defun secretary-ynp (&rest strings)
-  "Wrapper around `y-or-n-p'."
+  "Wrapper around `y-or-n-p' for secretary-chat-mode."
   (let* (;; (default-y-or-n-p-map y-or-n-p-map)
          ;; (default-cmd (lookup-key y-or-n-p-map (kbd "k")))
-         (info (concat "Applying to date: " (ts-format "%Y-%B-%d" secretary--date) "\n"))
+         ;; TODO: Also show which log file we're applying to
+         (background-info (concat "[Applying to date: " (ts-format "%Y-%B-%d" secretary--date) "]\n"))
          (prompt (string-join strings)))
     (unwind-protect
         (progn
@@ -364,8 +353,12 @@ Needed to persist disablings across restarts."
   :group 'secretary
   :type 'string)
 
+(defcustom secretary-play-sounds-p nil
+  "Whether to play sounds.")
+
 (defun secretary--chime-aural ()
-  (and (executable-find "aplay")
+  (and secretary-play-sounds-p
+       (executable-find "aplay")
        (file-exists-p secretary-chime-audio-file)
        (start-process "aplay" nil "aplay" secretary-chime-audio-file)))
 
@@ -457,25 +450,25 @@ passed on to `call-process'."
   :group 'secretary
   :type 'string)
 
-(defvar secretary-fallback-on-emacs-idle-p nil
+(defcustom secretary-fallback-to-emacs-idle-p nil
   "Track Emacs idle rather than turn off under unknown OS/DE.
 Not recommended.")
 
-(defvar secretary--idle-seconds-fn)
+(defvar secretary--idle-seconds-fn nil)
 
 (defun secretary--idle-seconds ()
   (funcall secretary--idle-seconds-fn))
 
 (defun secretary-idle-p ()
-  (> (secretary--idle-seconds) secretary-idle-threshold))
+  (> (secretary--idle-seconds) secretary-idle-threshold-secs))
 
 (defun secretary--x11-idle-seconds ()
   "Like `org-x11-idle-seconds' without need for /bin/sh or org."
   (/ (secretary--process-output-to-number secretary-x11idle-program-name) 1000))
 
-;; https://unix.stackexchange.com/questions/396911/how-can-i-tell-if-a-user-is-idle-in-wayland
 (defun secretary--gnome-idle-seconds ()
   "Check Mutter's idea of idle time, even on Wayland."
+  ;; https://unix.stackexchange.com/questions/396911/how-can-i-tell-if-a-user-is-idle-in-wayland
   (let ((idle-ms
          (string-to-number
           (car (s-match (rx space (* digit) eol)
@@ -608,8 +601,6 @@ meant to get."
     (search-forward "\t")
     (buffer-substring (point) (- (search-forward "\t") 1))))
 
-(defalias 'secretary-tsv-all-this-date #'secretary--get-entries-in-tsv)
-(defalias 'secretary-get-all-today-in-tsv #'secretary--get-entries-in-tsv)
 (defun secretary--get-entries-in-tsv (path &optional ts)
   (with-temp-buffer
     (insert-file-contents-literally path)
@@ -662,11 +653,12 @@ meant to get."
 ;; (secretary-logged-today "/home/kept/Self_data/buffers.tsv")
 
 
-;;;; Greetings
+;;;; Greeting messages
 
-(defvar secretary-greetings '("Welcome back, Master."
-                              (concat "Nice to see you again, " secretary-user-name ".")
-                              (concat "Greetings, " secretary-user-name "."))
+(defvar secretary-greetings
+  '((concat "Welcome back, Master.")
+    (concat "Nice to see you again, " secretary-user-name ".")
+    (concat "Greetings, " secretary-user-name "."))
   "Greeting phrases which can initiate a conversation.")
 
 (defun secretary-greeting-curt ()
@@ -1418,7 +1410,6 @@ run any forms in AFTER-BODY."
         (goto-char (point-max))
         (insert "\n")))))
 
-;;;###autoload
 (defun secretary-plot-mood-ascii ()
   (interactive)
   (secretary--plot-ascii
@@ -1454,7 +1445,6 @@ run any forms in AFTER-BODY."
         (goto-char (point-max))
         (insert "\n")))))
 
-;;;###autoload
 (defun secretary-plot-weight-ascii ()
   (interactive)
   (let* ((default-directory "/tmp/secretary")
@@ -1479,13 +1469,12 @@ run any forms in AFTER-BODY."
           (replace-match "")
           (goto-char (point-max)))))))
 
-;;;###autoload
 (defun secretary-present-plots ()
   (interactive)
   (unless (null secretary-plot-hook)
     (secretary-emit (seq-random-elt '("I have plotted the latest intel, boss."
-                                      "Here are some projections!"
-                                      "Data is beautiful, don't you think?")))
+                               "Here are some projections!"
+                               "Data is beautiful, don't you think?")))
     ;; HACK: because of async; want sync.
     (dolist (hook secretary-plot-hook)
       (funcall hook)
@@ -1494,7 +1483,6 @@ run any forms in AFTER-BODY."
 
 ;;;; Other presenters
 
-;;;###autoload
 (defun secretary-present-mood ()
   (interactive)
   (view-file "/home/kept/Self_data/mood.tsv")
@@ -1526,7 +1514,7 @@ Requires the ssconvert program that comes with Gnumeric."
   (let* ((script (expand-file-name "R/generate_an_ods.R"
                                    (f-dirname (find-library-name "secretary"))))
          (sheet (expand-file-name ".tmp_finances.ods"
-                                  secretary-dir))
+                                  secretary-memory-dir))
          (default-directory (f-dirname script))
          (app (seq-find #'executable-find '("gnumeric"
                                             "soffice"
@@ -1650,10 +1638,10 @@ Note that org-journal is not needed."
     (if (= 0 total-found-count)
         (secretary-emit "No diary entries relevant to this date.")
       (if (secretary-ynp "Found " (int-to-string total-found-count) " past diary "
-                         (if (= 1 total-found-count) "entry" "entries")
-                         " relevant to this date. Want me to open "
-                         (if (= 1 total-found-count) "it" "them")
-                         "?")
+                  (if (= 1 total-found-count) "entry" "entries")
+                  " relevant to this date. Want me to open "
+                  (if (= 1 total-found-count) "it" "them")
+                  "?")
           (progn
             (switch-to-buffer buffer)
             (view-mode)
@@ -1673,18 +1661,18 @@ Note that org-journal is not needed."
 (defvar secretary-length-of-last-idle 0
   "Length of the last idle period, in seconds.")
 
-(defcustom secretary-idle-threshold (* 10 60)
+(defcustom secretary-idle-threshold-secs (* 10 60)
   "Duration in seconds, above which the user is considered idle."
   :group 'secretary
   :type 'number)
 
-(defcustom secretary-long-idle-threshold (* 90 60)
+(defcustom secretary-long-idle-threshold-secs (* 90 60)
   "Be idle at least this many seconds to be greeted upon return."
   :group 'secretary
   :type 'number)
 
 (defcustom secretary-return-from-idle-hook '(secretary-log-idle
-                                             secretary-call-from-idle)
+                                      secretary-call-from-idle)
   "Hook run when user returns from a period of idleness.
 Note: An Emacs startup also counts as a return from idleness.
 You'll probably want your hook to be conditional on some value of
@@ -1695,8 +1683,8 @@ the last Emacs shutdown or crash (technically, last time
   :type '(repeat function))
 
 (defcustom secretary-periodic-not-idle-hook '(secretary--save-variables-to-disk
-                                              secretary--save-buffer-logs-to-disk
-                                              secretary--save-chat-log-to-disk)
+                                       secretary--save-buffer-logs-to-disk
+                                       secretary--save-chat-log-to-disk)
   "Hook run every minute when the user is not idle."
   :group 'secretary
   :type '(repeat function))
@@ -1719,7 +1707,7 @@ Refresh some variables and sync all variables to disk."
   ;; means this function will still be queued to run when the computer wakes.  If
   ;; the time difference is suddenly big, hand off to the other function.
   (if (> (ts-diff (ts-now) secretary--idle-beginning)
-         secretary-idle-threshold)
+         secretary-idle-threshold-secs)
       (secretary--user-is-idle)
     (setq secretary--idle-beginning (ts-now))
     (secretary--start-next-timer)
@@ -1742,9 +1730,9 @@ separate function from `secretary--user-is-active'."
       (secretary--start-next-timer 'assume-idle)
     ;; Take the idle threshold into account and correct the idle begin point.
     (when decrement
-      (ts-decf (ts-sec secretary--idle-beginning) secretary-idle-threshold))
+      (ts-decf (ts-sec secretary--idle-beginning) secretary-idle-threshold-secs))
     (setq secretary-length-of-last-idle (ts-diff (ts-now)
-                                                 secretary--idle-beginning))
+                                          secretary--idle-beginning))
     (unwind-protect
         (run-hooks 'secretary-return-from-idle-hook)
       (setq secretary--idle-beginning (ts-now))
