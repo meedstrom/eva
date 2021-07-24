@@ -334,7 +334,8 @@ at `secretary-mood-alist-file-name'.")
 
 (defvar secretary-aphorisms)
 
-(defvar secretary--date (ts-now)
+(defvar secretary--date
+  (ts-now)
   "Date to which to apply the current query.
 Can be set anytime during a welcome to override the date to which
 some queries apply, for example to log something for yesterday.
@@ -381,7 +382,6 @@ using.")
          (prompt (string-join strings)))
     (unwind-protect
         (progn
-          (secretary-print-new-date-maybe)
           (switch-to-buffer (secretary-buffer-chat))
           (unless (< 20 (car (window-fringes)))
             (set-window-fringes nil 20 20))
@@ -472,26 +472,22 @@ using.")
     nil))
 
 (defun secretary-emit (&rest strings)
-  (secretary-print-new-date-maybe)
-  (let ((msg (concat "\n[" (ts-format "%H:%M") "] " (string-join strings))))
+  (let ((new-date-maybe (if (/= (ts-day (ts-now))
+                                (ts-day secretary--last-chatted))
+                            (concat "\n\n" (ts-format "%Y, %B %d") (secretary--holiday-maybe) "\n")
+                          ""))
+        (msg (concat "\n[" (ts-format "%H:%M") "] " (string-join strings))))
     (with-current-buffer (secretary-buffer-chat)
       (goto-char (point-max))
       (with-silent-modifications
         (delete-blank-lines)
-        (insert msg)))))
+        (insert new-date-maybe)
+        (insert msg))))
+  (setq secretary--last-chatted (ts-now)))
 
 (defvar secretary--last-chatted
   (make-ts :unix 0)
   "Timestamp updated whenever the chat is written to.")
-
-(defun secretary-print-new-date-maybe ()
-  (when (/= (ts-day (ts-now))
-            (ts-day secretary--last-chatted))
-    (with-current-buffer (secretary-buffer-chat)
-      (goto-char (point-max))
-      (with-silent-modifications
-        (insert "\n\n" (ts-format "%Y, %B %d") (secretary--holiday-maybe) "\n")))
-    (setq secretary--last-chatted (ts-now))))
 
 (defun secretary--holiday-maybe ()
   (require 'calendar)
@@ -1827,6 +1823,7 @@ is unspecified, but it shouldn't be possible to do."
                                  secretary-mood-alist))
               (secretary--restore-variables-from-disk))
             (secretary--start-next-timer))))
+    (secretary--save-variables-to-disk)
     (setq secretary--idle-seconds-fn nil)
     (ignore-errors
       (f-delete "/tmp/secretary/pid"))
