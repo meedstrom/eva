@@ -549,11 +549,14 @@ Not recommended.")
   "Number of seconds user has been idle, as told by the system."
   (funcall secretary--idle-seconds-fn))
 
-;; TODO: Rename it?
+;; DEPRECATED: poor name-funcitonality match anyway
 (defun secretary-idle-p ()
   (let ((user-idle-or-secretary-offline-seconds (max (secretary--idle-seconds)
                                                      (ts-diff (ts-now) secretary--last-online))))
     (> user-idle-or-secretary-offline-seconds secretary-idle-threshold-secs-short)))
+
+(defun secretary-idle-p ()
+  (> (secretary--idle-seconds) secretary-idle-threshold-secs-short))
 
 (defun secretary--x11-idle-seconds ()
   "Like `org-x11-idle-seconds' without need for /bin/sh or org."
@@ -1598,6 +1601,9 @@ Note that org-journal is not needed."
 (defvar secretary--last-online
   (make-ts :unix 0))
 
+(defvar secretary--idle-beginning
+  (make-ts :unix 0))
+
 (defvar secretary-length-of-last-idle 0
   "Length of the last idle period, in seconds.")
 
@@ -1644,7 +1650,7 @@ overhead."
 This function is called by `secretary--start-next-timer'
 repeatedly for as long as the user is active (not idle).
 
-Refresh some variables and sync all variables to disk."
+Runs `secretary-periodic-not-idle-hook'."
   ;; Guard the case where the user puts the computer to sleep manually, which
   ;; means this function will still be queued to run when the computer wakes.  If
   ;; the time difference is suddenly big, hand off to the other function.
@@ -1652,6 +1658,7 @@ Refresh some variables and sync all variables to disk."
          secretary-idle-threshold-secs-short)
       (secretary--user-is-idle)
     (setq secretary--last-online (ts-now))
+    (setq secretary--idle-beginning (ts-now))
     (secretary--start-next-timer)
     ;; Run hooks last, in case they contain bugs.
     (run-hooks 'secretary-periodic-not-idle-hook)))
@@ -1668,16 +1675,16 @@ time, at which point the idleness condition will fail and it sets
 once with a failing condition that normally succeeds, as opposed
 to running never or forever, is the reason it has to be a
 separate function from `secretary--user-is-active'."
+  (setq secretary--last-online (ts-now))
   (if (secretary-idle-p)
       (secretary--start-next-timer 'assume-idle)
     ;; Take the idle threshold into account and correct the idle begin point.
     (when decrement
-      (ts-decf (ts-sec secretary--last-online) secretary-idle-threshold-secs-short))
-    (setq secretary-length-of-last-idle (ts-diff (ts-now)
-                                          secretary--last-online))
+      (ts-decf (ts-sec secretary--idle-beginning) secretary-idle-threshold-secs-short))
+    (setq secretary-length-of-last-idle (ts-diff (ts-now) secretary--idle-beginning))
     (unwind-protect
         (run-hooks 'secretary-return-from-idle-hook)
-      (setq secretary--last-online (ts-now))
+      (setq secretary--idle-beginning (ts-now))
       (secretary--start-next-timer))))
 
 (defun secretary-log-idle ()
@@ -1696,21 +1703,20 @@ separate function from `secretary--user-is-active'."
 
 ;; TODO: Calc reasonable defaults from dataset contents
 (defun secretary--restore-variables-from-disk ()
-  (when-let ((last-date
-              (with-current-buffer (secretary-buffer-chat)
-                (save-mark-and-excursion
-                  (goto-char (point-max))
-                  (when (ignore-errors
-                          (re-search-backward
-                           (rx (= 4 digit) ", " (+ alpha) " " digit (opt digit))))
-                    (match-string 0))))))
-    (setq secretary--last-chatted (ts-parse last-date)))
+  (when (f-exists-p (secretary-mood-alist-file-name))
+    (setq secretary-mood-alist
+          (read (f-read (secretary-mood-alist-file-name)))))
   (when (f-exists-p (secretary-last-online-file-name))
     (setq secretary--last-online
           (ts-parse (f-read (secretary-last-online-file-name)))))
-  (when (f-exists-p (secretary-mood-alist-file-name))
-    (setq secretary-mood-alist
-          (read (f-read (secretary-mood-alist-file-name))))))
+  (setq secretary--idle-beginning secretary--last-online)
+  (when (file-exists-p secretary-chat-log-file)
+    (let ((chatfile-modtime
+           (make-ts :unix (time-convert (file-attribute-modification-time
+                                         (file-attributes secretary-chat-log-file))
+                                        'integer))))
+      (when (ts< secretary--last-chatted chatfile-modtime)
+        (setq secretary--last-chatted chatfile-modtime)))))
 
 (defun secretary--save-variables-to-disk ()
   (make-directory secretary-memory-dir t)
