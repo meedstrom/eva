@@ -31,6 +31,8 @@
 (setq secretary-user-name "Martin")
 (setq secretary-user-birthday "1991-12-07")
 (setq secretary-debug-p t)
+;(setq org-journal-dir)
+;(setq org-journal-file-format)
 
 (require 'secretary)
 
