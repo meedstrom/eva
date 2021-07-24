@@ -85,18 +85,6 @@ everything directly into.  Used by `secretary-present-diary'."
   :group 'secretary
   :type 'string)
 
-(defcustom secretary-memory-dir
-  (expand-file-name "secretary" user-emacs-directory)
-  "Directory for persistent files (not your datasets)."
-  :group 'secretary
-  :type 'string)
-
-(defun secretary-idle-beginning-file-name ()
-  (expand-file-name "idle-beginning" secretary-memory-dir))
-
-(defun secretary-mood-alist-file-name ()
-  (expand-file-name "mood-alist" secretary-memory-dir))
-
 (defcustom secretary-sit-long 1
   "A duration in seconds to pause for effect after certain kinds
 of messages. See also `secretary-sit-medium' and
@@ -118,41 +106,103 @@ of messages. See also `secretary-sit-long' and
   :group 'secretary
   :type 'number)
 
-(defcustom secretary-chat-log-file
-  (expand-file-name "chat-log.txt" secretary-memory-dir)
-  "Where to save chat log across sessions. Can be nil."
-  :group 'secretary
-  :type 'string)
+
+;;; Modes and keys
 
-;; REVIEW: see that there's no problem if you delete secretary-memory-dir
-(defvar secretary-mood-alist nil
-  "For suggesting a score in the `secretary-log-mood' prompt.
-Merely a convenience for auto-completion.
+(defconst secretary-chat-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "n") #'secretary-present-next)
+    (define-key map (kbd "p") #'secretary-present-previous)
+    (define-key map (kbd "p") #'secretary-present-previous)
+    (define-key map (kbd "r") #'secretary-resume)
+    (define-key map (kbd "+") #'secretary-increment-date)
+    (define-key map (kbd "-") #'secretary-decrement-date)
+    (define-key map (kbd "d") #'secretary-set-date)
+    (define-key map (kbd "t") #'secretary-set-date-today)
 
-The variable populates itself through use, and syncs with a file
-at `(secretary-mood-alist-file-name)'.")
+    ;; Specialties
+    (define-key map (kbd "?") #'secretary-dispatch)
 
-;; (setq secretary-mood-alist '(("bemused" . "3")
-;;     ("amused" . "5")
-;;     ("great"  . "5")
-;;     ("annoyed" . "3")
-;;     ("depressed" . "1")))
+    map))
 
-(defvar secretary-aphorisms)
+(defconst secretary-present-mode-map
+  secretary-chat-mode-map)
 
-(defvar secretary--date (ts-now)
-  "Date to which to apply the current query.
-Can be set anytime during a welcome to override the date to which
-some queries apply, for example to log something for yesterday.
-This may not apply, check the source for the welcomer you are
-using.")
+(define-derived-mode secretary-chat-mode text-mode "Secretary-Chat"
+  :group 'secretary-chat)
+
+(define-derived-mode secretary-present-mode text-mode "Secretary-Present"
+  :group 'secretary-present)
+
+(transient-define-prefix secretary-dispatch ()
+  ["Actions"
+   :if-derived secretary-present-mode
+   ("p" "Previous" secretary-present-previous)
+   ("n" "Next" secretary-present-next)
+   ]
+  ["General actions"
+   ("q" (lambda ()
+          (concat "Quit (same as "
+                  (key-description (car (where-is-internal #'keyboard-quit)))
+                  ")"))
+    secretary-midquery-keyboard-quit)
+   ("l" "View Ledger report" secretary-present-ledger-report)
+   ("f" "View finances report" secretary-present-ledger-report)
+   ("a" "View Org agenda" org-agenda)
+   ;; ("v" "Visit directory of log files" (lambda () (dired secretary-memory-dir)))
+   ]
+  [;; (lambda () (concat "Date (" (ts-format "%x" secretary--date) ")"))
+   "Date"
+   ("t" "Reset date to today (default)" secretary-set-date-today)
+   ("-" "Decrement the date" secretary-decrement-date)
+   ("+" "Increment the date" secretary-increment-date)
+   ("d" "Set date..." secretary-set-date)
+   ]
+  )
+
+(transient-define-prefix secretary-dispatch-pseudocode-wishlist ()
+  ["Actions"
+   :if query
+   ("d" "Disable this query" skip)
+   ]
+  ["Actions"
+   :if-derived secretary-chat-mode
+   ("s" "Skip this one" skip)
+   ("p" "Skip ahead to presentations (if any)" skip-to-presenters)
+   ("g" "Goto a specific prompt" goto)
+   ("b" "Go backwards" backwards)
+   ]
+  ["Actions"
+   :if-derived secretary-present-mode
+   ("g" "Goto a specific presentation" goto)
+   ("p" "Previous" secretary-present-previous)
+   ("n" "Next" secretary-present-next)
+   ]
+  ["General actions"
+   ("q" (lambda ()
+          (concat "Quit (same as "
+                  (key-description (car (where-is-internal #'keyboard-quit)))
+                  ")"))
+    secretary-midquery-keyboard-quit)
+   ("l" "View Ledger report" secretary-present-ledger-report)
+   ("f" "View finances report" secretary-present-ledger-report)
+   ("a" "View Org agenda" org-agenda)
+   ("v" "Visit directory of log files" (lambda () (dired secretary-memory-dir)))
+   ]
+  ["Settings"
+   ("d" "Set date to operate on..." date)
+   ("y" "Set date to yesterday" date-yesterday)
+   ("t" "Set date to today (default)" date-today)
+   ]
+  )
 
 
 ;;; Activity structs
 ;; Q: What's cl-defstruct?  A: https://nullprogram.com/blog/2018/02/14/
 
-(cl-defstruct (secretary-activity (:constructor secretary-activity-create)
-                         (:copier nil))
+(cl-defstruct (secretary-activity
+               (:constructor secretary-activity-create)
+               (:copier nil))
   name
   id
   cost-false-pos
@@ -268,6 +318,51 @@ Needed to persist disablings across restarts."
 
 ;;; Library
 
+;; REVIEW: see that there's no problem if you delete secretary-memory-dir
+(defvar secretary-mood-alist nil
+  "For suggesting a score in the `secretary-log-mood' prompt.
+Merely a convenience for auto-completion.
+
+The variable populates itself through use, and syncs with a file
+at `secretary-mood-alist-file-name'.")
+
+;; (setq secretary-mood-alist '(("bemused" . "3")
+;;     ("amused" . "5")
+;;     ("great"  . "5")
+;;     ("annoyed" . "3")
+;;     ("depressed" . "1")))
+
+(defvar secretary-aphorisms)
+
+(defvar secretary--date (ts-now)
+  "Date to which to apply the current query.
+Can be set anytime during a welcome to override the date to which
+some queries apply, for example to log something for yesterday.
+This may not apply, check the source for the welcomer you are
+using.")
+
+(defun secretary--buffer-r ()
+  (get-buffer-create (concat "*" secretary-ai-name ": R*")))
+
+(defun secretary-buffer-chat ()
+  (or (find-buffer-visiting secretary-chat-log-file)
+      (let ((buf (find-file-noselect secretary-chat-log-file)))
+        (with-current-buffer buf
+          (secretary-chat-mode)
+          (setq-local buffer-read-only t)
+          (setq-local auto-save-visited-mode nil)
+          (setq-local require-final-newline nil)
+          (buffer-disable-undo)
+          (whitespace-cleanup)
+          (visual-line-mode)
+          (rename-buffer (concat "*" secretary-ai-name ": chat log*")))
+        buf)))
+
+(defun secretary--save-chat-log-to-disk ()
+  (with-current-buffer (secretary-buffer-chat)
+    (whitespace-cleanup)
+    (save-buffer)))
+
 (defvar secretary--k nil)
 (defun secretary--y-or-n-p-insert-k ()
   "Mostly like `y-or-n-p-insert-y'."
@@ -376,10 +471,6 @@ Needed to persist disablings across restarts."
         (run-with-timer .6 nil #'set-face-background 'solaire-fringe-face orig)))
     nil))
 
-(defface secretary-old-msg-face '((t . (:foreground "grey")))
-  "Face for old messages."
-  :group 'secretary)
-
 (defun secretary-emit (&rest strings)
   (secretary-print-new-date-maybe)
   (let ((msg (concat "\n[" (ts-format "%H:%M") "] " (string-join strings))))
@@ -389,29 +480,18 @@ Needed to persist disablings across restarts."
         (delete-blank-lines)
         (insert msg)))))
 
-(defvar secretary--last-edited
-  (let ((last-date
-         (with-current-buffer (secretary-buffer-chat)
-           (save-mark-and-excursion
-             (goto-char (point-max))
-             (when (ignore-errors
-                     (re-search-backward
-                      (rx (= 4 digit) ", " (+ alpha) " " digit (opt digit))))
-               (match-string 0))))))
-    (if last-date
-        (ts-parse last-date)
-      (ts-now)))
+(defvar secretary--last-chatted
+  (make-ts :unix 0)
   "Timestamp updated whenever the chat is written to.")
 
 (defun secretary-print-new-date-maybe ()
   (when (/= (ts-day (ts-now))
-            (ts-day secretary--last-edited))
+            (ts-day secretary--last-chatted))
     (with-current-buffer (secretary-buffer-chat)
       (goto-char (point-max))
       (with-silent-modifications
         (insert "\n\n" (ts-format "%Y, %B %d") (secretary--holiday-maybe) "\n")))
-    (setq secretary--last-edited (ts-now))))
-;; (secretary-print-new-date-maybe)
+    (setq secretary--last-chatted (ts-now))))
 
 (defun secretary--holiday-maybe ()
   (require 'calendar)
@@ -419,9 +499,6 @@ Needed to persist disablings across restarts."
   (if-let (foo (calendar-check-holidays (calendar-current-date)))
       (concat " -- " (s-join " " foo))
     ""))
-
-(defun secretary-reschedule ()
-  (run-with-timer 3600 nil #'secretary-call-from-reschedule))
 
 (defun secretary--random-p (&rest _args)
   "Return t or nil, at random.
@@ -473,10 +550,14 @@ Not recommended.")
 (defvar secretary--idle-seconds-fn nil)
 
 (defun secretary--idle-seconds ()
+  "Number of seconds user has been idle, as told by the system."
   (funcall secretary--idle-seconds-fn))
 
+;; TODO: Rename it?
 (defun secretary-idle-p ()
-  (> (secretary--idle-seconds) secretary-idle-threshold-secs))
+  (let ((user-idle-or-secretary-offline-seconds (max (secretary--idle-seconds)
+                                                     (ts-diff (ts-now) secretary--last-online))))
+    (> user-idle-or-secretary-offline-seconds secretary-idle-threshold-secs-short)))
 
 (defun secretary--x11-idle-seconds ()
   "Like `org-x11-idle-seconds' without need for /bin/sh or org."
@@ -495,80 +576,6 @@ Not recommended.")
                          "/org/gnome/Mutter/IdleMonitor/Core"
                          "org.gnome.Mutter.IdleMonitor.GetIdletime"))))))
     (/ idle-ms 1000)))
-
-(defun secretary--buffer-r ()
-  (get-buffer-create (concat "*" secretary-ai-name ": R*")))
-
-(defun secretary-buffer-chat ()
-  (or (find-buffer-visiting secretary-chat-log-file)
-      (let ((buf (find-file-noselect secretary-chat-log-file)))
-        (with-current-buffer buf
-          (secretary-chat-mode)
-          (setq-local buffer-read-only t)
-          (setq-local auto-save-visited-mode nil)
-          (setq-local require-final-newline nil)
-          (buffer-disable-undo)
-          (whitespace-cleanup)
-          (visual-line-mode)
-          (rename-buffer (concat "*" secretary-ai-name ": chat log*")))
-        buf)))
-
-(defun secretary--save-chat-log-to-disk ()
-  (with-current-buffer (secretary-buffer-chat)
-    (whitespace-cleanup)
-    (save-buffer)))
-
-(defun secretary-append-tsv (path &rest fields)
-  "Append a line to the file located at PATH.
-Create the file and its parent directories if it doesn't exist,
-and make sure the line begins on a newline.  Treat each argument
-in FIELDS... as a separate data field, inserting a tab character
-in between, and warn if a field contains a tab character."
-  (declare (indent defun))
-  (unless (file-exists-p path)
-    (make-empty-file path t))
-  (unless (-all-p #'stringp fields)
-    (warn "[%s] `secretary-append-tsv' was passed nil" (ts-format "%H:%M")))
-  (let* ((fields (-replace nil "" fields))
-         (newline-maybe (if (s-ends-with-p "\n" (f-read-bytes path))
-                            ""
-                          "\n"))
-         (errors-path (concat path "_errors"))
-         (posted (s-pad-right 18 "0" (number-to-string (ts-unix (ts-now)))))
-         (text (string-join fields "\t"))
-         (new-text (concat newline-maybe posted "\t" text)))
-    (cond ((--any-p (s-contains-p "\t" it) fields)
-           (warn "Entry had tabs inside fields, wrote to %s" errors-path)
-           (f-append new-text 'utf-8 errors-path))
-          ((s-contains-p "\n" text)
-           (warn "Entry had newlines, wrote to %s" errors-path)
-           (f-append new-text 'utf-8 errors-path))
-          (t
-           (f-append new-text 'utf-8 path)))))
-
-(defun secretary-append (path &rest text)
-  "Append TEXT to the file located at PATH, creating it and its
-parent directories if it doesn't exist, and making sure the text
-begins on a                newline."
-  (declare (indent defun))
-  (unless (file-exists-p path)
-    (make-empty-file path t))
-  (let ((newline-maybe (if (s-ends-with-p "\n" (f-read-bytes path))
-                           ""
-                         "\n")))
-    (f-append (concat newline-maybe (string-join text)) 'utf-8 path)))
-
-;; REVIEW
-(defun secretary-change-date (&optional ts)
-  (require 'org)
-  (let ((target (if ts
-                    ts
-                  (ts-parse (org-read-date)))))
-    (setq secretary--date target)))
-
-(defun secretary-change-date-yesterday ()
-  (message "Applying this query AND subsequent queries for now to yesterday.")
-  (setq secretary--date (ts-dec 'day 1 (ts-now))))
 
 (defun secretary--string-contains-number (input)
   (s-matches-p (rx num) input))
@@ -614,7 +621,35 @@ If \"am\" or \"pm\" present, assume input is in 12-hour clock."
   (when secretary-debug-p (get-buffer-create (concat secretary-ai-name "*Process Output*"))))
 
 
-;;; Log-file look-uppers
+;;;; Commands
+
+(defun secretary-decrement-date ()
+  (interactive)
+  (secretary-set-date (ts-dec 'day 1 secretary--date)))
+
+(defun secretary-increment-date ()
+  (interactive)
+  (secretary-set-date (ts-inc 'day 1 secretary--date)))
+
+(defun secretary-set-date-today ()
+  (interactive)
+  (secretary-set-date (ts-now)))
+
+(defun secretary-set-date (&optional ts)
+  (interactive)
+  (if ts
+      (setq secretary--date ts)
+    (let* ((time (ts-format "%T"))
+           (new-date (org-read-date))
+           (new-datetime (ts-parse (concat new-date " " time))))
+      (setq secretary--date new-datetime)))
+  (secretary-emit "Operating as if the date is " (ts-format "%x" secretary--date) "."))
+
+(defun secretary-reschedule ()
+  (run-with-timer 3600 nil #'secretary-call-from-reschedule))
+
+
+;;;; Library for handling datasets
 
 (defun secretary-last-datestamp-in-file (path)
   "Get the last match of YYYY-MM-DD in PATH.
@@ -687,6 +722,43 @@ meant to get."
         (insert-file-contents-literally file)
         (ignore-errors (search-forward (ts-format "%F" day)))))))
 
+(defun secretary-append-tsv (path &rest fields)
+  "Append a line to the file located at PATH.
+Create the file and its parent directories if it doesn't exist,
+and make sure the line begins on a newline.  Treat each argument
+in FIELDS... as a separate data field, inserting a tab character
+in between, and warn if a field contains a tab character.
+
+For database purposes[1], FIELDS is prepended with a field for
+the Unix timestamp representing right now. It's a nice-to-have
+you can safely ignore when working with your dataset. If
+timestamps are an actual variable you want to track, add a
+separate field containing something like the output
+of `(ts-format secretary--date)'.
+
+[1]: See https://en.wikipedia.org/wiki/Append-only"
+  (declare (indent defun))
+  (unless (file-exists-p path)
+    (make-empty-file path t))
+  (unless (-all-p #'stringp fields)
+    (warn "[%s] `secretary-append-tsv' was passed nil" (ts-format "%H:%M")))
+  (let* ((fields (-replace nil "" fields))
+         (newline-maybe (if (s-ends-with-p "\n" (f-read-bytes path))
+                            ""
+                          "\n"))
+         (errors-path (concat path "_errors"))
+         (posted (s-pad-right 18 "0" (number-to-string (ts-unix (ts-now)))))
+         (text (string-join fields "\t"))
+         (new-text (concat newline-maybe posted "\t" text)))
+    (cond ((--any-p (s-contains-p "\t" it) fields)
+           (warn "Entry had tabs inside fields, wrote to %s" errors-path)
+           (f-append new-text 'utf-8 errors-path))
+          ((s-contains-p "\n" text)
+           (warn "Entry had newlines, wrote to %s" errors-path)
+           (f-append new-text 'utf-8 errors-path))
+          (t
+           (f-append new-text 'utf-8 path)))))
+
 
 ;;;; Greeting messages
 
@@ -747,12 +819,7 @@ of `secretary-greeting'. Mutually exclusive with
                  '("How may I help?")))))
 
 
-;;;; Loggers
-
-(defun secretary-log-idle ()
-  (secretary-append "/home/kept/Self_data/idle.tsv"
-    (ts-format)
-    "\t" (number-to-string (/ (round secretary-length-of-last-idle) 60))))
+;;;; Buffer logger
 
 (defvar secretary-last-buffer nil)
 
@@ -859,7 +926,6 @@ Put this on `window-buffer-change-functions' and
                    ". For now, let's talk about today.")
           (sit-for secretary-sit-short)))))
 
-;; TODO: make the dataset append-only
 ;;;###autoload
 (defun secretary-query-ingredients (&optional ts)
   (interactive)
@@ -880,9 +946,6 @@ Put this on `window-buffer-change-functions' and
              (s-replace "^.*?," ""
                         (secretary-get-first-today-line-in-file path)))))
 
-;; (defalias #'secretary-query-food #'secretary-query-ingredients)
-
-;; This fn is half boilerplate, lol.
 ;;;###autoload
 (defun secretary-query-activity (&optional _ts interactive)
   (interactive "i\np")
@@ -1128,122 +1191,11 @@ are minutes and numbers below are hours."
 
 (defun secretary-call-from-idle ()
   "Called by idleness-related hooks, doesn't do much if idle was not long."
-  (unless (< secretary-length-of-last-idle secretary-long-idle-threshold-secs)
+  (unless (< secretary-length-of-last-idle secretary-idle-threshold-secs-long)
     (secretary--call-timidly)))
 ;; (run-with-timer 3 nil (lambda ()  (print (frame-focus-state))))
 ;; (secretary-call-from-idle)
 
-
-;;;; Modes and keys
-
-(defconst secretary-chat-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "n") #'secretary-present-next)
-    (define-key map (kbd "p") #'secretary-present-previous)
-    (define-key map (kbd "p") #'secretary-present-previous)
-    (define-key map (kbd "r") #'secretary-resume)
-    (define-key map (kbd "+") #'secretary-increment-date)
-    (define-key map (kbd "-") #'secretary-decrement-date)
-    (define-key map (kbd "d") #'secretary-set-date)
-    (define-key map (kbd "t") #'secretary-set-date-today)
-
-    ;; Specialties
-    (define-key map (kbd "?") #'secretary-dispatch)
-
-    map))
-
-(defconst secretary-present-mode-map
-  secretary-chat-mode-map)
-
-(define-derived-mode secretary-chat-mode text-mode "Secretary-Chat"
-  :group 'secretary-chat)
-
-(define-derived-mode secretary-present-mode text-mode "Secretary-Present"
-  :group 'secretary-present)
-
-(defun secretary-decrement-date ()
-  (interactive)
-  (secretary-set-date (ts-dec 'day 1 secretary--date)))
-
-(defun secretary-increment-date ()
-  (interactive)
-  (secretary-set-date (ts-inc 'day 1 secretary--date)))
-
-(defun secretary-set-date-today ()
-  (interactive)
-  (secretary-set-date (ts-now)))
-
-(defun secretary-set-date (&optional ts)
-  (interactive)
-  (if ts
-      (setq secretary--date ts)
-    (let* ((time (ts-format "%T"))
-           (new-date (org-read-date))
-           (new-datetime (ts-parse (concat new-date " " time))))
-      (setq secretary--date new-datetime)))
-  (secretary-emit "Operating as if the date is " (ts-format "%x" secretary--date) "."))
-
-(transient-define-prefix secretary-dispatch ()
-  ["Actions"
-   :if-derived secretary-present-mode
-   ("p" "Previous" secretary-present-previous)
-   ("n" "Next" secretary-present-next)
-   ]
-  ["General actions"
-   ("q" (lambda ()
-          (concat "Quit (same as "
-                  (key-description (car (where-is-internal #'keyboard-quit)))
-                  ")"))
-    secretary-midquery-keyboard-quit)
-   ("l" "View Ledger report" secretary-present-ledger-report)
-   ("f" "View finances report" secretary-present-ledger-report)
-   ("a" "View Org agenda" org-agenda)
-   ;; ("v" "Visit directory of log files" (lambda () (dired secretary-memory-dir)))
-   ]
-  [;; (lambda () (concat "Date (" (ts-format "%x" secretary--date) ")"))
-   "Date"
-   ("t" "Reset date to today (default)" secretary-set-date-today)
-   ("-" "Decrement the date" secretary-decrement-date)
-   ("+" "Increment the date" secretary-increment-date)
-   ("d" "Set date..." secretary-set-date)
-   ]
-  )
-
-(transient-define-prefix secretary-dispatch-pseudocode-wishlist ()
-  ["Actions"
-   :if query
-   ("d" "Disable this query" skip)
-   ]
-  ["Actions"
-   :if-derived secretary-chat-mode
-   ("s" "Skip this one" skip)
-   ("p" "Skip ahead to presentations (if any)" skip-to-presenters)
-   ("g" "Goto a specific prompt" goto)
-   ("b" "Go backwards" backwards)
-   ]
-  ["Actions"
-   :if-derived secretary-present-mode
-   ("g" "Goto a specific presentation" goto)
-   ("p" "Previous" secretary-present-previous)
-   ("n" "Next" secretary-present-next)
-   ]
-  ["General actions"
-   ("q" (lambda ()
-          (concat "Quit (same as "
-                  (key-description (car (where-is-internal #'keyboard-quit)))
-                  ")"))
-    secretary-midquery-keyboard-quit)
-   ("l" "View Ledger report" secretary-present-ledger-report)
-   ("f" "View finances report" secretary-present-ledger-report)
-   ("a" "View Org agenda" org-agenda)
-   ("v" "Visit directory of log files" (lambda () (dired secretary-memory-dir)))
-   ]
-  ["Settings"
-   ("d" "Set date to operate on..." date)
-   ("y" "Set date to yesterday" date-yesterday)
-   ("t" "Set date to today (default)" date-today)
-   ]
-  )
 
 
 ;;;; New presenter system
@@ -1549,6 +1501,7 @@ Requires the ssconvert program that comes with Gnumeric."
 (defvar secretary-past-sample-function #'secretary-past-sample-default)
 
 (defun secretary-past-sample-default (&optional ts)
+  "Return a list of ts objects."
   "Return a list of ts objects referring to yesterday, this
 weekday the last 4 weeks, this day of the month the last 12
 months, and this date the past 50 years."
@@ -1609,7 +1562,6 @@ Note that org-journal is not needed."
 ;; (secretary-existing-diary (ts-now) "/home/kept/Diary" )
 ;; (--keep (secretary-existing-diary it "/home/kept/Diary") (funcall secretary-past-sample-function))
 
-
 ;; TODO: allow either discrete or datetree to be nil
 ;; TODO: allow a list of datetrees
 ;; TODO: make separate buffers for each datetree entry (use rename-buffer)
@@ -1647,25 +1599,25 @@ Note that org-journal is not needed."
 
 ;;;; Handle idle & reboots & crashes
 
-(defvar secretary--timer nil)
-
-(defvar secretary--idle-beginning (ts-now))
+(defvar secretary--last-online
+  (make-ts :unix 0))
 
 (defvar secretary-length-of-last-idle 0
   "Length of the last idle period, in seconds.")
 
-(defcustom secretary-idle-threshold-secs (* 10 60)
+(defcustom secretary-idle-threshold-secs-short (* 10 60)
   "Duration in seconds, above which the user is considered idle."
   :group 'secretary
   :type 'number)
 
-(defcustom secretary-long-idle-threshold-secs (* 90 60)
+(defcustom secretary-idle-threshold-secs-long (* 90 60)
   "Be idle at least this many seconds to be greeted upon return."
   :group 'secretary
   :type 'number)
 
-(defcustom secretary-return-from-idle-hook '(secretary-log-idle
-                                      secretary-call-from-idle)
+(defcustom secretary-return-from-idle-hook
+  '(secretary-log-idle
+    secretary-call-from-idle)
   "Hook run when user returns from a period of idleness.
 Note: An Emacs startup also counts as a return from idleness.
 You'll probably want your hook to be conditional on some value of
@@ -1675,9 +1627,10 @@ the last Emacs shutdown or crash (technically, last time
   :group 'secretary
   :type '(repeat function))
 
-(defcustom secretary-periodic-not-idle-hook '(secretary--save-variables-to-disk
-                                       secretary--save-buffer-logs-to-disk
-                                       secretary--save-chat-log-to-disk)
+(defcustom secretary-periodic-not-idle-hook
+  '(secretary--save-variables-to-disk
+    secretary--save-buffer-logs-to-disk
+    secretary--save-chat-log-to-disk)
   "Hook run every minute when the user is not idle."
   :group 'secretary
   :type '(repeat function))
@@ -1699,10 +1652,10 @@ Refresh some variables and sync all variables to disk."
   ;; Guard the case where the user puts the computer to sleep manually, which
   ;; means this function will still be queued to run when the computer wakes.  If
   ;; the time difference is suddenly big, hand off to the other function.
-  (if (> (ts-diff (ts-now) secretary--idle-beginning)
-         secretary-idle-threshold-secs)
+  (if (> (ts-diff (ts-now) secretary--last-online)
+         secretary-idle-threshold-secs-short)
       (secretary--user-is-idle)
-    (setq secretary--idle-beginning (ts-now))
+    (setq secretary--last-online (ts-now))
     (secretary--start-next-timer)
     ;; Run hooks last, in case they contain bugs.
     (run-hooks 'secretary-periodic-not-idle-hook)))
@@ -1723,13 +1676,65 @@ separate function from `secretary--user-is-active'."
       (secretary--start-next-timer 'assume-idle)
     ;; Take the idle threshold into account and correct the idle begin point.
     (when decrement
-      (ts-decf (ts-sec secretary--idle-beginning) secretary-idle-threshold-secs))
+      (ts-decf (ts-sec secretary--last-online) secretary-idle-threshold-secs-short))
     (setq secretary-length-of-last-idle (ts-diff (ts-now)
-                                          secretary--idle-beginning))
+                                          secretary--last-online))
     (unwind-protect
         (run-hooks 'secretary-return-from-idle-hook)
-      (setq secretary--idle-beginning (ts-now))
+      (setq secretary--last-online (ts-now))
       (secretary--start-next-timer))))
+
+(defun secretary-log-idle ()
+  (secretary-append-tsv "/home/kept/Self_data/idle.tsv"
+    (ts-format)
+    (number-to-string (/ (round secretary-length-of-last-idle) 60))))
+
+
+;;;; Persistent variables
+
+(defun secretary-last-online-file-name ()
+  (expand-file-name "last-online" secretary-memory-dir))
+
+(defun secretary-mood-alist-file-name ()
+  (expand-file-name "mood-alist" secretary-memory-dir))
+
+;; TODO: Calc reasonable defaults from dataset contents
+(defun secretary--restore-variables-from-disk ()
+  (when-let ((last-date
+              (with-current-buffer (secretary-buffer-chat)
+                (save-mark-and-excursion
+                  (goto-char (point-max))
+                  (when (ignore-errors
+                          (re-search-backward
+                           (rx (= 4 digit) ", " (+ alpha) " " digit (opt digit))))
+                    (match-string 0))))))
+    (setq secretary--last-chatted (ts-parse last-date)))
+  (when (f-exists-p (secretary-last-online-file-name))
+    (setq secretary--last-online
+          (ts-parse (f-read (secretary-last-online-file-name)))))
+  (when (f-exists-p (secretary-mood-alist-file-name))
+    (setq secretary-mood-alist
+          (read (f-read (secretary-mood-alist-file-name))))))
+
+(defun secretary--save-variables-to-disk ()
+  (make-directory secretary-memory-dir t)
+  (secretary--write-if-different (ts-format secretary--last-online) (secretary-last-online-file-name))
+  (secretary--write-if-different (prin1-to-string secretary-mood-alist) (secretary-mood-alist-file-name))
+  ;; (f-write (ts-format secretary--last-online) 'utf-8 (secretary-last-online-file-name))
+  ;; (f-write (prin1-to-string secretary-mood-alist) 'utf-8 (secretary-mood-alist-file-name))
+  )
+
+(defcustom secretary-memory-dir
+  (expand-file-name "secretary" user-emacs-directory)
+  "Directory for persistent files (not your datasets)."
+  :group 'secretary
+  :type 'string)
+
+(defcustom secretary-chat-log-file
+  (expand-file-name "chat-log.txt" secretary-memory-dir)
+  "Where to save chat log across sessions. Can be nil."
+  :group 'secretary
+  :type 'string)
 
 
 ;;;; "Main"
@@ -1749,23 +1754,6 @@ is unspecified, but it shouldn't be possible to do."
     (let ((pid (string-to-number (f-read-bytes "/tmp/secretary/pid"))))
       (and (/= pid (emacs-pid))
            (member pid (list-system-processes))))))
-
-;; TODO: If not finding any saved file, calc reasonable defaults from dataset contents
-(defun secretary--restore-variables-from-disk ()
-  (when (f-exists-p (secretary-idle-beginning-file-name))
-    (setq secretary--idle-beginning
-          (ts-parse (f-read (secretary-idle-beginning-file-name)))))
-  (when (f-exists-p (secretary-mood-alist-file-name))
-    (setq secretary-mood-alist
-          (read (f-read (secretary-mood-alist-file-name))))))
-
-(defun secretary--save-variables-to-disk ()
-  (make-directory secretary-memory-dir t)
-  (secretary--write-if-different (ts-format secretary--idle-beginning) (secretary-idle-beginning-file-name))
-  (secretary--write-if-different (prin1-to-string secretary-mood-alist) (secretary-mood-alist-file-name))
-  ;; (f-write (ts-format secretary--idle-beginning) 'utf-8 (secretary-idle-beginning-file-name))
-  ;; (f-write (prin1-to-string secretary-mood-alist) 'utf-8 (secretary-mood-alist-file-name))
-  )
 
 (defun secretary-unload-function ()
   "Unload the Secretary library."
@@ -1835,7 +1823,7 @@ is unspecified, but it shouldn't be possible to do."
         (named-timer-run :secretary-keepalive 300 300 #'secretary--keepalive)
         (when after-init-time
           (progn
-            (when (-any #'null '(secretary--idle-beginning
+            (when (-any #'null '(secretary--last-online
                                  secretary-mood-alist))
               (secretary--restore-variables-from-disk))
             (secretary--start-next-timer))))
