@@ -13,7 +13,20 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-try(source("renv/activate.R"), silent = TRUE)
+#try(source("renv/activate.R"), silent = TRUE)
+#here::i_am("R/make_data_for_plots.R")
+#here::i_am("R/make_data_for_plots.R")
+source("R/renv/activate.R")
+#source(here::here("R/renv/activate.R"))
+
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(purrr)
+  library(tidyr)
+  library(readr)
+  library(stringr)
+  library(lubridate)
+})
 
 # Projected daily weight loss. Sobering to see how slow the result...
 daily_change <- -0.1
