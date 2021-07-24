@@ -53,15 +53,8 @@
   :prefix "secretary-"
   :group 'convenience)
 
-(defcustom secretary-location-diary-discrete "/home/kept/Diary/"
-  "The directory containing your discrete diary files.
-We assume these files have names such as \"201228.org\".  Used by
-`secretary-present-diary'."
-  :group 'secretary
-  :type 'string)
-
-;; TODO: rename to main-datetree
-(defcustom secretary-location-diary-datetree "/home/kept/Journal/diary2.org"
+(defcustom secretary-location-main-datetree
+  "/home/kept/Journal/diary2.org"
   "The file name of your main datetree, if you have one.
 Only relevant if you have one you use as a big archive file, see
 Info node `(org) Moving subtrees', or you write/capture
@@ -79,9 +72,10 @@ everything directly into.  Used by `secretary-present-diary'."
   :group 'secretary
   :type 'string)
 
-(defcustom secretary-user-name (if (s-equals? user-full-name "")
-                            "Mr. Bond"
-                          (-first-item (s-split " " user-full-name)))
+(defcustom secretary-user-name
+  (if (s-equals? user-full-name "")
+      "Mr. Bond"
+    (-first-item (s-split " " user-full-name)))
   "Your name, that you prefer to be addressed by."
   :group 'secretary
   :type 'string)
