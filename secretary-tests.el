@@ -19,6 +19,7 @@
 ;;; Code:
 
 (require 'secretary-config)
+(require 'ert)
 
 ;; (setq secretary--idle-beginning (setq secretary--last-online (make-ts :unix 0)))
 
@@ -50,7 +51,7 @@
   (named-timer-cancel :secretary-keepalive)
   (named-timer-cancel :secretary))
 
-(ert-deftest defquery ()
+(ert-deftest secretary-defun ()
   (should
    (equal
     (macroexpand '(secretary-defun foo (x1 x2)
@@ -63,7 +64,7 @@
                     (setq secretary--current-fn #'foo)
                     (unless (secretary--item-by-fn secretary--current-fn)
                       (error "%s not listed in secretary-items" (symbol-name secretary--current-fn)))
-                    (advice-add 'abort-recursive-edit :before #'secretary--increment-dismissals)
+                    (advice-add 'abort-recursive-edit :before #'secretary--after-cancel-do-things)
                     (let ((this-dataset (secretary-item-dataset
                                          (secretary--item-by-fn secretary--current-fn))))
                       (unwind-protect
@@ -72,7 +73,7 @@
                                    (baz))
                             (setq secretary--queue
                                   (remove secretary--current-fn secretary--queue)))
-                        (advice-remove 'abort-recursive-edit #'secretary--increment-dismissals))))))))
+                        (advice-remove 'abort-recursive-edit #'secretary--after-cancel-do-things))))))))
 
 (ert-deftest ts-usage ()
   (let ((now (ts-now)))
