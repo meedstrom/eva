@@ -20,16 +20,60 @@
 
 (require 'secretary-config)
 
-;; TODO
-;; Test: save ts-now, wait, run secretary--user-is-active, compare.
-;; Use a special function that runs the timers very fast for testing.
-;; (ert-deftest idle-beginning-does-update ()
-;;   (lambda (&optional force-idle)
-;;     (if (or force-idle (secretary-idle-p))
-;;  (setq secretary--timer (run-with-timer 1 nil #'secretary--user-is-idle)))
-;;     (setq secretary--timer (run-with-timer 1 nil #'secretary--user-is-active)))
-;;   )
 
+;; (setq secretary--idle-beginning (setq secretary--last-online (make-ts :unix 0)))
+
+;; HACK: specific to my machine
+(ert-deftest pid ()
+  (secretary-mode 0)
+  (let ((p (secretary--run-async "emacs" "--with-profile=doom")))
+    (sit-for 5)
+    (should (secretary--another-secretary-running-p))
+    (kill-process p)
+    (sit-for 1)
+    (should-not (secretary--another-secretary-running-p))))
+
+(ert-deftest idle1 ()
+  (secretary-mode 0)
+  (setq secretary--idle-seconds-fn #'org-emacs-idle-seconds)
+  (secretary--start-next-timer t)
+  (sit-for .05)
+  (should (eq (seq-elt (named-timer-get :secretary) 5) 'secretary--user-is-idle))
+  (sit-for 2)
+  (should (eq (seq-elt (named-timer-get :secretary) 5) 'secretary--user-is-active)))
+
+(ert-deftest keepalive ()
+  (secretary-mode 0)
+  (setq secretary--idle-seconds-fn #'org-emacs-idle-seconds)
+  (secretary--keepalive)
+  (should (named-timer-get :secretary))
+  ;; Takedown
+  (named-timer-cancel :secretary-keepalive)
+  (named-timer-cancel :secretary))
+
+(ert-deftest defquery ()
+  (should
+   (equal
+    (macroexpand '(secretary-defquery foo (x1 x2)
+                    "docstr"
+                    (bar)
+                    (baz)))
+    (macroexpand '(defun foo (x1 x2 interactivep)
+                    "docstr"
+                    (interactive "i\n\i\np")
+                    (setq secretary--current-query #'foo)
+                    (unless (secretary--action-by-query secretary--current-query)
+                      (error "%s not listed in secretary-actions" (symbol-name secretary--current-query)))
+                    (advice-add 'abort-recursive-edit :before #'secretary--increment-dismissals)
+                    (let ((this-dataset (secretary-action-dataset
+                                         (secretary--action-by-query secretary--current-query))))
+                      (unwind-protect
+                          (prog1 (progn
+                                   (bar)
+                                   (baz))
+                            (setq secretary--queue
+                                  (remove secretary--current-query secretary--queue)))
+                        (advice-remove 'abort-recursive-edit #'secretary--increment-dismissals))))))))
 
 (ert-deftest ts-usage ()
   (let ((now (ts-now)))
@@ -37,29 +81,9 @@
                    (ts-dec 'year 1 now)))
     (should (= 16 (length (-uniq (append
                                   (--iterate (ts-dec 'month 1 it) now 12)
-                                  (--iterate (ts-dec 'year 1 it) now 5))))))))
-
-;; (secretary-last-datestamp-in-file "/home/kept/Self_data/weight.tsv")
-;; (secretary-last-datestamp-in-file "/home/kept/Self_data/mood.tsv")
-;; (secretary-last-timestamp-in-tsv "/home/kept/Self_data/sleep.tsv")
-;; (secretary-get-all-today-in-tsv "/home/kept/Self_data/sleep.csv" (ts-dec 'day 1 (ts-now)))
-
-(let ((var1-file-name "/tmp/...")
-      (var2-file-name "/tmp/...")))
-
-(ert-deftest all-queries-write-to-disk-correctly
-
-    )
-
-(ert-deftest all-queries-can-be-cancelled
-    (let ((var1-file-name "/tmp/...")
-          (var2-file-name "/tmp/...")))
-  )
-
-(ert-deftest welcomer-produces-no-error
-    (let ((var1-file-name "/tmp/...")
-          (var2-file-name "/tmp/...")))
-  )
+                                  (--iterate (ts-dec 'year 1 it) now 5))))))
+    ;; (should (= 66 (length (secretary-past-sample-default))))
+    (should (-all-p #'ts-p (secretary-past-sample-default)))))
 
 (provide 'secretary-tests)
 
