@@ -1206,8 +1206,8 @@ are minutes and numbers below are hours."
   "Butt-in if any queries are pending."
   (setq secretary--date (ts-now))
   (when-let ((fns (if secretary-debug-no-timid
-                      (secretary--enabled-queries)
-                    (-filter #'secretary--pending-p (secretary--enabled-queries)))))
+                      (secretary--enabled-items)
+                    (-filter #'secretary--pending-p (secretary--enabled-items)))))
     (setq secretary--queue fns)
     (unless (eq t (frame-focus-state))
       (require 'notifications)
@@ -1221,7 +1221,7 @@ are minutes and numbers below are hours."
 (defun secretary-new-session ()
   (interactive)
   (setq secretary--date (ts-now))
-  (setq secretary--queue (-filter #'secretary--pending-p (secretary--enabled-queries)))
+  (setq secretary--queue (-filter #'secretary--pending-p (secretary--enabled-items)))
   (secretary-build-presentations-async)
   (secretary-resume)
   (secretary-view-presentations)
@@ -1230,7 +1230,7 @@ are minutes and numbers below are hours."
 (defun secretary-new-session-force-all ()
   (interactive)
   (setq secretary--date (ts-now))
-  (setq secretary--queue (secretary--enabled-queries))
+  (setq secretary--queue (secretary--enabled-items))
   (secretary-build-presentations-async)
   (secretary-resume)
   (secretary-view-presentations))
