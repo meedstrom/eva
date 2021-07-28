@@ -1628,15 +1628,15 @@ Note that org-journal is not needed."
         (kill-buffer buffer)))))
 ;; (secretary-present-diary (ts-now))
 ;; (secretary-present-diary (ts-dec 'day 1 (ts-now)))
-;; 
+
 
 ;;;; Handle idle & reboots & crashes
 
 (defvar secretary--last-online
-  (make-ts :unix 0))
+  nil)
 
 (defvar secretary--idle-beginning
-  (make-ts :unix 0))
+  nil)
 
 (defvar secretary-length-of-last-idle 0
   "Length of the last idle period, in seconds.")
@@ -1665,8 +1665,7 @@ the last Emacs shutdown or crash (technically, last time
 
 (defcustom secretary-periodic-not-idle-hook
   '(secretary--save-variables-to-disk
-    secretary--save-buffer-logs-to-disk
-    secretary--save-chat-log-to-disk)
+    secretary--save-buffer-logs-to-disk)
   "Hook run every minute when the user is not idle."
   :group 'secretary
   :type '(repeat function))
@@ -1721,8 +1720,11 @@ separate function from `secretary--user-is-active'."
       (setq secretary--idle-beginning (ts-now))
       (secretary--start-next-timer))))
 
+(defcustom secretary-idle-file-name "/home/kept/Self_data/idle.tsv"
+  nil)
+
 (defun secretary-log-idle ()
-  (secretary-append-tsv "/home/kept/Self_data/idle.tsv"
+  (secretary-append-tsv secretary-idle-file-name
     (ts-format)
     (number-to-string (/ (round secretary-length-of-last-idle) 60))))
 
@@ -1740,25 +1742,28 @@ separate function from `secretary--user-is-active'."
   (when (f-exists-p (secretary-mood-alist-file-name))
     (setq secretary-mood-alist
           (read (f-read (secretary-mood-alist-file-name)))))
-  (when (f-exists-p (secretary-last-online-file-name))
-    (setq secretary--last-online
-          (ts-parse (f-read (secretary-last-online-file-name)))))
+  (setq secretary--last-online
+        (if (f-exists-p (secretary-last-online-file-name))
+            (ts-parse (f-read (secretary-last-online-file-name)))
+          (unless (not (null secretary--last-online))
+            (make-ts :unix 0))))
   (setq secretary--idle-beginning secretary--last-online)
-  (when (file-exists-p secretary-chat-log-file)
+  (when (and secretary-chat-log-file-name
+             (file-exists-p secretary-chat-log-file-name))
     (let ((chatfile-modtime
            (make-ts :unix (time-convert (file-attribute-modification-time
-                                         (file-attributes secretary-chat-log-file))
+                                         (file-attributes secretary-chat-log-file-name))
                                         'integer))))
       (when (ts< secretary--last-chatted chatfile-modtime)
         (setq secretary--last-chatted chatfile-modtime)))))
 
 (defun secretary--save-variables-to-disk ()
   (make-directory secretary-memory-dir t)
-  (secretary--write-if-different (ts-format secretary--last-online) (secretary-last-online-file-name))
-  (secretary--write-if-different (prin1-to-string secretary-mood-alist) (secretary-mood-alist-file-name))
-  ;; (f-write (ts-format secretary--last-online) 'utf-8 (secretary-last-online-file-name))
-  ;; (f-write (prin1-to-string secretary-mood-alist) 'utf-8 (secretary-mood-alist-file-name))
-  )
+  (secretary-write-safely (ts-format secretary--last-online) (secretary-last-online-file-name))
+  (secretary-write-safely (prin1-to-string secretary-mood-alist) (secretary-mood-alist-file-name))
+  (when secretary-chat-log-file-name
+    (secretary-write-safely (with-current-buffer (secretary-buffer-chat) (buffer-string))
+                   secretary-chat-log-file-name)))
 
 (defcustom secretary-memory-dir
   (expand-file-name "secretary" user-emacs-directory)
@@ -1766,8 +1771,8 @@ separate function from `secretary--user-is-active'."
   :group 'secretary
   :type 'string)
 
-(defcustom secretary-chat-log-file
-  (expand-file-name "chat-log.txt" secretary-memory-dir)
+(defcustom secretary-chat-log-file-name
+  (expand-file-name "chat.log" secretary-memory-dir)
   "Where to save chat log across sessions. Can be nil."
   :group 'secretary
   :type 'string)
@@ -1859,10 +1864,11 @@ is unspecified, but it shouldn't be possible to do."
         (named-timer-run :secretary-keepalive 300 300 #'secretary--keepalive)
         (when after-init-time
           (progn
-            (when (-any #'null '(secretary--last-online
-                                 secretary-mood-alist))
+            (when (or (null secretary-mood-alist)
+                      (null secretary--last-online)
+                      (= 0 (ts-unix secretary--last-online)))
               (secretary--restore-variables-from-disk))
-            (secretary--start-next-timer))))
+            (secretary--user-is-active))))
     (secretary--save-variables-to-disk)
     (setq secretary--idle-seconds-fn nil)
     (ignore-errors
