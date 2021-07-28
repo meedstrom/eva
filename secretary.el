@@ -426,11 +426,18 @@ using.")
                   nil nil nil nil
                   (when (stringp default)
                     default))))
+    (secretary-emit-same-line result)
     (if (string-match-p "skip" result)
         (progn
-          ;; (minibuffer-keyboard-quit)
-          (secretary-present-diary)
-          (keyboard-quit))
+          (if (and (< 1 (length secretary--queue))
+                   (member secretary--current-query secretary--queue))
+              ;; Try to proceed to next item
+              (progn
+                (setq secretary--queue
+                      (remove secretary--current-query secretary--queue))
+                (secretary-resume))
+            ;; Just cancel the session
+            (abort-recursive-edit)))
       result)))
 
 (defcustom secretary-chime-audio-file
@@ -483,6 +490,15 @@ using.")
         (delete-blank-lines)
         (insert new-date-maybe)
         (insert msg))))
+  (setq secretary--last-chatted (ts-now))
+  (string-join strings))
+
+(defun secretary-emit-same-line (&rest strings)
+  (let ((msg (string-join strings)))
+    (with-current-buffer (secretary-buffer-chat)
+      (goto-char (point-max))
+      (with-silent-modifications
+        (insert msg))))
   (setq secretary--last-chatted (ts-now)))
 
 (defvar secretary--last-chatted
@@ -501,25 +517,38 @@ using.")
 Can work as a predicate for `cl-sort'."
   (> 0 (random)))
 
-(defun secretary--write-if-different (text file)
-  "Write TEXT to FILE if the content differs."
-  (unless (and (f-exists-p file)
-               (string= text (f-read file 'utf-8)))
-    (f-write text 'utf-8 file)))
+(defun secretary-write-safely (text path)
+  "Write TEXT to file at PATH if the content differs.
+Also revert any buffer visiting it, or signal an error if there
+are unsaved changes."
+  (let ((buf (find-buffer-visiting path)))
+    (and buf
+         (buffer-modified-p buf)
+         (error "Unsaved changes in open buffer: " (buffer-name buf)))
+    (unless (and (f-exists-p path)
+                 (string= text (f-read path 'utf-8)))
+      (f-write text 'utf-8 path)
+      (and buf (with-current-buffer buf (revert-buffer))))))
+
+(defun secretary-append-safely (text path)
+  "Append TEXT to file at PATH if the content differs.
+Also revert any buffer visiting it, or signal an error if there
+are unsaved changes."
+  (let ((buf (find-buffer-visiting path)))
+    (and buf
+         (buffer-modified-p buf)
+         (error "Unsaved changes in open buffer: " (buffer-name buf)))
+    (unless (and (f-exists-p path)
+                 (= 0 (length text))) ;; no unnecessary disk writes
+      (f-append text 'utf-8 path)
+      (and buf (with-current-buffer buf (revert-buffer))))))
 
 (defun secretary--transact-buffer-onto-file (buffer path)
-  (when-let ((visiting (get-file-buffer path)))
-    (with-current-buffer visiting
-      ;; (undo-only 999)
-      (save-buffer))
-    (kill-buffer visiting)
-    (message "Killed buffer to prevent edit war. %s"
-             "To edit, disable `secretary-mode' first."))
+  "Append contents of BUFFER to file at PATH, emptying BUFFER."
   (with-current-buffer buffer
     (whitespace-cleanup)
-    (when (> (buffer-size) 0) ;; no unnecessary disk writes
-      (f-append-text (buffer-string) 'utf-8 path)
-      (delete-region (point-min) (point-max)))))
+    (secretary-append-safely (buffer-string) path)
+    (delete-region (point-min) (point-max))))
 
 (defmacro secretary--process-output-to-string (program &rest args)
   "Similar to `shell-command-to-string', but skips the shell
@@ -728,19 +757,14 @@ and make sure the line begins on a newline.  Treat each argument
 in FIELDS... as a separate data field, inserting a tab character
 in between, and warn if a field contains a tab character.
 
-For database purposes[1], FIELDS is prepended with a field for
-the Unix timestamp representing right now. It's a nice-to-have
-you can safely ignore when working with your dataset. If
-timestamps are an actual variable you want to track, add a
-separate field containing something like the output
-of `(ts-format secretary--date)'.
-
-[1]: See https://en.wikipedia.org/wiki/Append-only"
+For database purposes (which you may not need), FIELDS is
+prepended with a field for the Unix timestamp representing right
+now. If timestamps are an actual variable you want to track, add
+a separate field containing something like the output
+of `(ts-format secretary--date)'."
   (declare (indent defun))
   (unless (file-exists-p path)
     (make-empty-file path t))
-  (unless (-all-p #'stringp fields)
-    (warn "[%s] `secretary-append-tsv' was passed nil" (ts-format "%H:%M")))
   (let* ((fields (-replace nil "" fields))
          (newline-maybe (if (s-ends-with-p "\n" (f-read-bytes path))
                             ""
@@ -748,15 +772,25 @@ of `(ts-format secretary--date)'.
          (errors-path (concat path "_errors"))
          (posted (s-pad-right 18 "0" (number-to-string (ts-unix (ts-now)))))
          (text (string-join fields "\t"))
-         (new-text (concat newline-maybe posted "\t" text)))
-    (cond ((--any-p (s-contains-p "\t" it) fields)
-           (warn "Entry had tabs inside fields, wrote to %s" errors-path)
-           (f-append new-text 'utf-8 errors-path))
-          ((s-contains-p "\n" text)
-           (warn "Entry had newlines, wrote to %s" errors-path)
-           (f-append new-text 'utf-8 errors-path))
-          (t
-           (f-append new-text 'utf-8 path)))))
+         (new-text (concat newline-maybe posted "\t" text))
+         (maybe-buf (find-buffer-visiting path)))
+    (cond
+     ;; TODO: superfluous clause
+     ((and maybe-buf (buffer-modified-p maybe-buf))
+      (warn "Cancelled write because of unsaved open buffer at %s, wrote to %s" path errors-path)
+      (f-append new-text 'utf-8 errors-path)
+      nil)
+     ((--any-p (s-contains-p "\t" it) fields)
+      (warn "Entry had tabs inside fields, wrote to %s" errors-path)
+      (f-append new-text 'utf-8 errors-path)
+      nil)
+     ((s-contains-p "\n" text)
+      (warn "Entry had newlines, wrote to %s" errors-path)
+      (f-append new-text 'utf-8 errors-path)
+      nil)
+     (t
+      (secretary-append-safely new-text path)
+      t))))
 
 
 ;;;; Greeting messages
