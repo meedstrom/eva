@@ -20,7 +20,6 @@
 
 (require 'secretary-config)
 
-
 ;; (setq secretary--idle-beginning (setq secretary--last-online (make-ts :unix 0)))
 
 ;; HACK: specific to my machine
@@ -54,25 +53,25 @@
 (ert-deftest defquery ()
   (should
    (equal
-    (macroexpand '(secretary-defquery foo (x1 x2)
+    (macroexpand '(secretary-defun foo (x1 x2)
                     "docstr"
                     (bar)
                     (baz)))
     (macroexpand '(defun foo (x1 x2 interactivep)
                     "docstr"
                     (interactive "i\n\i\np")
-                    (setq secretary--current-query #'foo)
-                    (unless (secretary--action-by-query secretary--current-query)
-                      (error "%s not listed in secretary-actions" (symbol-name secretary--current-query)))
+                    (setq secretary--current-fn #'foo)
+                    (unless (secretary--item-by-fn secretary--current-fn)
+                      (error "%s not listed in secretary-items" (symbol-name secretary--current-fn)))
                     (advice-add 'abort-recursive-edit :before #'secretary--increment-dismissals)
-                    (let ((this-dataset (secretary-action-dataset
-                                         (secretary--action-by-query secretary--current-query))))
+                    (let ((this-dataset (secretary-item-dataset
+                                         (secretary--item-by-fn secretary--current-fn))))
                       (unwind-protect
                           (prog1 (progn
                                    (bar)
                                    (baz))
                             (setq secretary--queue
-                                  (remove secretary--current-query secretary--queue)))
+                                  (remove secretary--current-fn secretary--queue)))
                         (advice-remove 'abort-recursive-edit #'secretary--increment-dismissals))))))))
 
 (ert-deftest ts-usage ()

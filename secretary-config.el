@@ -30,7 +30,7 @@
 (setq secretary-user-short-title "sir")
 (setq secretary-user-name "Martin")
 (setq secretary-user-birthday "1991-12-07")
-(setq secretary-debug-p t)
+(setq secretary-debugp t)
 ;; (setq org-journal-dir)
 ;; (setq org-journal-file-format)
 
@@ -38,16 +38,16 @@
 
 (setq secretary-x11idle-program-name "x11idle")
 
-(setq secretary-actions
+(setq secretary-items
       (list
-       (secretary-action-create
-        :query (secretary-defquery secretary-greet ()
+       (secretary-item-create
+        :fn (secretary-defun secretary-greet ()
                  "Experimental greeter to drop into the queries infrastructure."
                  (interactive)
                  (pop-to-buffer (secretary-buffer-chat))
                  (message (secretary-emit (secretary-greeting)))))
-       (secretary-action-create
-        :query (secretary-defquery secretary-present-ledger-file ()
+       (secretary-item-create
+        :fn (secretary-defun secretary-present-ledger-file ()
                  "Experimental presenter to drop into the queries infrastructure."
                  (message (secretary-emit "Sending you to your Ledger file. Sayonara!"))
                  (sit-for secretary-sit-short)
@@ -55,25 +55,25 @@
                  (named-timer-run :secretary-excursion (* 5 60) nil #'secretary-end-session)
                  (setq secretary--excursion-buffer
                        (find-file-other-window secretary-ledger-file-name))))
-      (secretary-action-create :query #'secretary-query-sleep
+      (secretary-item-create :fn #'secretary-query-sleep
                                :dataset "/home/kept/Self_data/sleep.tsv"
                                :min-hours-wait 5
                                :lookup-posted-time t)
-      (secretary-action-create :query #'secretary-query-weight
+      (secretary-item-create :fn #'secretary-query-weight
                                :dataset "/home/kept/Self_data/weight.tsv"
                                :max-entries-per-day 1)
-      (secretary-action-create :query #'secretary-query-mood
+      (secretary-item-create :fn #'secretary-query-mood
                                :dataset "/home/kept/Self_data/mood.tsv")
-      (secretary-action-create :query #'secretary-query-ingredients
+      (secretary-item-create :fn #'secretary-query-ingredients
                                 :dataset "/home/kept/Self_data/ingredients.tsv"
                                 :min-hours-wait 5)
-       (secretary-action-create :query #'secretary-query-cold-shower
+       (secretary-item-create :fn #'secretary-query-cold-shower
                                 :dataset "/home/kept/Self_data/cold.tsv"
                                 :max-entries-per-day 1)
-       (secretary-action-create :query #'secretary-query-activity
+       (secretary-item-create :fn #'secretary-query-activity
                                 :dataset "/home/kept/Self_data/activities.tsv")
-       (secretary-action-create
-        :query (secretary-defquery secretary-present-org-agenda ()
+       (secretary-item-create
+        :fn (secretary-defun secretary-present-org-agenda ()
                  (message (secretary-emit "Sending you to the Org agenda."))
                  (sit-for secretary-sit-short)
                  (add-hook 'kill-buffer-hook #'secretary-return-from-excursion)
@@ -93,38 +93,6 @@
 
 ;; Surprisingly, sublists may not be necessary.
 (setq secretary--queue-sublist-counter 0)
-(setq secretary-actions*
-      (list
-       (list
-        (secretary-action-create :query (secretary-defquery secretary-greet ()
-                                          "Experimental greeter to drop into the queries infrastructure."
-                                          (interactive)
-                                          (pop-to-buffer (secretary-buffer-chat))
-                                          (secretary-emit (secretary-greeting))))
-        (secretary-action-create :query (secretary-defquery secretary-present-ledger-file ()
-                                          "Experimental presenter to drop into the queries infrastructure."
-                                          (secretary-emit "Sending you to your Ledger file, sayonara!")
-                                          (sit-for secretary-sit-short)
-                                          (find-file secretary-ledger-file-name))))
-       (list
-        (secretary-action-create :query #'secretary-query-sleep
-                                 :dataset "/home/kept/Self_data/sleep.tsv"
-                                 :min-hours-wait 5
-                                 :lookup-posted-time t)
-        (secretary-action-create :query #'secretary-query-weight
-                                 :dataset "/home/kept/Self_data/weight.tsv"
-                                 :max-entries-per-day 1)
-        (secretary-action-create :query #'secretary-query-mood
-                                 :dataset "/home/kept/Self_data/mood.tsv")
-        (secretary-action-create :query #'secretary-query-ingredients
-                                 :dataset "/home/kept/Self_data/ingredients.tsv"
-                                 :min-hours-wait 5)
-        (secretary-action-create :query #'secretary-query-cold-shower
-                                 :dataset "/home/kept/Self_data/cold.tsv"
-                                 :max-entries-per-day 1)
-        (secretary-action-create :query #'secretary-query-activity
-                                 :dataset "/home/kept/Self_data/activities.tsv"
-                                 ))))
 
 (setq secretary-activities
       (list (secretary-activity-create
