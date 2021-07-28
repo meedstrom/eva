@@ -995,9 +995,13 @@ In BODY, you have access to extra temporary variables:
          (unwind-protect
              (prog1 (progn ,@new-body)
                (setq secretary--queue
-                     (remove secretary--current-fn secretary--queue)))
+                     (remove secretary--current-fn secretary--queue))
+               (setf (secretary-item-dismissals
+                      (secretary--item-by-fn secretary--current-fn))
+                     0))
            (advice-remove 'abort-recursive-edit #'secretary--after-cancel-do-things))))))
 
+;;;###autoload
 (secretary-defun secretary-query-ingredients ()
   (let* ((prompt "Comma-separated list of ingredients: ")
          (response (progn
@@ -1009,6 +1013,7 @@ In BODY, you have access to extra temporary variables:
     (secretary-emit-same-line
      (mapconcat #'-last-item (secretary--get-entries-in-tsv this-dataset) ", "))))
 
+;;;###autoload
 (secretary-defun secretary-query-activity ()
   (let* ((name (secretary-read "What are you up to? " (secretary-activities-names))))
     (secretary-append-tsv this-dataset
@@ -1018,10 +1023,7 @@ In BODY, you have access to extra temporary variables:
     (secretary-emit-same-line name)))
 
 ;;;###autoload
-(defun secretary-query-mood (&optional ts prompt)
-  (interactive)
-  (setq secretary--current-fn #'secretary-query-mood)
-  (advice-add 'abort-recursive-edit :before #'secretary--after-cancel-do-things)
+(secretary-defun secretary-query-mood ()
   (let* ((mood-desc (secretary-read
                      (or prompt "Your mood: ")
                      (cl-sort (mapcar #'car secretary-mood-alist)
@@ -1031,53 +1033,35 @@ In BODY, you have access to extra temporary variables:
           (concat "Score from 1 to 5"
                   (when old-score " (default " old-score ")")
                   ": "))
-         (score (read-string prompt-for-score nil nil old-score))
-         (score-num (string-to-number score))
-         (now (or ts (ts-now))))
-    (secretary-append-tsv "/home/kept/Self_data/mood.tsv"
-      (ts-format now)
+         (score (progn (secretary-emit "Score from 1 to 5: ")
+                       (read-string prompt-for-score nil nil old-score)))
+         (score-num (string-to-number score)))
+    (secretary-append-tsv this-dataset
+      (ts-format)
       (s-replace "," "." score)
       mood-desc)
-    (setq secretary--queue
-          (remove secretary--current-fn secretary--queue))
+    (secretary-emit-same-line (nth 2 (secretary--last-in-tsv this-dataset)))
     ;; Update secretary-mood-alist.
     (if (assoc mood-desc secretary-mood-alist)
         (setq secretary-mood-alist
               (--replace-where (string= (car it) mood-desc)
                                (cons (car it) score)
                                secretary-mood-alist))
-      (push (cons mood-desc score) secretary-mood-alist))
-    ;; Return the mood score, which can be useful for the caller of this
-    ;; function. If the input was not a number, like "idk" or an empty string,
-    ;; return 3 to be neutral.
-    (if (= 0 score-num)
-        3
-      score-num)))
+      (push (cons mood-desc score) secretary-mood-alist))))
 
 ;;;###autoload
-(defun secretary-query-weight (&optional ts)
-  (interactive)
-  (setq secretary--current-fn #'secretary-query-weight)
-  (advice-add 'abort-recursive-edit :before #'secretary--after-cancel-do-things)
-  (let* ((now (or ts (ts-now)))
-         (path "/home/kept/Self_data/weight.tsv")
-         (last-wt (secretary-last-value-in-tsv path))
+(secretary-defun secretary-query-weight ()
+  (let* ((last-wt (secretary-last-value-in-tsv this-dataset))
          (wt (secretary-read "What do you weigh today? "
-                      `(,last-wt
-                        "I don't know")
-                      last-wt)))
+                    `(,last-wt
+                      "I don't know")
+                    last-wt)))
     (if (= 0 (string-to-number wt)) ;; user typed a string with characters other than num and whitespace
         (secretary-emit "Ok, I'll ask you again later.")
-      (secretary-append-tsv path
-        (ts-format now)
+      (secretary-append-tsv this-dataset
+        (ts-format secretary--date)
         (s-replace "," "." wt))
-      (setq secretary--queue
-            (remove secretary--current-fn secretary--queue))
-      (secretary-emit "Weight today: " (secretary-last-value-in-tsv path) " kg")
-(setf (secretary-item-dismissals
-             (secretary--item-by-fn secretary--current-fn))
-            0))
-    (sit-for secretary-sit-short)))
+      (secretary-emit "Weight today: " (secretary-last-value-in-tsv path) " kg"))))
 
 (defun secretary-check-yesterday-sleep ()
   (let* ((dataset (secretary-item-dataset (secretary--item-by-fn secretary--current-fn)))
@@ -1100,7 +1084,7 @@ In BODY, you have access to extra temporary variables:
 ;;       at 01:00. Notice the unusual hour change and ask if user meant 23
 ;;       yesterday.
 ;;;###autoload
-(defun secretary-query-sleep (&optional ts)
+(secretary-defun secretary-query-sleep ()
   "Query you for wake-up time and sleep quantity for one sleep block today.
 You are free to decline either query, but you should not later
 register sleep quantity from this same block in order to \"get
@@ -1108,9 +1092,6 @@ the totals correct\" -- the database will interpret it as a
 different sleep block and continue to count the original one as
 having a censored (nonzero!) quantity of sleep on top of what you
 add."
-  (interactive)
-  (setq secretary--current-fn #'secretary-query-sleep)
-  (advice-add 'abort-recursive-edit :before #'secretary--after-cancel-do-things)
   ;; TODO: don't pester about an anomalous date more than once
   (secretary-check-yesterday-sleep)
   (let* ((recently-hhmm (ts-format "%H:%M" (ts-dec 'minute 10 secretary--date)))
@@ -1130,7 +1111,6 @@ add."
                     `("I don't know"
                       ,(number-to-string
                         (/ secretary-length-of-last-idle 60 60)))))))
-
     (secretary-emit (when wakeup-time
              (concat "You woke at " wakeup-time ". "))
            (when sleep-minutes
@@ -1139,38 +1119,27 @@ add."
                      " hours)."))
            (when (-all-p #'null '(wakeup-time sleep-minutes))
              (concat "One sleep block recorded without metrics.")))
-    (secretary-append-tsv "/home/kept/Self_data/sleep.tsv"
-      (ts-format "%F" secretary--date) ;; date
-      (when wakeup-time wakeup-time) ;; time (optional)
-      (when sleep-minutes (number-to-string sleep-minutes)))
-    (setq secretary--queue
-          (remove secretary--current-fn secretary--queue))))
+    (secretary-append-tsv this-dataset
+      (ts-format "%F" secretary--date) ;; date (no time component)
+      wakeup-time ;; time (optional)
+      (when sleep-minutes (number-to-string sleep-minutes)))))
 
-(defun secretary-query-meditation (&optional ts)
-  (interactive)
-  (setq secretary--current-fn #'secretary-query-meditation)
-  (advice-add 'abort-recursive-edit :before #'secretary--after-cancel-do-things)
+;;;###autoload
+(secretary-defun secretary-query-meditation ()
   (when (secretary-ynp "Did you meditate today?")
     (let* ((mins (read-string "Do you know how long (in minutes)? "))
            (cleaned-mins (number-to-string (string-to-number mins)))) ;; ugly, I know
-      (secretary-append-tsv "/home/kept/Self_data/meditation.tsv"
-        (ts-format ts)
+      (secretary-append-tsv this-dataset
+        (ts-format)
         "TRUE"
-        (unless (string= "0" cleaned-mins) cleaned-mins))
-      (setq secretary--queue
-            (remove secretary--current-fn secretary--queue)))))
+        (unless (string= "0" cleaned-mins) cleaned-mins)))))
 
-(defun secretary-query-cold-shower (&optional ts)
-  (interactive)
-  (setq secretary--current-fn #'secretary-query-cold-shower)
-  (advice-add 'abort-recursive-edit :before #'secretary--after-cancel-do-things)
-  (let ((rating (read-string "Cold rating? "))
-        (path "/home/kept/Self_data/cold.tsv"))
-    (secretary-append-tsv path
-      (ts-format ts)
-      rating)
-    (setq secretary--queue
-          (remove secretary--current-fn secretary--queue))))
+;;;###autoload
+(secretary-defun secretary-query-cold-shower ()
+  (let ((rating (read-string "Cold rating? ")))
+    (secretary-append-tsv this-dataset
+      (ts-format secretary--date)
+      rating)))
 
 
 ;;;; Parsers

@@ -72,7 +72,10 @@
                                    (bar)
                                    (baz))
                             (setq secretary--queue
-                                  (remove secretary--current-fn secretary--queue)))
+                                  (remove secretary--current-fn secretary--queue))
+                            (setf (secretary-item-dismissals
+                                   (secretary--item-by-fn secretary--current-fn))
+                                  0))
                         (advice-remove 'abort-recursive-edit #'secretary--after-cancel-do-things))))))))
 
 (ert-deftest ts-usage ()
