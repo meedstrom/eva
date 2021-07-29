@@ -160,44 +160,7 @@ of messages. See also `secretary-sit-long' and
    ("-" "Decrement the date" secretary-decrement-date)
    ("+" "Increment the date" secretary-increment-date)
    ("d" "Set date..." secretary-set-date)
-   ]
-  )
-
-(transient-define-prefix secretary-dispatch-pseudocode-wishlist ()
-  ["Actions"
-   :if query
-   ("d" "Disable this query" skip)
-   ]
-  ["Actions"
-   :if-derived secretary-chat-mode
-   ("s" "Skip this one" skip)
-   ("p" "Skip ahead to presentations (if any)" skip-to-presenters)
-   ("g" "Goto a specific prompt" goto)
-   ("b" "Go backwards" backwards)
-   ]
-  ["Actions"
-   :if-derived secretary-present-mode
-   ("g" "Goto a specific presentation" goto)
-   ("p" "Previous" secretary-present-previous)
-   ("n" "Next" secretary-present-next)
-   ]
-  ["General actions"
-   ("q" (lambda ()
-          (concat "Quit (same as "
-                  (key-description (car (where-is-internal #'keyboard-quit)))
-                  ")"))
-    keyboard-quit)
-   ("l" "View Ledger report" secretary-present-ledger-report)
-   ("f" "View finances report" secretary-present-ledger-report)
-   ("a" "View Org agenda" org-agenda)
-   ("v" "Visit directory of log files" (lambda () (dired secretary-memory-dir)))
-   ]
-  ["Settings"
-   ("d" "Set date to operate on..." date)
-   ("y" "Set date to yesterday" date-yesterday)
-   ("t" "Set date to today (default)" date-today)
-   ]
-  )
+   ])
 
 
 ;;; Activity structs
@@ -341,20 +304,6 @@ using.")
 
 (defun secretary--buffer-r ()
   (get-buffer-create (concat "*" secretary-ai-name ": R*")))
-
-;; (defun secretary-buffer-chat ()
-;;   (or (find-buffer-visiting secretary-chat-log-file-name)
-;;       (let ((buf (find-file-noselect secretary-chat-log-file-name)))
-;;         (with-current-buffer buf
-;;           (secretary-chat-mode)
-;;           (setq-local buffer-read-only t)
-;;           (setq-local auto-save-visited-mode nil)
-;;           (setq-local require-final-newline nil)
-;;           (buffer-disable-undo)
-;;           (whitespace-cleanup)
-;;           (visual-line-mode)
-;;           (rename-buffer (concat "*" secretary-ai-name ": chat log*")))
-;;         buf)))
 
 (defun secretary-buffer-chat ()
   (or (get-buffer (concat "*" secretary-ai-name ": chat log*"))
@@ -688,9 +637,6 @@ If \"am\" or \"pm\" present, assume input is in 12-hour clock."
            (new-datetime (ts-parse (concat new-date " " time))))
       (setq secretary--date new-datetime)))
   (secretary-emit "Operating as if the date is " (ts-format "%x" secretary--date) "."))
-
-(defun secretary-reschedule ()
-  (run-with-timer 3600 nil #'secretary-call-from-reschedule))
 
 
 ;;;; Library for handling datasets
