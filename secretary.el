@@ -876,15 +876,18 @@ Put this on `window-buffer-change-functions' and
            (mode (symbol-name (buffer-local-value 'major-mode buf)))
            (known (assoc buf secretary-known-buffers))
            (timestamp (s-pad-right 18 "0" (number-to-string (ts-unix (ts-now)))))
+           (visiting (if (equal mode "dired-mode")
+                         default-directory
+                       buffer-file-name))
            ;; TODO: use this
-           (eww-url (when (eq buf "eww-mode")
+           (eww-url (when (equal mode "eww-mode")
                       (eww-current-url)))
            (exist-record (unless (and known
                                       (string= mode (nth 4 known))) ;; doesnt do it
                            (list buf
                                  (org-id-uuid)
-                                 (buffer-name buf)
-                                 (buffer-file-name buf)
+                                 (buffer-name)
+                                 visiting
                                  mode
                                  timestamp ;; time the buffer was first opened
                                  )))
