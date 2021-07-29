@@ -1737,6 +1737,23 @@ separate function from `secretary--user-is-active'."
 
 ;;;; "Main"
 
+(defvar secretary-r-buffer nil)
+
+(defun secretary--init-r ()
+  "Spin up an R process, loading libraries.
+Uses `run-ess-r' which is full of sanity checks (e.g. for cygwin
+and text encoding), but creates an interactive R buffer which
+unfortunately may surprise the user when they go to work on their
+own R project."
+  (let ((default-directory (convert-standard-filename
+                            (f-dirname (find-library-name "secretary")))))
+    (save-window-excursion
+      (setq secretary-r-buffer (run-ess-r)))
+    ;; gotcha: only use `ess-with-current-buffer' for temp output buffers, not for the process buffer
+    (with-current-buffer secretary-r-buffer
+      ;; TODO: How to check if the script errors out?
+      (ess-execute "source(\"R/make_data_for_plots.R\")" 'buffer))))
+
 (defun secretary--keepalive ()
   (unless (member (named-timer-get :secretary) timer-list)
     (message "[%s] secretary timer found dead, reviving it."
@@ -1818,6 +1835,7 @@ is unspecified, but it shouldn't be possible to do."
         (add-hook 'window-selection-change-functions #'secretary-log-buffer)
         (add-hook 'after-init-hook #'secretary--restore-variables-from-disk -90)
         (add-hook 'after-init-hook #'secretary--start-next-timer 90)
+        (add-hook 'after-init-hook #'secretary--init-r)
         (named-timer-run :secretary-keepalive 300 300 #'secretary--keepalive)
         (when after-init-time
           (progn
@@ -1825,6 +1843,7 @@ is unspecified, but it shouldn't be possible to do."
                       (null secretary--last-online)
                       (= 0 (ts-unix secretary--last-online)))
               (secretary--restore-variables-from-disk))
+            (secretary--init-r)
             (secretary--user-is-active))))
     (secretary--save-variables-to-disk)
     (setq secretary--idle-seconds-fn nil)
@@ -1835,6 +1854,7 @@ is unspecified, but it shouldn't be possible to do."
     (remove-hook 'window-selection-change-functions #'secretary-log-buffer)
     (remove-hook 'after-init-hook #'secretary--restore-variables-from-disk)
     (remove-hook 'after-init-hook #'secretary--start-next-timer)
+    (remove-hook 'after-init-hook #'secretary--init-r)
     (named-timer-cancel :secretary)
     (named-timer-cancel :secretary-keepalive)))
 
