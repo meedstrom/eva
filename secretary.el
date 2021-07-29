@@ -1163,18 +1163,13 @@ are minutes and numbers below are hours."
   (interactive)
   (setq secretary--date (ts-now))
   (setq secretary--queue (-filter #'secretary--pending-p (secretary--enabled-items)))
-  (secretary-build-presentations-async)
-  (secretary-resume)
-  (secretary-view-presentations)
-  )
+  (secretary-execute))
 
 (defun secretary-new-session-force-all ()
   (interactive)
   (setq secretary--date (ts-now))
   (setq secretary--queue (secretary--enabled-items))
-  (secretary-build-presentations-async)
-  (secretary-resume)
-  (secretary-view-presentations))
+  (secretary-execute))
 
 (defun secretary-call-from-idle ()
   "Called by idleness-related hooks, doesn't do much if idle was not long."
@@ -1183,279 +1178,8 @@ are minutes and numbers below are hours."
 ;; (run-with-timer 3 nil (lambda ()  (print (frame-focus-state))))
 ;; (secretary-call-from-idle)
 
-
 
-;;;; New presenter system
-
-(defvar secretary--presentation-alist
-  '((secretary-pres-make-plot-mood-async . "Not yet built")
-    (secretary-pres-make-ledger-summary-async . "Not yet built")))
-
-(defvar secretary--current-fn nil)
-
-(defun secretary-buffer-presentations ()
-  (let ((buf (get-buffer-create (concat "*" secretary-ai-name ": Presentations*"))))
-    (with-current-buffer buf
-      (buffer-disable-undo))
-    buf))
-
-;; (defun secretary-build-presentations-async ()
-;;   (when secretary--presentation-alist
-;;     (dolist (x secretary--presentation-alist)
-;;       (let ((fn (car x))
-;;             (result (ignore-errors (funcall (car x)))))
-;;         (setq secretary--presentation-alist
-;;               (if (stringp result)
-;;                   (a-assoc secretary--presentation-alist fn result)
-;;                 (a-assoc secretary--presentation-alist
-;;                          fn
-;;                          (concat (symbol-name fn) " failed."))))))
-;;     (setq secretary-pres-index 0)))
-
-(defun secretary-build-presentations-async ()
-  (when secretary--presentation-alist
-    (dolist (x secretary--presentation-alist)
-      (funcall (car x)))
-    (setq secretary-pres-index 0)))
-
-;; for manual call
-(defun secretary-view-presentations ()
-  (interactive)
-  (display-buffer (secretary-buffer-presentations)))
-
-(defvar secretary--pres-i 0)
-
-;; To be bound to "n" or so.
-(defun secretary-present-next ()
-  (interactive)
-  (if (>= (1+ secretary--pres-i) (length secretary--presentation-alist))
-      (message "No more items.  Press q to quit.")
-    (cl-incf secretary--pres-i))
-  (secretary--pres-insert secretary--pres-i))
-
-;; To be bound to "p" or so.
-(defun secretary-present-previous ()
-  (interactive)
-  (unless (>= 0 secretary--pres-i)
-    (cl-decf secretary--pres-i))
-  (secretary--pres-insert secretary--pres-i))
-
-(defun secretary--pres-insert (i)
-  (with-current-buffer (secretary-buffer-presentations)
-    (delete-region (point-min) (point-max))
-    (let ((presentation (nth i secretary--presentation-alist)))
-      (insert (cdr presentation)))))
-
-;; NOTE: these functions run asynchronously. This is not great for pureness, we
-;; can't use their output the moment of calling them, instead they each have to
-;; update the alist when finished, so run them well ahead of time.
-;;
-;; Async is often desirable, but I'm not sure here. The largest time sink for R
-;; is probably importing libraries, unless you're running MCMC or doing big data,
-;; so we should be able to spin up a persistent R process to talk to
-;; synchronously, and then we can make code that's easier to reason about.
-
-(defun secretary-pres-make-plot-mood-async ()
-  (interactive)
-  (setq secretary--current-fn #'secretary-pres-make-plot-mood-async)
-  (secretary-pres-make-plot "mood.gnuplot"))
-
-(defun secretary-pres-make-plot (gnuplot-script-basename)
-  (interactive)
-  (let* ((default-directory "/tmp/secretary")
-         (pkg-dir (f-dirname (find-library-name "secretary")))
-         (r-script (expand-file-name "R/make_data_for_plots.R" pkg-dir))
-         (gnuplot-script (expand-file-name gnuplot-script-basename pkg-dir)))
-    (mkdir "/tmp/secretary" t)
-    (unless (executable-find "gnuplot")
-      (error "gnuplot not found in PATH"))
-    (set-process-sentinel
-     (start-process secretary-ai-name nil "Rscript" r-script)
-     `(lambda (_process event)
-        (let ((error-p (s-contains-p "error" event))
-              (new-result nil))
-          (unless error-p
-            (setq new-result (ignore-errors (with-temp-buffer
-                                              (call-process "gnuplot" ,gnuplot-script t)
-                                              (buffer-string))))
-            (unless (stringp new-result)
-              (setq error-p t)))
-          (setq secretary--presentation-alist
-                (if error-p
-                    (a-assoc secretary--presentation-alist secretary--current-fn
-                             (concat (symbol-name secretary--current-fn) " failed or didn't run."))
-                  (a-assoc secretary--presentation-alist secretary--current-fn new-result))))))))
-
-;;(require 'pfuture)
-;;(pfuture-new "gnuplot" gnuplot-script-path)
-
-;; Does not require ledger-mode.
-(defun secretary-pres-make-ledger-summary-async ()
-  (setq secretary--current-fn #'secretary-pres-make-ledger-summary-async)
-  (if (executable-find "ledger")
-      (let ((new-result
-             (with-temp-buffer
-               (call-process "ledger" nil t nil
-                             "-f" secretary-ledger-file-name "register" "-M")
-               (buffer-string))))
-        (setq secretary--presentation-alist
-              (a-assoc secretary--presentation-alist secretary--current-fn new-result)))
-    (secretary-emit "Ledger executable not found, skipping.")))
-
-(defun secretary-present-ledger-report ()
-  "Jump to `secretary-ledger-file-name' and run `ledger-report'."
-  (interactive)
-  (when (ignore-errors (find-library-name "ledger-mode"))
-    (require 'ledger-mode)
-    (if (get-buffer ledger-report-buffer-name)
-        (ledger-report-goto)
-      (find-file secretary-ledger-file-name)
-      (call-interactively #'ledger-report))))
-
-
-;;;; Plot presenter
-
-(defvar secretary-plot-hook nil
-  "Hook called to print plots. A convenient place to add your
-custom plots.")
-
-(defmacro secretary--plot-ascii (gnuplot-script message &rest after-body)
-  "Make an ascii plot.
-Emit MESSAGE and run GNUPLOT-SCRIPT. After the plotting is done,
-run any forms in AFTER-BODY."
-  `(let* ((default-directory "/tmp/secretary")
-          (r-script (expand-file-name "R/make_data_for_plots.R"
-                                      (f-dirname (find-library-name "secretary")))))
-     (mkdir "/tmp/secretary" t)
-     ;; TODO: reuse secretary's R process to minimize package load time, so
-     ;; we can use use call-process for easier reasoning.
-     (set-process-sentinel
-      (start-process secretary-ai-name nil "Rscript" r-script)
-      (lambda (_1 _2)
-        (secretary-emit ,message)
-        (unless (get-buffer-window (secretary-buffer-chat))
-          (display-buffer (secretary-buffer-chat)))
-        (goto-char (point-max))
-        (call-process "gnuplot" ,gnuplot-script (secretary-buffer-chat))
-        ;; Strip formfeed inserted by gnuplot.
-        (search-backward "\f")
-        (replace-match "")
-        (goto-char (point-max))
-        ,@after-body))))
-
-(defun secretary-plot-mood ()
-  (interactive)
-  (let* ((default-directory "/tmp/secretary")
-         (pkg-dir (f-dirname (find-library-name "secretary")))
-         (script (expand-file-name "R/sc_daily_plot.R" pkg-dir))
-         (plot (expand-file-name "sc_mood.png" default-directory)))
-    (secretary-emit "Plotting mood...")
-    (mkdir "/tmp/secretary" t)
-    (set-process-sentinel
-     (start-process secretary-ai-name nil "Rscript" script "14" "-0.1")
-     `(lambda (_process _event)
-        (secretary-emit "And that's your mood." "\n")
-        (switch-to-buffer (secretary-buffer-chat))
-        (insert-image-file ,plot)
-        (goto-char (point-max))
-        (insert "\n")))))
-
-(defun secretary-plot-mood-ascii ()
-  (interactive)
-  (secretary--plot-ascii
-   (expand-file-name "mood.gnuplot" (f-dirname (find-library-name "secretary")))
-   "Plotting mood..."
-   (search-backward "Plotting mood...")
-   (forward-line 1)
-   (goto-char (line-end-position))
-   (just-one-space)
-   (insert-rectangle (last
-                      (split-string (f-read "/tmp/secretary/mood_desc.txt"))
-                      16))
-   (goto-char (point-max))))
-
-(defun secretary-plot-weight ()
-  (interactive)
-  (let* ((default-directory "/tmp/secretary")
-         (script (expand-file-name "R/sc_daily_plot.R"
-                                   (f-dirname (find-library-name "secretary"))))
-         (plot (expand-file-name "sc_plot1.png" "/tmp/secretary")))
-    (secretary-emit "Plotting weight...")
-    (mkdir "/tmp/secretary" t)
-    (set-process-sentinel
-     (start-process secretary-ai-name nil "Rscript" script "14" "-0.1")
-     `(lambda (_process _event)
-        (switch-to-buffer (secretary-buffer-chat))
-        (if (insert-image-file ,plot)
-            (progn
-              (forward-char -1)
-              (secretary-emit "And here's your weight, boss." "\n")
-              (delete-file ,plot))
-          (secretary-emit "Could not plot. :'( See `secretary-plot-weight' source."))
-        (goto-char (point-max))
-        (insert "\n")))))
-
-(defun secretary-plot-weight-ascii ()
-  (interactive)
-  (let* ((default-directory "/tmp/secretary")
-         (r-script (expand-file-name "R/make_data_for_plots.R"
-                                     (f-dirname (find-library-name "secretary"))))
-         (gnuplot-script (expand-file-name "weight.gnuplot"
-                                           (f-dirname (find-library-name "secretary")))))
-    (mkdir "/tmp/secretary" t)
-    ;; TODO: reuse secretary's R process to minimize package load time.
-    (set-process-sentinel
-     ;; TODO: pass start-date (today minus 3mo) and projection incline, letting
-     ;; user change the incline (persist for future plots too)
-     (start-process secretary-ai-name nil "Rscript" r-script)
-     `(lambda (_process _event)
-        (secretary-emit "Plotting weight...")
-        ;; (unless (get-buffer-window (secretary-buffer-chat)) (switch-to-buffer (secretary-buffer-chat)))
-        (with-current-buffer (secretary-buffer-chat)
-          (goto-char (point-max))
-          (call-process "gnuplot" ,gnuplot-script (secretary-buffer-chat))
-          ;; Strip formfeed inserted by gnuplot.
-          (search-backward "\f")
-          (replace-match "")
-          (goto-char (point-max)))))))
-
-(defun secretary-present-plots ()
-  (interactive)
-  (unless (null secretary-plot-hook)
-    (secretary-emit (seq-random-elt '("I have plotted the latest intel, boss."
-                               "Here are some projections!"
-                               "Data is beautiful, don't you think?")))
-    ;; HACK: because of async; want sync.
-    (dolist (hook secretary-plot-hook)
-      (funcall hook)
-      (sit-for .5))))
-
-
-;;;; Other presenters
-
-(defun secretary-present-mood ()
-  (interactive)
-  (view-file "/home/kept/Self_data/mood.tsv")
-  (auto-revert-mode))
-
-(defun secretary-present-ledger-report ()
-  (interactive)
-  (when (or (featurep 'ledger-mode-autoloads)
-            (fboundp #'ledger-report))
-    (require 'ledger-mode)
-    (let ((file secretary-ledger-file-name))
-      ;; for some reason, (with-current-buffer (get-buffer-create file)) leads
-      ;; to all kinds of errors, so we have to use find-file
-      (find-file-noselect file)
-      (call-interactively #'ledger-report))))
-
-(defun secretary-make-ods-for-finance-2020 ()
-  "Make and open an ODS spreadsheet generated from Ledger data."
-  (interactive)
-  (let* ((r-script "/home/kept/Journal/Finances/R/generate_an_ods.R")
-         (default-directory (f-dirname (f-dirname r-script))))
-    (call-process "Rscript" nil nil nil r-script "l.ledger" "2020.ods" "SEK")
-    (start-process "soffice" nil "soffice" "2020.ods")))
+;;;; Presenters
 
 (defun secretary-make-ods-for-finance ()
   "Make and open an ODS spreadsheet from Ledger data.
@@ -1471,19 +1195,37 @@ Requires the ssconvert program that comes with Gnumeric."
                                             "open"
                                             "mimeopen"
                                             "xdg-open"))))
-    (secretary--run "Rscript" script secretary-ledger-file-name sheet)
-    (secretary--run-async app sheet)))
+    (if (= 0 (secretary--run "Rscript" script secretary-ledger-file-name sheet))
+        (secretary--run-async app sheet)
+      (message (secretary-emit "Error running " script)))))
 
-(defcustom secretary-ledger-file-name
-  "/home/kept/Journal/Finances/2021.ledger"
-  "Ledger file to read or visit; we will never modify it."
-  :group 'secretary
-  :type 'string)
-
-;; WIP
-(defun secretary-make-ods ()
-  "Make an ODS spreadsheet of variables for you to play with."
-  (interactive))
+;; TODO: pass start-date (today minus 3mo) and projection incline, letting
+;; user change the incline (persist for future plots toeo)
+;; TODO: Persist the buffer content across restarts
+;; TODO: pass the weight log file name instead of hardcoding in the R script
+(defun secretary-plot-weight ()
+  (interactive)
+  (setq secretary--current-fn #'secretary-plot-weight-ascii)
+  ;; Refresh data with R.
+  (with-current-buffer secretary-r-buffer
+    (ess-execute "source(\"R/make_data_for_plots.R\")" 'buffer))
+  ;; Plot with gnuplot.
+  (let* ((pkg-loc (convert-standard-filename (f-dirname (find-library-name "secretary"))))
+         (gnuplot-script-path (convert-standard-filename (expand-file-name "weight.gnuplot" pkg-loc))))
+    (with-current-buffer (get-buffer-create
+                          (concat "*" (symbol-name secretary--current-fn) "*"))
+      (let ((reserve (buffer-string)))
+        (delete-region (point-min) (point-max))
+        (message (secretary-emit "Plotting your weight..."))
+        ;; TODO: make it more informative for debugging, don't use
+        ;; ignore-errors. Ideally bury the buffer upon error and emit
+        ;; stderr to the chat log.
+        (unless (ignore-errors (call-process "gnuplot" gnuplot-script-path t))
+          ;; On error, keep showing the old plot. Hopefully error messages will
+          ;; trail below.
+          (goto-char (point-min))
+          (insert reserve)))
+      (display-buffer (current-buffer)))))
 
 
 ;;;; Diary presenter
