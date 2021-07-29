@@ -15,7 +15,7 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 ###############################################################################
-# Compile Ledger data into a typical spreadsheet
+# Compile Ledger data into a typical sort of finance spreadsheet.
 #
 # The script can be run on a command line as follows.
 #     Rscript generate_an_ods.R input.ledger output.ods EUR
@@ -23,7 +23,7 @@
 # The optional third argument is recommended if you have multiple
 # commodities, it merges them into one using ledger's -HX flag.
 
-try(source("renv/activate.R"), silent = TRUE)
+source("renv/activate.R")
 
 suppressPackageStartupMessages({
   library(dplyr)
@@ -34,9 +34,13 @@ suppressPackageStartupMessages({
   library(lubridate)
 })
 
-if (Sys.which("ssconvert") == "")
+prog_exists <- function(x) {
+  if (Sys.which(x) == "") FALSE else TRUE
+}
+
+if (!prog_exists("ssconvert"))
   stop("Install gnumeric for the ssconvert binary!")
-if (Sys.which("ledger") == "")
+if (!prog_exists("ledger"))
   stop("Install ledger!")
 
 args <- commandArgs(TRUE)
@@ -46,9 +50,9 @@ currency <- if(length(args) >= 3) args[[3]]
 
 # for manual testing
 if (interactive()) {
-  inpath <- "l.ledger"
+  inpath <- "/home/kept/Journal/Finances/l.ledger"
   # inpath <- "2021.ledger"
-  outpath <- "output.ods"
+  outpath <- "/tmp/secretary/output.ods"
   currency <- "SEK"
   # currency <- NULL
 }
@@ -95,7 +99,7 @@ savings_deg <- raw %>%
 
 merged <- bind_rows(sums, tibble(.rows = 1), savings_deg, tibble(.rows = 1), all_categs)
 
-years <- unique(year(raw$posted))
+years <- sort(unique(year(raw$posted)))
 
 filenames <- map_chr(
   as.character(years),
@@ -117,16 +121,12 @@ if (length(filenames) == 1) {
 
 file.remove(list.files(pattern = "tmp_.*.csv"))
 
-prog_exists <- function(x) {
-  if (Sys.which(x) == "") FALSE else TRUE
-}
-
 # Open the spreadsheet
 if (interactive()) {
-  system2(case_when(prog_exists("gnumeric") ~ "gnumeric",
+  prog <- case_when(prog_exists("gnumeric") ~ "gnumeric",
                     prog_exists("soffice") ~ "soffice",
                     prog_exists("open") ~ "open",
-                    prog_exists("xdg-open") ~ "xdg-open",
-                    TRUE ~ stop("no spreadsheet program found")),
-          outpath)
+                    prog_exists("xdg-open") ~ "xdg-open")
+  if(is.na(prog)) stop("no spreadsheet program found")
+  system2(prog, outpath)
 }
