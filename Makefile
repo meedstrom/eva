@@ -1,4 +1,4 @@
-# https://nullprogram.com/blog/2020/01/22/ for a guide
+# for a guide: https://nullprogram.com/blog/2020/01/22/
 .POSIX:
 .SUFFIXES: .el .elc
 EMACS	= emacs
@@ -7,8 +7,8 @@ ELC  	= $(EL:.el=.elc)
 
 compile: $(ELC)
 
-check: secretary-test.elc
-	$(EMACS) -Q --batch -L . -l secretary-test.elc -f ert-run-tests-batch
+check: secretary-tests.elc
+	$(EMACS) -Q --batch -L . -l secretary-tests.elc -f ert-run-tests-batch
 
 clean:
 	rm -f $(ELC)

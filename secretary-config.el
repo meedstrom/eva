@@ -1,4 +1,4 @@
-;;; secretary-config.el -*- lexical-binding: t; -*-
+;;; secretary-config.el -*- lexical-binding: t; nameless-current-name: "secretary"; -*-
 ;; Copyright (C) 2021 Martin Edström
 
 ;; This program is free software: you can redistribute it and/or modify
@@ -20,13 +20,20 @@
 
 ;;; Code:
 
+;; user setup
+
+;; (require 'org-id)
+;; (org-id-update-id-locations '("/home/kept/Emacs/secretary/test.org"))
+
+
+
 ;; must be set early
 (setq secretary-ai-name "Maya")
 
 ;; probably must be set early
 (setq secretary-fallback-to-emacs-idle-p t)
 
-;; should be set early
+;; best set early, but not breaking if not
 (setq secretary-user-short-title "sir")
 (setq secretary-user-name "Martin")
 (setq secretary-user-birthday "1991-12-07")
@@ -36,50 +43,68 @@
 
 (require 'secretary)
 
+(defconst secretary-memory '((secretary-user-short-title . "sir")
+                             (secretary-user-name . "Martin")
+                             (secretary-user-short-title . "1991-12-07"))
+  "Alist of variable values.
+Why not custom-file?  Because...  Remembering past info, even
+stuff the user doesn't particularly want remembered, is a core
+component of what makes a virtual secretary work.  People are
+always wiping their custom-file, admittedly for a reason, but
+this is no mere matter of configuration.")
+
 (setq secretary-x11idle-program-name "x11idle")
+
+(defvar secretary--excursion-buffer nil)
 
 (setq secretary-items
       (list
        (secretary-item-create
         :fn (secretary-defun secretary-greet ()
-                 "Experimental greeter to drop into the queries infrastructure."
-                 (interactive)
-                 (pop-to-buffer (secretary-buffer-chat))
-                 (message (secretary-emit (secretary-greeting)))))
+              "Experimental greeter to drop into the queries infrastructure."
+              (pop-to-buffer (secretary-buffer-chat))
+              (message (secretary-emit (secretary-greeting)))
+              (sit-for secretary-sit-medium))
+        :min-hours-wait 1
+        :lookup-posted-time t)
        (secretary-item-create
         :fn (secretary-defun secretary-present-ledger-file ()
-                 "Experimental presenter to drop into the queries infrastructure."
-                 (message (secretary-emit "Sending you to your Ledger file. Sayonara!"))
-                 (sit-for secretary-sit-short)
-                 (add-hook 'kill-buffer-hook #'secretary-return-from-excursion)
-                 (named-timer-run :secretary-excursion (* 5 60) nil #'secretary-end-session)
-                 (setq secretary--excursion-buffer
-                       (find-file-other-window secretary-ledger-file-name))))
-      (secretary-item-create :fn #'secretary-query-sleep
-                               :dataset "/home/kept/Self_data/sleep.tsv"
-                               :min-hours-wait 5
-                               :lookup-posted-time t)
-      (secretary-item-create :fn #'secretary-query-weight
-                               :dataset "/home/kept/Self_data/weight.tsv"
-                               :max-entries-per-day 1)
-      (secretary-item-create :fn #'secretary-query-mood
-                               :dataset "/home/kept/Self_data/mood.tsv")
-      (secretary-item-create :fn #'secretary-query-ingredients
-                                :dataset "/home/kept/Self_data/ingredients.tsv"
-                                :min-hours-wait 5)
-       (secretary-item-create :fn #'secretary-query-cold-shower
-                                :dataset "/home/kept/Self_data/cold.tsv"
-                                :max-entries-per-day 1)
-       (secretary-item-create :fn #'secretary-query-activity
-                                :dataset "/home/kept/Self_data/activities.tsv")
+              (message (secretary-emit "Sending you to your Ledger file. Sayonara!"))
+              (sit-for secretary-sit-medium)
+              (add-hook 'kill-buffer-hook #'secretary-return-from-excursion)
+              (named-timer-run :secretary-excursion (* 5 60) nil #'secretary-end-session)
+              (display-buffer (setq secretary--excursion-buffer
+                                    (find-file-other-window secretary-ledger-file-name)))
+              (setq secretary--queue
+                     (remove secretary--current-fn secretary--queue))
+              ;;(keyboard-quit) ;; FIXME
+              ))
+       (secretary-item-create :fn #'secretary-query-sleep
+                              :dataset "/home/kept/Self_data/sleep.tsv"
+                              :min-hours-wait 5
+                              :lookup-posted-time t)
        (secretary-item-create
         :fn (secretary-defun secretary-present-org-agenda ()
-                 (message (secretary-emit "Sending you to the Org agenda."))
-                 (sit-for secretary-sit-short)
-                 (add-hook 'kill-buffer-hook #'secretary-return-from-excursion)
-                 (named-timer-run :secretary-excursion (* 5 60) nil #'secretary-end-session)
-                 (org-agenda-list)
-                 (setq secretary--excursion-buffer (current-buffer))))
+              (message (secretary-emit "Sending you to the Org agenda."))
+              (sit-for secretary-sit-short)
+              (add-hook 'kill-buffer-hook #'secretary-return-from-excursion)
+              (named-timer-run :secretary-excursion (* 5 60) nil #'secretary-end-session)
+              (org-agenda-list)
+              (setq secretary--excursion-buffer (current-buffer))))
+
+       (secretary-item-create :fn #'secretary-query-weight
+                              :dataset "/home/kept/Self_data/weight.tsv"
+                              :max-entries-per-day 1)
+       (secretary-item-create :fn #'secretary-query-mood
+                              :dataset "/home/kept/Self_data/mood.tsv")
+       (secretary-item-create :fn #'secretary-query-ingredients
+                              :dataset "/home/kept/Self_data/ingredients.tsv"
+                              :min-hours-wait 5)
+       (secretary-item-create :fn #'secretary-query-cold-shower
+                              :dataset "/home/kept/Self_data/cold.tsv"
+                              :max-entries-per-day 1)
+       (secretary-item-create :fn #'secretary-query-activity
+                              :dataset "/home/kept/Self_data/activities.tsv")
        ))
 
 (defun secretary-return-from-excursion ()
@@ -107,8 +132,8 @@
              :cost-false-pos 8
              :cost-false-neg 8)))
 
-(add-to-list 'secretary-plot-hook #'secretary-plot-mood-ascii)
-(add-to-list 'secretary-plot-hook #'secretary-plot-weight-ascii)
+(add-hook 'secretary-plot-hook #'secretary-plot-mood-ascii)
+(add-hook 'secretary-plot-hook #'secretary-plot-weight-ascii)
 
 ;; TODO: Merge with `secretary-read'
 (defun secretary-special-handle-current-query ()
