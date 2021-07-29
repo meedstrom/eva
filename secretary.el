@@ -1,7 +1,7 @@
 ;;; secretary.el --- Help the user meet goals -*- lexical-binding: t; -*-
 ;; Author: Martin Edström <meedstrom@teknik.io>
 ;; URL: https://github.com/meedstrom/secretary
-;; Version: 0.1
+;; Version: 0.1.0
 ;; Created: 2020-12-03
 ;; Keywords: convenience
 ;; Package-Requires: ((emacs "27.1"))
@@ -23,12 +23,7 @@
 
 ;;; Commentary:
 
-;; See website.
-
-;; user setup
-
-;; (require 'org-id)
-;; (org-id-update-id-locations '("/home/kept/Emacs/secretary/test.org"))
+;; See README.org or website: https://github.com/meedstrom/secretary
 
 ;;; Code:
 
@@ -42,10 +37,10 @@
 (require 'ts)
 (require 'f)
 (require 's)
-(require 'a)
 (require 'dash)
 (require 'named-timer)
 (require 'transient)
+(require 'ess)
 
 (defvar secretary-debugp nil)
 
