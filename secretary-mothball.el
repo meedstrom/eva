@@ -485,6 +485,75 @@ Requires the ssconvert program that comes with Gnumeric."
   "Make an ODS spreadsheet of variables for you to play with."
   (interactive))
 
+;; NOTE: Keep the test in secretary-tests.el synced.
+;; FIXME: there's no `&optional' added
+(defmacro secretary-defun2 (name arglist &optional docstring &rest body)
+  "Boilerplate wrapper for `defun'.
+ARGLIST cannot contain &optional, &rest.
+
+Unlike `secretary-defun', this makes available \"interactivep\",
+but allows only the simplest ARGLIST, and must either always be
+called interactively because there's no `&optional', or to be
+defined with &optional arguments (so that interactivep is too.
+
+To see what it expands to, try something like
+
+    (macroexpand '(secretary-defun foo (x1 x2) (frobnicate)))
+
+Or better, visit secretary-tests.el to read the tests of this macro.
+
+Manages the external variables `secretary--current-fn' and
+`secretary--queue'. If you use a simple `defun' in lieu of this
+wrapper, you must set these!
+
+In BODY, you have access to extra temporary variables:
+- \"interactivep\" which is more reliable than the function `called-interactively-p'.
+- \"current-dataset\" which is a reference to (secretary-item-dataset (secretary--item-by-fn secretary--current-fn))."
+  (declare (indent defun) (doc-string 3))
+  (unless (stringp docstring)
+    (push docstring body))
+  (let* ((user-spec (and (eq 'interactive (car-safe (car body)))
+                                           (car-safe (cdr (car body)))))
+         (user-spec-length (when user-spec
+                             (length
+                              (split-string user-spec "\n"))))
+         (new-spec (if user-spec
+                       `(interactive
+                         ,(concat user-spec "\n"
+                                  (cl-reduce #'concat
+                                             (make-list (- (length arglist)
+                                                           user-spec-length)
+                                                        "i\n"))
+                                  "p"))
+                     `(interactive
+                       ,(concat (cl-reduce #'concat
+                                           (make-list (length arglist)
+                                                      "i\n"))
+                                "p"))))
+         (new-body (if user-spec
+                       (cdr body)
+                     (cons (car body) (cdr body)))))
+    `(defun ,name ,(-snoc arglist 'interactivep)
+       ,@(if (stringp docstring)
+             (list docstring
+                   new-spec)
+           (list new-spec))
+       (setq secretary--current-fn #',name)
+       (unless (secretary--item-by-fn secretary--current-fn)
+         (error "%s not listed in secretary-items" (symbol-name secretary--current-fn)))
+       (advice-add 'abort-recursive-edit :before #'secretary--after-cancel-do-things)
+       (let* ((current (secretary--item-by-fn secretary--current-fn))
+              (current-dataset (secretary-item-dataset
+                             (secretary--item-by-fn secretary--current-fn))))
+         (setf (secretary-item-last-called current) (ts-now))
+         (unwind-protect
+             (prog1 (progn ,@new-body)
+               (setq secretary--queue
+                     (remove secretary--current-fn secretary--queue))
+               (setf (secretary-item-dismissals
+                      (secretary--item-by-fn secretary--current-fn))
+                     0))
+           (advice-remove 'abort-recursive-edit #'secretary--after-cancel-do-things))))))
 
 (provide 'secretary-mothball)
 

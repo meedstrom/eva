@@ -74,7 +74,7 @@ this is no mere matter of configuration.")
               (add-hook 'kill-buffer-hook #'secretary-return-from-excursion)
               (named-timer-run :secretary-excursion (* 5 60) nil #'secretary-end-session)
               (display-buffer (setq secretary--excursion-buffer
-                                    (find-file-other-window secretary-ledger-file-name)))
+                                    (find-file-other-window "/home/kept/Journal/Finances/2021.ledger")))
               (setq secretary--queue
                      (remove secretary--current-fn secretary--queue))
               ;;(keyboard-quit) ;; FIXME

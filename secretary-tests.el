@@ -58,15 +58,15 @@
                     "docstr"
                     (bar)
                     (baz)))
-    (macroexpand '(defun foo (x1 x2 interactivep)
+    (macroexpand '(cl-defun foo (x1 x2)
                     "docstr"
-                    (interactive "i\n\i\np")
+                    (interactive)
                     (setq secretary--current-fn #'foo)
                     (unless (secretary--item-by-fn secretary--current-fn)
                       (error "%s not listed in secretary-items" (symbol-name secretary--current-fn)))
                     (advice-add 'abort-recursive-edit :before #'secretary--after-cancel-do-things)
-                    (let ((this-dataset (secretary-item-dataset
-                                         (secretary--item-by-fn secretary--current-fn))))
+                    (let ((current-dataset (secretary-item-dataset
+                                            (secretary--item-by-fn secretary--current-fn))))
                       (unwind-protect
                           (prog1 (progn
                                    (bar)

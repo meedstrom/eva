@@ -128,14 +128,8 @@ of messages. See also `secretary-sit-long' and
 
     map))
 
-(defconst secretary-present-mode-map
-  secretary-chat-mode-map)
-
 (define-derived-mode secretary-chat-mode text-mode "Secretary-Chat"
   :group 'secretary-chat)
-
-(define-derived-mode secretary-present-mode text-mode "Secretary-Present"
-  :group 'secretary-present)
 
 (transient-define-prefix secretary-dispatch ()
   ["Actions"
@@ -300,6 +294,8 @@ The variable populates itself through use, and syncs with a file
 at `secretary-mood-alist-file-name'.")
 
 (defvar secretary-aphorisms)
+
+(defvar secretary--current-fn)
 
 (defvar secretary--date
   (ts-now)
@@ -534,10 +530,7 @@ passed on to `call-process'."
   (declare (debug (&rest form)))
   `(string-to-number (secretary--process-output-to-string ,program ,@args)))
 
-(defcustom secretary-x11idle-program-name "x11idle"
-  nil
-  :group 'secretary
-  :type 'string)
+(defvar secretary--x11idle-program-name "x11idle")
 
 (defcustom secretary-fallback-to-emacs-idle-p nil
   "Track Emacs idle rather than turn off under unknown OS/DE.
@@ -560,7 +553,7 @@ Not recommended.")
 
 (defun secretary--x11-idle-seconds ()
   "Like `org-x11-idle-seconds' without need for /bin/sh or org."
-  (/ (secretary--process-output-to-number secretary-x11idle-program-name) 1000))
+  (/ (secretary--process-output-to-number secretary--x11idle-program-name) 1000))
 
 (defun secretary--gnome-idle-seconds ()
   "Check Mutter's idea of idle time, even on Wayland."
@@ -910,81 +903,16 @@ Put this on `window-buffer-change-functions' and
 
 (defvar secretary--queue nil)
 
-;; NOTE: update the test in secretary-tests.el with every change.
 (defmacro secretary-defun (name arglist &optional docstring &rest body)
-  "Boilerplate wrapper for `defun'.
-ARGLIST cannot contain &optional, &rest.
-
-To see what it expands to, try something like
-
-    (macroexpand '(secretary-defun foo (x1 x2) (frobnicate)))
-
-Or better, visit secretary-tests.el to read the tests of this macro.
-
-Manages the external variables `secretary--current-fn' and
-`secretary--queue'. If you use a simple `defun' in lieu of this
-wrapper, you must set these!
-
-In BODY, you have access to extra temporary variables:
-- \"interactivep\" which is more reliable than the function `called-interactively-p'.
-- \"current-dataset\" which is a reference to (secretary-item-dataset (secretary--item-by-fn secretary--current-fn))."
-  (declare (indent defun) (doc-string 3))
-  (unless (stringp docstring)
-    (push docstring body))
-  (let* ((user-spec (and (eq 'interactive (car-safe (car body)))
-                                           (car-safe (cdr (car body)))))
-         (user-spec-length (when user-spec
-                             (length
-                              (split-string user-spec "\n"))))
-         (new-spec (if user-spec
-                       `(interactive
-                         ,(concat user-spec "\n"
-                                  (cl-reduce #'concat
-                                             (make-list (- (length arglist)
-                                                           user-spec-length)
-                                                        "i\n"))
-                                  "p"))
-                     `(interactive
-                       ,(concat (cl-reduce #'concat
-                                           (make-list (length arglist)
-                                                      "i\n"))
-                                "p"))))
-         (new-body (if user-spec
-                       (cdr body)
-                     (cons (car body) (cdr body)))))
-    `(defun ,name ,(-snoc arglist 'interactivep)
-       ,@(if (stringp docstring)
-             (list docstring
-                   new-spec)
-           (list new-spec))
-       (setq secretary--current-fn #',name)
-       (unless (secretary--item-by-fn secretary--current-fn)
-         (error "%s not listed in secretary-items" (symbol-name secretary--current-fn)))
-       (advice-add 'abort-recursive-edit :before #'secretary--after-cancel-do-things)
-       (let* ((current (secretary--item-by-fn secretary--current-fn))
-              (current-dataset (secretary-item-dataset
-                             (secretary--item-by-fn secretary--current-fn))))
-         (setf (secretary-item-last-called current) (ts-now))
-         (unwind-protect
-             (prog1 (progn ,@new-body)
-               (setq secretary--queue
-                     (remove secretary--current-fn secretary--queue))
-               (setf (secretary-item-dismissals
-                      (secretary--item-by-fn secretary--current-fn))
-                     0))
-           (advice-remove 'abort-recursive-edit #'secretary--after-cancel-do-things))))))
-
-(defmacro secretary-defun2 (name arglist &optional docstring &rest body)
   "Boilerplate wrapper for `cl-defun'.
-Unlike `secretary-defun', this allows a fully-featured ARGLIST,
-but does not make available \"interactivep\".
-
 To see what it expands to, visit secretary-tests.el and read the
 tests of this macro.
 
 Manages the external variables `secretary--current-fn' and
-`secretary--queue'. If you use a simple `defun' in lieu of this
-wrapper, you must set these!
+`secretary--queue', zeroes `-item-dismissals' on success, and
+advises `abort-recursive-edit' (in common parlance C-g). If you
+use a simple `defun' in lieu of this wrapper, you must replicate
+these features!
 
 In BODY, you have access to the extra temporary variable:
 - \"current-dataset\" which is a reference to (secretary-item-dataset (secretary--item-by-fn secretary--current-fn))."
@@ -995,27 +923,27 @@ In BODY, you have access to the extra temporary variable:
                                 (car-safe (cdr (car body)))))
          (new-body (if interactive-spec
                        (cdr body)
-                     (cons (car body) (cdr body))))))
-  `(cl-defun ,name ,arglist
-     ,(when (stringp docstring)
-        docstring)
-     ,(if interactive-spec
-          `(interactive ,interactive-spec)
-        `(interactive))
-     (setq secretary--current-fn #',name)
-     (unless (secretary--item-by-fn secretary--current-fn)
-       (error "%s not listed in secretary-items" (symbol-name secretary--current-fn)))
-     (advice-add 'abort-recursive-edit :before #'secretary--after-cancel-do-things)
-     (let ((current-dataset (secretary-item-dataset
-                             (secretary--item-by-fn secretary--current-fn))))
-       (unwind-protect
-           (prog1 (progn ,@new-body)
-             (setq secretary--queue
-                   (remove secretary--current-fn secretary--queue))
-             (setf (secretary-item-dismissals
-                    (secretary--item-by-fn secretary--current-fn))
-                   0))
-         (advice-remove 'abort-recursive-edit #'secretary--after-cancel-do-things)))))
+                     (cons (car body) (cdr body)))))
+    `(cl-defun ,name ,arglist
+       ,(when (stringp docstring)
+          docstring)
+       ,(if interactive-spec
+            `(interactive ,interactive-spec)
+          `(interactive))
+       (setq secretary--current-fn #',name)
+       (unless (secretary--item-by-fn secretary--current-fn)
+         (error "%s not listed in secretary-items" (symbol-name secretary--current-fn)))
+       (advice-add 'abort-recursive-edit :before #'secretary--after-cancel-do-things)
+       (let ((current-dataset (secretary-item-dataset
+                               (secretary--item-by-fn secretary--current-fn))))
+         (unwind-protect
+             (prog1 (progn ,@new-body)
+               (setq secretary--queue
+                     (remove secretary--current-fn secretary--queue))
+               (setf (secretary-item-dismissals
+                      (secretary--item-by-fn secretary--current-fn))
+                     0))
+           (advice-remove 'abort-recursive-edit #'secretary--after-cancel-do-things))))))
 
 ;;;###autoload
 (secretary-defun secretary-query-ingredients ()
@@ -1594,8 +1522,10 @@ is unspecified, but it shouldn't be possible to do."
                                        (getenv "DESKTOP_SESSION"))))
                (setq secretary--idle-seconds-fn #'secretary--gnome-idle-seconds)
                t)
-              ((and (eq window-system 'x) ;; true also under XWayland, I think
-                    (executable-find secretary-x11idle-program-name))
+              ((and (eq window-system 'x) ;; true also under XWayland, so this condition must be below any check for Wayland
+                    (seq-find #'executable-find '("x11idle" "xprintidle")))
+               (setq secretary--x11idle-program-name
+                     (seq-find #'executable-find '("x11idle" "xprintidle")))
                (setq secretary--idle-seconds-fn #'secretary--x11-idle-seconds)
                t)
               (secretary-fallback-to-emacs-idle-p
@@ -1624,7 +1554,7 @@ is unspecified, but it shouldn't be possible to do."
                nil))
         (mkdir "/tmp/secretary" t)
         (f-write (number-to-string (emacs-pid)) 'utf-8 "/tmp/secretary/pid")
-        (add-function :after after-focus-change-function #'secretary-log-buffer) ;; TODO: refine secretary-log-buffer
+        (add-function :after after-focus-change-function #'secretary-log-buffer)
         (add-hook 'window-buffer-change-functions #'secretary-log-buffer)
         (add-hook 'window-selection-change-functions #'secretary-log-buffer)
         (add-hook 'after-init-hook #'secretary--restore-variables-from-disk -90)
