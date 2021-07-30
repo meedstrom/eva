@@ -189,7 +189,6 @@ of messages. See also `secretary-sit-long' and
   fn ;; key (must be unique)
   dataset
   (dismissals 0)
-  (successes-today 0)
   max-entries-per-day
   (max-successes-per-day nil :documentation "Similar in spirit to max-entries, but applies where there is no dataset or you don't wish to check it.")
   (min-hours-wait 3)
@@ -240,16 +239,29 @@ of messages. See also `secretary-sit-long' and
     nil))
 
 (defun secretary--pending-p (fn)
-  (let* ((q (secretary--item-by-fn fn))
-         (last-called (secretary-item-last-called q))
-         (dataset (secretary-item-dataset q))
-         (max-entries (secretary-item-max-entries-per-day q))
-         (max-successes (secretary-item-max-successes-per-day q))
-         (lookup-posted-time (secretary-item-lookup-posted-time q))
-         (dismissals (secretary-item-dismissals q))
-         (min-hrs-wait (secretary-item-min-hours-wait q))
+  (let* ((i (secretary--item-by-fn fn))
+         (dataset (secretary-item-dataset i))
+         (alt-dataset (expand-file-name (concat "successes-" (symbol-name fn)) secretary-memory-dir))
+         ;; max-successes is meant as an alias for max-entries. if both are
+         ;; defined, entries has precedence.
+         (max-entries (secretary-item-max-entries-per-day i))
+         (max-successes (or max-entries (secretary-item-max-successes-per-day i)))
+         (max-entries (or max-successes (secretary-item-max-entries-per-day i)))
+         (lookup-posted-time (secretary-item-lookup-posted-time i))
+         (dismissals (secretary-item-dismissals i))
+         (min-hrs-wait (secretary-item-min-hours-wait i))
          (min-secs-wait (* 60 60 min-hrs-wait))
-         ;; (successes-today (read (f-read (concat "successes-" (symbol-name fn)))))
+         (successes-today (when (null dataset)
+                            (->> (f-read alt-dataset)
+                                 (s-split "\n")
+                                 (-remove #'s-blank-p)
+                                 (-map #'string-to-number)
+                                 (--filter (> it (ts-unix (ts-apply :hour 4 :minute 0 (ts-now)))))
+                                 (length))))
+         (successes-specified-and-exceeded (and successes-today
+                                                max-successes
+                                                (>= successes-today max-successes)))
+         (last-called (secretary-item-last-called i))
          (called-today (and (= (ts-day last-called) (ts-day (ts-now)))
                             (> (ts-hour last-called) 4)))
          (recently-logged
@@ -271,9 +283,11 @@ of messages. See also `secretary-sit-long' and
                 (null max-entries)
                 (> max-entries (length (secretary--get-entries-in-tsv dataset))))
         (unless recently-called
-          t)))))
+          (unless successes-specified-and-exceeded
+            t))))))
 
 ;;(secretary--pending-p #'secretary-query-weight)
+;;(secretary--pending-p #'secretary-greet)
 ;;(secretary--pending-p #'secretary-query-sleep)
 ;;(secretary--pending-p #'secretary-query-mood)
 
