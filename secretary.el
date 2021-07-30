@@ -180,17 +180,26 @@ of messages. See also `secretary-sit-long' and
 
 ;;; Items
 
+;; TODO: Instead of successes-today, just write timestamps of successful runs
+;; to another (private) dataset. That way, we need much less programming logic
+;; in our boilerplates.
 (cl-defstruct (secretary-item
                (:constructor secretary-item-create)
                (:copier nil))
   fn ;; key (must be unique)
   dataset
   (dismissals 0)
+  (successes-today 0)
   max-entries-per-day
+  (max-successes-per-day nil :documentation "Similar in spirit to max-entries, but applies where there is no dataset or you don't wish to check it.")
   (min-hours-wait 3)
   lookup-posted-time
   (last-called (make-ts :unix 0)) ;; prevent nil-value errors
+  ;; experimental truly-unique key (e.g. if you want to call an "emit joke" fn twice)
+  ;; (name (concat (capitalize (symbol-name fn)) ctr))
   )
+
+;; (secretary-item-create :fn 'foo)
 
 (defvar secretary-items)
 
@@ -235,16 +244,18 @@ of messages. See also `secretary-sit-long' and
          (last-called (secretary-item-last-called q))
          (dataset (secretary-item-dataset q))
          (max-entries (secretary-item-max-entries-per-day q))
+         (max-successes (secretary-item-max-successes-per-day q))
          (lookup-posted-time (secretary-item-lookup-posted-time q))
          (dismissals (secretary-item-dismissals q))
-         (min-hrs (secretary-item-min-hours-wait q))
-         (min-secs (* 60 60 min-hrs))
+         (min-hrs-wait (secretary-item-min-hours-wait q))
+         (min-secs-wait (* 60 60 min-hrs-wait))
+         ;; (successes-today (read (f-read (concat "successes-" (symbol-name fn)))))
          (called-today (and (= (ts-day last-called) (ts-day (ts-now)))
                             (> (ts-hour last-called) 4)))
          (recently-logged
           (when (and (stringp dataset)
                      (file-exists-p dataset))
-            (> min-secs
+            (> min-secs-wait
                (if lookup-posted-time
                    (- (ts-unix (ts-now))
                       (string-to-number (car (secretary--last-in-tsv dataset))))
@@ -631,6 +642,126 @@ If \"am\" or \"pm\" present, assume input is in 12-hour clock."
 (defun secretary--debug-buf ()
   (when secretary-debugp (get-buffer-create (concat secretary-ai-name "*Process Output*"))))
 
+(defvar secretary--queue nil)
+
+(defmacro secretary-defquery (name arglist &optional docstring &rest body)
+  "Boilerplate wrapper for `cl-defun'.
+To see what it expands to, visit secretary-tests.el and read the
+tests of this macro.
+
+Manages the external variables `secretary--current-fn' and
+`secretary--queue', zeroes `-item-dismissals' on success, and
+advises `abort-recursive-edit' (in common parlance C-g). If you
+use a simple `defun' in lieu of this wrapper, you must replicate
+these features!
+
+In BODY, you have access to the extra temporary variable:
+- \"current-dataset\" which is a reference to (secretary-item-dataset (secretary--item-by-fn secretary--current-fn))."
+  (declare (indent defun) (doc-string 3))
+  (unless (stringp docstring)
+    (push docstring body))
+  (let* ((interactive-spec (and (eq 'interactive (car-safe (car body)))
+                                (car-safe (cdr (car body)))))
+         (new-body (if interactive-spec
+                       (cdr body)
+                     (cons (car body) (cdr body))))
+         (preamble (cond ((and (stringp docstring)
+                               interactive-spec)
+                          (list docstring
+                                `(interactive ,interactive-spec)))
+                         ((stringp docstring)
+                          (list docstring
+                                '(interactive)))
+                         (interactive-spec
+                          (list `(interactive ,interactive-spec)))
+                         (t
+                          (list '(interactive))))))
+    `(cl-defun ,name ,arglist
+       ,@preamble
+       (setq secretary--current-fn #',name)
+       (unless (secretary--item-by-fn secretary--current-fn)
+         (error "%s not listed in secretary-items" (symbol-name secretary--current-fn)))
+       (advice-add 'abort-recursive-edit :before #'secretary--after-cancel-do-things)
+       (let ((current-dataset (secretary-item-dataset
+                               (secretary--item-by-fn secretary--current-fn))))
+         (unwind-protect
+             (prog1 (progn ,@new-body)
+               (setq secretary--queue
+                     (remove secretary--current-fn secretary--queue))
+               (setf (secretary-item-dismissals
+                      (secretary--item-by-fn secretary--current-fn))
+                     0)
+               ;; TODO: actually, just increment a lisp variable, later synced to disk. Let's get around to having a big list instead of a separate var for each thing.
+               (when (null current-dataset)
+                 (secretary-append-tsv
+                   (expand-file-name ,(concat "successes-" (symbol-name name)) secretary-memory-dir)))
+               )
+           (advice-remove 'abort-recursive-edit #'secretary--after-cancel-do-things))))))
+
+(defmacro secretary-defexcursion (name arglist &optional docstring &rest body)
+  "Boilerplate wrapper for `cl-defun'.
+To see what it expands to, visit secretary-tests.el and read the
+tests of this macro.  Alternatively, try something like
+
+(macroexpand '(secretary-defpresenter foo (x)
+                 \"docstr\"
+                 (bar)))
+
+Manages the external variables `secretary--current-fn' and
+`secretary--queue', zeroes `-item-dismissals' on success, and
+advises `abort-recursive-edit' (in common parlance C-g). If you
+use a simple `defun' in lieu of this wrapper, you must replicate
+these features!
+
+In BODY, you have access to the extra temporary variable:
+- \"current-dataset\" which is a reference to (secretary-item-dataset (secretary--item-by-fn secretary--current-fn))."
+  (declare (indent defun) (doc-string 3))
+  (unless (stringp docstring)
+    (push docstring body))
+  (let* ((interactive-spec (and (eq 'interactive (car-safe (car body)))
+                                (car-safe (cdr (car body)))))
+         (new-body (if interactive-spec
+                       (cdr body)
+                     (cons (car body) (cdr body)))))
+    `(cl-defun ,name ,arglist
+       ,@(cond ((and (stringp docstring)
+                     interactive-spec)
+                (list docstring
+                      `(interactive ,interactive-spec)))
+               ((stringp docstring)
+                (list docstring
+                      '(interactive)))
+               (interactive-spec
+                (list `(interactive ,interactive-spec)))
+               (t
+                (list '(interactive))))
+       (setq secretary--current-fn #',name)
+       (unless (secretary--item-by-fn secretary--current-fn)
+         (error "%s not listed in secretary-items" (symbol-name secretary--current-fn)))
+       (add-hook 'kill-buffer-hook #'secretary-return-from-excursion)
+       (named-timer-run :secretary-excursion (* 5 60) nil #'secretary-end-session)
+       (let ((current-dataset (secretary-item-dataset
+                               (secretary--item-by-fn secretary--current-fn))))
+         (unwind-protect
+             (progn
+               ,@new-body
+               (setq secretary--queue
+                     (remove secretary--current-fn secretary--queue))
+               (keyboard-quit))  ;; REVIEW: sane?
+           ;; If something in BODY broke, clean up. The keyboard-quit above
+           ;; means we never arrive here on success.
+           (remove-hook 'kill-buffer-hook #'secretary-return-from-excursion)
+           (named-timer-cancel :secretary-excursion))))))
+
+(defun secretary-return-from-excursion ()
+  (when (eq (current-buffer) secretary--excursion-buffer)
+    (named-timer-cancel :secretary-excursion)
+    (remove-hook 'kill-buffer-hook #'secretary-return-from-excursion)
+    (secretary-resume)))
+
+(defun secretary-end-session ()
+  (remove-hook 'kill-buffer-hook #'secretary-return-from-excursion))
+
 
 ;;;; Commands
 
@@ -901,52 +1032,8 @@ Put this on `window-buffer-change-functions' and
 
 ;;; Queries
 
-(defvar secretary--queue nil)
-
-(defmacro secretary-defun (name arglist &optional docstring &rest body)
-  "Boilerplate wrapper for `cl-defun'.
-To see what it expands to, visit secretary-tests.el and read the
-tests of this macro.
-
-Manages the external variables `secretary--current-fn' and
-`secretary--queue', zeroes `-item-dismissals' on success, and
-advises `abort-recursive-edit' (in common parlance C-g). If you
-use a simple `defun' in lieu of this wrapper, you must replicate
-these features!
-
-In BODY, you have access to the extra temporary variable:
-- \"current-dataset\" which is a reference to (secretary-item-dataset (secretary--item-by-fn secretary--current-fn))."
-  (declare (indent defun) (doc-string 3))
-  (unless (stringp docstring)
-    (push docstring body))
-  (let* ((interactive-spec (and (eq 'interactive (car-safe (car body)))
-                                (car-safe (cdr (car body)))))
-         (new-body (if interactive-spec
-                       (cdr body)
-                     (cons (car body) (cdr body)))))
-    `(cl-defun ,name ,arglist
-       ,(when (stringp docstring)
-          docstring)
-       ,(if interactive-spec
-            `(interactive ,interactive-spec)
-          `(interactive))
-       (setq secretary--current-fn #',name)
-       (unless (secretary--item-by-fn secretary--current-fn)
-         (error "%s not listed in secretary-items" (symbol-name secretary--current-fn)))
-       (advice-add 'abort-recursive-edit :before #'secretary--after-cancel-do-things)
-       (let ((current-dataset (secretary-item-dataset
-                               (secretary--item-by-fn secretary--current-fn))))
-         (unwind-protect
-             (prog1 (progn ,@new-body)
-               (setq secretary--queue
-                     (remove secretary--current-fn secretary--queue))
-               (setf (secretary-item-dismissals
-                      (secretary--item-by-fn secretary--current-fn))
-                     0))
-           (advice-remove 'abort-recursive-edit #'secretary--after-cancel-do-things))))))
-
 ;;;###autoload
-(secretary-defun secretary-query-ingredients ()
+(secretary-defquery secretary-query-ingredients ()
   (let* ((prompt "Comma-separated list of ingredients: ")
          (response (progn
                      (secretary-emit prompt)
@@ -958,7 +1045,7 @@ In BODY, you have access to the extra temporary variable:
      (mapconcat #'-last-item (secretary--get-entries-in-tsv current-dataset) ", "))))
 
 ;;;###autoload
-(secretary-defun secretary-query-activity ()
+(secretary-defquery secretary-query-activity ()
   (let* ((name (secretary-read "What are you up to? " (secretary-activities-names))))
     (secretary-append-tsv current-dataset
       (ts-format secretary--date) ;; the time the activity happened
@@ -967,11 +1054,11 @@ In BODY, you have access to the extra temporary variable:
     (secretary-emit-same-line name)))
 
 ;;;###autoload
-(secretary-defun secretary-query-mood ()
+(secretary-defquery secretary-query-mood ()
   (let* ((mood-desc (secretary-read
                      (or prompt "Your mood: ")
-                     (cl-sort (mapcar #'car secretary-mood-alist)
-                              #'secretary--random-p)))
+                     (sort (mapcar #'car secretary-mood-alist)
+                           #'secretary--random-p)))
          (old-score (cdr (assoc mood-desc secretary-mood-alist)))
          (prompt-for-score
           (concat "Score from 1 to 5"
@@ -994,7 +1081,7 @@ In BODY, you have access to the extra temporary variable:
       (push (cons mood-desc score) secretary-mood-alist))))
 
 ;;;###autoload
-(secretary-defun secretary-query-weight ()
+(secretary-defquery secretary-query-weight ()
   (let* ((last-wt (secretary-last-value-in-tsv current-dataset))
          (wt (secretary-read "What do you weigh today? "
                     `(,last-wt
@@ -1028,7 +1115,7 @@ In BODY, you have access to the extra temporary variable:
 ;;       at 01:00. Notice the unusual hour change and ask if user meant 23
 ;;       yesterday.
 ;;;###autoload
-(secretary-defun secretary-query-sleep ()
+(secretary-defquery secretary-query-sleep ()
   "Query you for wake-up time and sleep quantity for one sleep block today.
 You are free to decline either query, but you should not later
 register sleep quantity from this same block in order to \"get
@@ -1069,7 +1156,7 @@ add."
       (when sleep-minutes (number-to-string sleep-minutes)))))
 
 ;;;###autoload
-(secretary-defun secretary-query-meditation ()
+(secretary-defquery secretary-query-meditation ()
   (when (secretary-ynp "Did you meditate today?")
     (let* ((mins (read-string "Do you know how long (in minutes)? "))
            (cleaned-mins (number-to-string (string-to-number mins)))) ;; ugly, I know
@@ -1079,7 +1166,7 @@ add."
         (unless (string= "0" cleaned-mins) cleaned-mins)))))
 
 ;;;###autoload
-(secretary-defun secretary-query-cold-shower ()
+(secretary-defquery secretary-query-cold-shower ()
   (let ((rating (read-string "Cold rating? ")))
     (secretary-append-tsv current-dataset
       (ts-format secretary--date)
@@ -1088,43 +1175,31 @@ add."
 
 ;;;; Welcomers
 
-(defvar secretary--buffer-predicate-backup nil)
 (defun secretary-execute (&optional queue)
-  "Run through `secretary--queue'."
+  "Call every function from QUEUE, default `secretary--queue'.
+Does some checks and sets up a good environment, in particular
+nulling the 'buffer-predicate frame parameter so that no buffers
+spawned by the functions will be skipped by
+`switch-to-next-buffer'."
   (interactive)
-  (setq secretary--buffer-predicate-backup (frame-parameter nil 'buffer-predicate))
-  (unwind-protect
-      (progn
-        (set-frame-parameter nil 'buffer-predicate nil)
-        (display-buffer (secretary-buffer-chat))
-        (dolist (f (or queue secretary--queue))
-          (let ((item (secretary--item-by-fn f)))
-            (unwind-protect
-                (secretary-call-fn-check-dismissals f)
-              (setf (secretary-item-last-called (secretary--item-by-fn f))
-                    (ts-now))))))
-    (set-frame-parameter nil 'buffer-predicate secretary--buffer-predicate-backup)))
-
-(defun secretary-execute (&optional queue)
-  "Run through `secretary--queue'."
-  (interactive)
-  (setq secretary--buffer-predicate-backup (frame-parameter nil 'buffer-predicate))
-  (unwind-protect
-      (progn
-        (set-frame-parameter nil 'buffer-predicate nil)
-        (display-buffer (secretary-buffer-chat))
-        (dolist (f (or queue secretary--queue))
-          (unless (and (<= 3 (secretary-item-dismissals (secretary--item-by-fn f)))
-                       (secretary-ask-disable f))
-            (funcall f))))
-    (set-frame-parameter nil 'buffer-predicate secretary--buffer-predicate-backup)))
+  (named-timer-cancel :secretary-excursion) ;; hygiene
+  (let ((bufpred-backup (frame-parameter nil 'buffer-predicate)))
+    (unwind-protect
+        (progn
+          (set-frame-parameter nil 'buffer-predicate nil)
+          (pop-to-buffer (secretary-buffer-chat))
+          (dolist (f (or queue secretary--queue))
+            (unless (and (<= 3 (secretary-item-dismissals (secretary--item-by-fn f)))
+                         (secretary-ask-disable f))
+              (funcall f))))
+      (set-frame-parameter nil 'buffer-predicate bufpred-backup))))
 
 (defalias 'secretary-resume #'secretary-execute)
 
-(defconst secretary-debug-no-timid t)
+(defconst secretary-debug-no-timid nil)
 
 (defun secretary--call-timidly ()
-  "Butt-in if any queries are pending."
+  "Butt in if any queries are pending."
   (setq secretary--date (ts-now))
   (when-let ((fns (if secretary-debug-no-timid
                       (secretary--enabled-items)
