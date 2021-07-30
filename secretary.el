@@ -251,7 +251,7 @@ of messages. See also `secretary-sit-long' and
                  (ts-diff (ts-now)
                           (ts-parse (secretary-last-timestamp-in-tsv dataset)))))))
          ;; Even if we didn't log yet, we don't quite want to be that persistent
-         (recently-called (> (ts-diff (ts-now) last-called)
+         (recently-called (< (ts-diff (ts-now) last-called)
                              ;; hours multiplied by n dismissals
                              (* dismissals 60 60))))
     (unless recently-logged
