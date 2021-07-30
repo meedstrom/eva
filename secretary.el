@@ -335,11 +335,6 @@ using.")
           (setq-local buffer-read-only t))
         buf)))
 
-(defun secretary--save-chat-log-to-disk ()
-  (with-current-buffer (secretary-buffer-chat)
-    (whitespace-cleanup)
-    (save-buffer)))
-
 (defvar secretary--k nil)
 (defun secretary--y-or-n-p-insert-k ()
   "Mostly like `y-or-n-p-insert-y'."
@@ -358,7 +353,7 @@ using.")
          (prompt (string-join strings)))
     (unwind-protect
         (progn
-          (switch-to-buffer (secretary-buffer-chat))
+          (pop-to-buffer (secretary-buffer-chat))
           (secretary-emit prompt)
           (define-key y-or-n-p-map (kbd "o") #'secretary-special-handle-current-query)
           (define-key y-or-n-p-map (kbd "i") #'secretary-special-handle-current-query)
@@ -491,8 +486,7 @@ Returns a string appropriate for passing to `message'."
     ""))
 
 (defun secretary--random-p (&rest _args)
-  "Return t or nil, at random.
-Can work as a predicate for `cl-sort'."
+  "Return t or nil, at random. Can be a predicate for `sort'."
   (> 0 (random)))
 
 (defun secretary-write-safely (text path)
@@ -1210,7 +1204,7 @@ spawned by the functions will be skipped by
       (notifications-notify :title secretary-ai-name :body (secretary-greeting)))
     (secretary--chime-aural)
     (secretary--chime-visual)
-    (run-with-timer 1 nil #'secretary-resume)))
+    (run-with-timer 1 nil #'secretary-execute)))
 ;; (secretary--call-timidly)
 ;; (named-timer-run :secretary-attempt (* 60 60) (* 60 60) #'secretary--call-timidly)
 
@@ -1263,7 +1257,7 @@ Requires the ssconvert program that comes with Gnumeric."
   (setq secretary--current-fn #'secretary-plot-weight-ascii)
   ;; Refresh data with R.
   (with-current-buffer secretary-r-buffer
-    (ess-execute "source(\"R/make_data_for_plots.R\")" 'buffer))
+    (ess-execute "source(\"make_data_for_plots.R\")" 'buffer))
   ;; Plot with gnuplot.
   (let* ((pkg-loc (convert-standard-filename (f-dirname (find-library-name "secretary"))))
          (gnuplot-script-path (convert-standard-filename (expand-file-name "weight.gnuplot" pkg-loc))))
@@ -1474,8 +1468,11 @@ separate function from `secretary--user-is-active'."
       (setq secretary--idle-beginning (ts-now))
       (secretary--start-next-timer))))
 
-(defcustom secretary-idle-file-name "/home/kept/Self_data/idle.tsv"
-  nil)
+(defcustom secretary-idle-file-name
+  "/home/kept/Self_data/idle.tsv"
+  nil
+  :group 'secretary
+  :type 'string)
 
 (defun secretary-log-idle ()
   (secretary-append-tsv secretary-idle-file-name

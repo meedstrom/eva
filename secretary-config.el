@@ -105,16 +105,45 @@ this is no mere matter of configuration.")
                               :max-entries-per-day 1)
        (secretary-item-create :fn #'secretary-query-activity
                               :dataset "/home/kept/Self_data/activities.tsv")
-       ))
-
-(defun secretary-return-from-excursion ()
-  (when (eq (current-buffer) secretary--excursion-buffer)
-    (named-timer-cancel :secretary-excursion)
-    (remove-hook 'kill-buffer-hook #'secretary-return-from-excursion)
-    (secretary-resume)))
-
-(defun secretary-end-session ()
-  (remove-hook 'kill-buffer-hook #'secretary-return-from-excursion))
+       (secretary-item-create
+        :fn (secretary-defquery secretary-koan ()
+              (message (secretary-emit (seq-random-elt secretary-aphorisms)))
+              (sit-for secretary-sit-long))
+        :min-hours-wait 16)
+       ;; (secretary-item-create
+       ;;  :fn (secretary-defquery secretary-joke ()
+       ;;        (message (secretary-emit (seq-random-elt secretary-aphorisms)))
+       ;;        (sit-for secretary-sit-long)))
+       (secretary-item-create
+        :fn (secretary-defexcursion secretary-present-ledger-file ()
+              (message (secretary-emit "Sending you to your Ledger file. Sayonara!"))
+              (sit-for secretary-sit-medium)
+              (pop-to-buffer
+               (setq secretary--excursion-buffer
+                     (view-file-other-window "/home/kept/Journal/Finances/2021.ledger")))))
+       (secretary-item-create
+        :fn (secretary-defquery secretary-present-diary2 ()
+              (let* ((dates-to-check (funcall secretary-past-sample-function secretary--date))
+                     (discrete-files-found (--keep (secretary-existing-diary it) dates-to-check))
+                     (buffer (get-buffer-create (concat "*" secretary-ai-name ": Selected diary entries*")))
+                     (datetree-found-count (secretary-make-indirect-datetree buffer dates-to-check))
+                     (total-found-count (+ (length discrete-files-found) datetree-found-count)))
+                (if (= 0 total-found-count)
+                    (message (secretary-emit "No diary entries relevant to this date."))
+                  (when (secretary-ynp "Found " (int-to-string total-found-count) " past diary "
+                                       (if (= 1 total-found-count) "entry" "entries")
+                                       " relevant to this date. Want me to open "
+                                       (if (= 1 total-found-count) "it" "them")
+                                       "?")
+                    (if (= 0 datetree-found-count)
+                        (kill-buffer buffer)
+                      (switch-to-buffer buffer)
+                      (view-mode))
+                    (when (-non-nil discrete-files-found)
+                      (dolist (x discrete-files-found)
+                        (view-file x)))
+                    (keyboard-quit)))))
+        :max-successes-per-day 1)))
 
 ;; Surprisingly, sublists may not be necessary.
 (setq secretary--queue-sublist-counter 0)
@@ -131,9 +160,6 @@ this is no mere matter of configuration.")
              :id "24553859-2214-4fb0-bdc9-84e7f3d04b2b"
              :cost-false-pos 8
              :cost-false-neg 8)))
-
-(add-hook 'secretary-plot-hook #'secretary-plot-mood-ascii)
-(add-hook 'secretary-plot-hook #'secretary-plot-weight-ascii)
 
 ;; TODO: Merge with `secretary-read'
 (defun secretary-special-handle-current-query ()
