@@ -638,7 +638,7 @@ If \"am\" or \"pm\" present, assume input is in 12-hour clock."
 
 (defvar secretary--queue nil)
 
-(defmacro secretary-defquery (name arglist &optional docstring &rest body)
+(defmacro secretary-defquery (name args &rest body)
   "Boilerplate wrapper for `cl-defun'.
 To see what it expands to, visit secretary-tests.el and read the
 tests of this macro.
@@ -652,26 +652,14 @@ these features!
 In BODY, you have access to the extra temporary variable:
 - \"current-dataset\" which is a reference to (secretary-item-dataset (secretary--item-by-fn secretary--current-fn))."
   (declare (indent defun) (doc-string 3))
-  (unless (stringp docstring)
-    (push docstring body))
-  (let* ((interactive-spec (and (eq 'interactive (car-safe (car body)))
-                                (car-safe (cdr (car body)))))
-         (new-body (if interactive-spec
-                       (cdr body)
-                     (cons (car body) (cdr body))))
-         (preamble (cond ((and (stringp docstring)
-                               interactive-spec)
-                          (list docstring
-                                `(interactive ,interactive-spec)))
-                         ((stringp docstring)
-                          (list docstring
-                                '(interactive)))
-                         (interactive-spec
-                          (list `(interactive ,interactive-spec)))
-                         (t
-                          (list '(interactive))))))
-    `(cl-defun ,name ,arglist
-       ,@preamble
+  (let* ((parsed-body (macroexp-parse-body body))
+         (declarations (car parsed-body))
+         (new-body (cdr parsed-body)))
+    `(cl-defun ,name ,args
+       ;; Ensure it's always interactive
+       ,@(if (member 'interactive (-map #'car-safe declarations))
+             declarations
+           (-snoc declarations '(interactive)))
        (setq secretary--current-fn #',name)
        (unless (secretary--item-by-fn secretary--current-fn)
          (error "%s not listed in secretary-items" (symbol-name secretary--current-fn)))
