@@ -330,6 +330,31 @@ some queries apply, for example to log something for yesterday.
 This may not apply, check the source for the welcomer you are
 using.")
 
+(defun secretary--new-uuid ()
+  "Same as `org-id-uuid'.
+Defined so we don't rely on Org on init."
+  (let ((rnd (md5 (format "%s%s%s%s%s%s%s"
+                          (random)
+                          (seconds-to-time (float-time))
+                          (user-uid)
+                          (emacs-pid)
+                          (user-full-name)
+                          user-mail-address
+                          (recent-keys)))))
+    (format "%s-%s-4%s-%s%s-%s"
+            (substring rnd 0 8)
+            (substring rnd 8 12)
+            (substring rnd 13 16)
+            (format "%x"
+                    (logior
+                     #b10000000
+                     (logand
+                      #b10111111
+                      (string-to-number
+                       (substring rnd 16 18) 16))))
+            (substring rnd 18 20)
+            (substring rnd 20 32))))
+
 (defun secretary--buffer-r ()
   (get-buffer-create (concat "*" secretary-ai-name ": R*")))
 
@@ -982,16 +1007,15 @@ of `secretary-greeting'. Mutually exclusive with
                                  "/home/kept/Self_data/buffer-existence.tsv"))
 
 ;; TODO: When buffer major mode changes, count it as a new buffer. Note that
-;; (assoc buf secretary-known-buffers) will still work.
+;;       (assoc buf secretary-known-buffers) will still work.
 ;; TODO: When eww url changes, count it as a new buffer
 ;; TODO: When counting it as a new buffer, record a field for "previous uuid" just in case data analyst wants to merge these observations
-;; TODO: Optimize (esp. cranking out the focus log)
+;; TODO: Optimize?
 (defun secretary-log-buffer (&optional _arg)
   "Log the buffer just switched to.
 Put this on `window-buffer-change-functions' and
 `window-selection-change-functions'."
   (unless (minibufferp)
-    (autoload #'org-id-uuid "org-id")
     (let* ((buf (current-buffer))
            (mode (symbol-name (buffer-local-value 'major-mode buf)))
            (known (assoc buf secretary-known-buffers))
@@ -999,20 +1023,24 @@ Put this on `window-buffer-change-functions' and
            (visiting (if (equal mode "dired-mode")
                          default-directory
                        buffer-file-name))
-           ;; TODO: use this
            (eww-url (when (equal mode "eww-mode")
                       (eww-current-url)))
            (exist-record (unless (and known
-                                      (string= mode (nth 4 known))) ;; doesnt do it
+                                      ;; TODO: make a new exist-record when mode changes
+                                      (equal mode (nth 4 known))) ;; doesnt do it
                            (list buf
-                                 (org-id-uuid)
+                                 (secretary--new-uuid)
                                  (buffer-name)
                                  visiting
                                  mode
                                  timestamp ;; time the buffer was first opened
+                                 eww-url
+                                 (when (equal mode "exwm-mode") exwm-class-name)
+                                 (when (equal mode "exwm-mode") exwm-title)
                                  )))
            (focus-record (list timestamp ;; time the buffer was switched to
-                               (if known (cadr known) (cadr exist-record)) ;; uuid
+                                ;; the buffer's uuid
+                               (if known (cadr known) (cadr exist-record))
                                )))
       (unless (eq secretary-last-buffer buf) ;; you only entered and left minibuffer e.g.
         (setq secretary-last-buffer buf)
