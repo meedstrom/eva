@@ -41,6 +41,7 @@
 (require 'named-timer)
 (require 'transient)
 (require 'ess)
+(require 'map)
 
 (defvar secretary-debugp nil)
 
@@ -49,7 +50,7 @@
   :group 'convenience)
 
 (defcustom secretary-location-main-datetree
-  "/home/kept/Journal/diary2.org"
+  "/home/kept/Journal/diary.org"
   "The file name of your main datetree, if you have one.
 Only relevant if you have one you use as a big archive file, see
 Info node `(org) Moving subtrees', or you write/capture
@@ -113,43 +114,53 @@ of messages. See also `secretary-sit-long' and
 
 (defconst secretary-chat-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "n") #'secretary-present-next)
-    (define-key map (kbd "p") #'secretary-present-previous)
-    (define-key map (kbd "p") #'secretary-present-previous)
     (define-key map (kbd "r") #'secretary-resume)
     (define-key map (kbd "+") #'secretary-increment-date)
     (define-key map (kbd "-") #'secretary-decrement-date)
+    (define-key map (kbd "0") #'secretary-set-date-today)
     (define-key map (kbd "d") #'secretary-set-date)
-    (define-key map (kbd "t") #'secretary-set-date-today)
     (define-key map (kbd "q") #'bury-buffer)
-
-    ;; Specialties
     (define-key map (kbd "?") #'secretary-dispatch)
-
+    (define-key map (kbd "h") #'secretary-dispatch)
     map))
 
 (define-derived-mode secretary-chat-mode text-mode "Secretary-Chat"
   :group 'secretary-chat)
 
 (transient-define-prefix secretary-dispatch ()
-  ["Actions"
-   :if-derived secretary-present-mode
-   ("p" "Previous" secretary-present-previous)
-   ("n" "Next" secretary-present-next)
-   ]
   ["General actions"
-   ("q" (lambda ()
-          (concat "Quit (same as "
-                  (key-description (car (where-is-internal #'keyboard-escape-quit)))
-                  ")"))
-    keyboard-escape-quit)
-   ("l" "View Ledger report" secretary-present-ledger-report)
-   ("f" "View finances report" secretary-present-ledger-report)
+   ("q" "Quit" bury-buffer)
+   ;; ("l" "View Ledger report" secretary-present-ledger-report)
+   ;; ("f" "View finances report" secretary-present-ledger-report)
+   ("l" "View Ledger file" secretary-present-ledger-file)
    ("a" "View Org agenda" org-agenda)
    ;; ("v" "Visit directory of log files" (lambda () (dired secretary-memory-dir)))
    ]
+  ;; TODO: make these nonexiting
   [;; (lambda () (concat "Date (" (ts-format "%x" secretary--date) ")"))
    "Date"
+   ("0" "Reset date to today (default)" secretary-set-date-today)
+   ("-" "Decrement the date" secretary-decrement-date)
+   ("+" "Increment the date" secretary-increment-date)
+   ("d" "Set date..." secretary-set-date)
+   ])
+
+;; This needs careful coding.
+;; Should the transient take care of resuming the query or should secretary-read do it?
+;; The former of course! Who knows what actions we'll want to put in.
+;;
+;; So we need to be able to append `secretary-resume' to some of these commands but not
+;; others. Assume that the prompt died calling this dispatch.
+;;
+;; We could also provide information taken from the current fn, perhaps its
+;; docstring.
+(transient-define-prefix secretary-midprompt-dispatch ()
+  ["General actions"
+   ("q" "Quit" bury-buffer)
+   ("l" "View Ledger file" secretary-present-ledger-file)
+   ("a" "View Org agenda" org-agenda)
+   ]
+  ["Date"
    ("t" "Reset date to today (default)" secretary-set-date-today)
    ("-" "Decrement the date" secretary-decrement-date)
    ("+" "Increment the date" secretary-increment-date)
@@ -320,7 +331,7 @@ at `secretary-mood-alist-file-name'.")
 
 (defvar secretary-aphorisms)
 
-(defvar secretary--current-fn)
+(defvar secretary--current-fn nil)
 
 (defvar secretary--date
   (ts-now)
@@ -383,6 +394,7 @@ Defined so we don't rely on Org on init."
   (setq secretary--k t)
   (exit-minibuffer))
 
+;; trivia: lookat map-y-or-n-p in (require 'map-ynp)
 (defun secretary-ynp (&rest strings)
   "Wrapper around `y-or-n-p' for secretary-chat-mode."
   (let* (;; (default-y-or-n-p-map y-or-n-p-map)
@@ -396,7 +408,8 @@ Defined so we don't rely on Org on init."
           (secretary-emit prompt)
           (define-key y-or-n-p-map (kbd "o") #'secretary-special-handle-current-query)
           (define-key y-or-n-p-map (kbd "i") #'secretary-special-handle-current-query)
-          (define-key y-or-n-p-map (kbd "<SPC>") #'secretary-special-handle-current-query)
+          (define-key y-or-n-p-map (kbd "h") #'secretary-dispatch)
+          (define-key y-or-n-p-map (kbd "<SPC>") #'secretary-dispatch)
           (define-key y-or-n-p-map (kbd "k") #'secretary--y-or-n-p-insert-k)
           (setq-local buffer-read-only nil)
           (let ((result (y-or-n-p (concat background-info prompt))))
@@ -1080,7 +1093,7 @@ Put this on `window-buffer-change-functions' and
 ;;;###autoload
 (secretary-defquery secretary-query-mood ()
   (let* ((mood-desc (secretary-read
-                     (or prompt "Your mood: ")
+                     "Your mood: "
                      (sort (mapcar #'car secretary-mood-alist)
                            #'secretary--random-p)))
          (old-score (cdr (assoc mood-desc secretary-mood-alist)))
