@@ -58,8 +58,9 @@ component of what makes a virtual secretary work.  People are
 always wiping their custom-file, admittedly for a reason, but
 this is no mere matter of configuration.")
 
-
-
+;; HINT: you can even use the same object multiple times in the queue, you'll
+;; just have to assign the output of (secretary-item-create) to an external
+;; variable and refer to it.
 (setq secretary-items
       (list
        (secretary-item-create

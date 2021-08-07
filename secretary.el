@@ -485,7 +485,7 @@ Echo both prompts and responses to the chat buffer."
           ;; Try to proceed to next item
           (progn
             (setq secretary--queue
-                  (remove secretary--current-fn secretary--queue))
+                  (cl-remove secretary--current-fn secretary--queue :count 1))
             (secretary-resume))
         ;; Just cancel the session
         (abort-recursive-edit)))))
@@ -760,7 +760,7 @@ In BODY, you have access to the extra temporary variable:
          (unwind-protect
              (prog1 (progn ,@new-body)
                (setq secretary--queue
-                     (remove secretary--current-fn secretary--queue))
+                     (cl-remove secretary--current-fn secretary--queue :count 1))
                (setf (secretary-item-dismissals
                       (secretary--item-by-fn secretary--current-fn))
                      0)
@@ -822,7 +822,7 @@ In BODY, you have access to the extra temporary variable:
              (progn
                ,@new-body
                (setq secretary--queue
-                     (remove secretary--current-fn secretary--queue))
+                     (cl-remove secretary--current-fn secretary--queue :count 1))
                (keyboard-quit))  ;; REVIEW: sane?
            ;; If something in BODY broke, clean up. The keyboard-quit above
            ;; means we never arrive here on success.
