@@ -1764,12 +1764,11 @@ is unspecified, but it shouldn't be possible to do."
                (setq secretary--idle-seconds-fn #'secretary--gnome-idle-seconds)
                t)
               ((and (eq window-system 'x) ;; true also under XWayland, so this condition must be below any check for Wayland
-                    (seq-find #'executable-find '("x11idle" "xprintidle")))
-               (setq secretary--x11idle-program-name
-                     (seq-find #'executable-find '("x11idle" "xprintidle")))
+                    (setq secretary--x11idle-program-name
+                          (seq-find #'executable-find '("x11idle" "xprintidle"))))
                (setq secretary--idle-seconds-fn #'secretary--x11-idle-seconds)
                t)
-              (secretary-fallback-to-emacs-idle-p
+              ((symbol-value 'secretary-fallback-to-emacs-idle-p)
                (autoload #'org-emacs-idle-seconds "org-clock")
                (setq secretary--idle-seconds-fn #'org-emacs-idle-seconds)
                t)
