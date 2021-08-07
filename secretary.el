@@ -43,7 +43,7 @@
 (require 'ess)
 (require 'map)
 
-(defvar secretary-debugp nil)
+(defvar secretary-debug-p nil)
 
 (defgroup secretary nil "The Emacs in-house secretary."
   :prefix "secretary-"
@@ -694,7 +694,7 @@ If \"am\" or \"pm\" present, assume input is in 12-hour clock."
   `(call-process ,program nil (secretary--debug-buf) nil ,@args))
 
 (defun secretary--debug-buf ()
-  (when secretary-debugp (get-buffer-create (concat secretary-ai-name "*Process Output*"))))
+  (when secretary-debug-p (get-buffer-create (concat secretary-ai-name "*Process Output*"))))
 
 (defvar secretary--queue nil)
 
@@ -1016,19 +1016,31 @@ of `secretary-greeting'. Mutually exclusive with
 
 (defun secretary-buffer-focus-log-buffer ()
   (get-buffer-create
-   (concat (unless secretary-debugp " ")
+   (concat (unless secretary-debug-p " ")
            "*" secretary-ai-name ": Buffer focus log*")))
 
 (defun secretary-buffer-existence-log-buffer ()
   (get-buffer-create
-   (concat (unless secretary-debugp " ")
+   (concat (unless secretary-debug-p " ")
            "*" secretary-ai-name ": Buffer existence log*")))
+
+(defcustom secretary-buffer-focus-log-file-name
+  (convert-standard-filename "~/buffer-focus.tsv")
+  nil
+  :group 'secretary
+  :type 'string)
+
+(defcustom secretary-buffer-existence-log-file-name
+  (convert-standard-filename "~/buffer-existence.tsv")
+  nil
+  :group 'secretary
+  :type 'string)
 
 (defun secretary--save-buffer-logs-to-disk ()
   (secretary--transact-buffer-onto-file (secretary-buffer-focus-log-buffer)
-                                 "/home/kept/Self_data/buffer-focus.tsv")
+                                        secretary-buffer-focus-log-file-name)
   (secretary--transact-buffer-onto-file (secretary-buffer-existence-log-buffer)
-                                 "/home/kept/Self_data/buffer-existence.tsv"))
+                                        secretary-buffer-existence-log-file-name))
 
 ;; TODO: When buffer major mode changes, count it as a new buffer. Note that
 ;;       (assoc buf secretary-known-buffers) will still work.

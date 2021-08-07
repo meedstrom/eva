@@ -37,9 +37,14 @@
 (setq secretary-user-short-title "sir")
 (setq secretary-user-name "Martin")
 (setq secretary-user-birthday "1991-12-07")
-(setq secretary-debugp t)
+(setq secretary-debug-p t)
+(setq secretary-presumptive-p t)
+(setq secretary-idle-file-name "/home/kept/Self_data/idle.tsv")
+(setq secretary-buffer-focus-log-file-name "/home/kept/Self_data/buffer-focus.tsv")
+(setq secretary-buffer-existence-log-file-name "/home/kept/Self_data/buffer-existence.tsv")
+(setq secretary-ledger-file-name "/home/kept/Journal/Finances/l.ledger")
 ;; (setq org-journal-dir)
-;; (setq org-journal-file-format)
+;; (setq org-journal-file-format "%F.org")
 
 (require 'secretary)
 
