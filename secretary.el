@@ -29,6 +29,7 @@
 
 ;; builtins
 (require 'seq)
+(require 'map)
 (require 'subr-x)
 (require 'cl-lib)
 (require 'find-func)
@@ -41,7 +42,6 @@
 (require 'named-timer)
 (require 'transient)
 (require 'ess)
-(require 'map)
 
 (defvar secretary-debug-p nil)
 
@@ -62,11 +62,11 @@ everything directly into.  Used by `secretary-present-diary'."
   "Your secretary's name."
   :group 'secretary
   :type 'string)
-  ;; REVIEW: this? all work fine when loading from custom-file before secretary mode?
-  ;; :set (lambda (sym val)
-  ;;        (secretary--save-buffer-logs-to-disk)
-  ;;        (secretary--save-variables-to-disk)
-  ;;        (set-default sym val)))
+;; REVIEW: this? all work fine when loading from custom-file before secretary mode?
+;; :set (lambda (sym val)
+;;        (secretary--save-buffer-logs-to-disk)
+;;        (secretary--save-variables-to-disk)
+;;        (set-default sym val)))
 
 (defcustom secretary-user-birthday nil
   "Your birthday."
@@ -336,8 +336,6 @@ Merely a convenience for auto-completion.
 The variable populates itself through use, and syncs with a file
 at `secretary-mood-alist-file-name'.")
 
-(defvar secretary-aphorisms)
-
 (defvar secretary--current-fn nil)
 
 (defvar secretary--date
@@ -447,15 +445,15 @@ Echo both prompts and responses to the chat buffer."
                                   (ts-format "%Y %b %d" secretary--date) "]\n"))
          (extra-collection '("/skip"))
          (input (completing-read
-                  (concat background-info
-                          (ts-format "[%H:%M] ")
-                          prompt
-                          (when (stringp default)
-                            " (default " default "): "))
-                  (append collection extra-collection)
-                  nil nil nil nil
-                  (when (stringp default)
-                    default))))
+                 (concat background-info
+                         (ts-format "[%H:%M] ")
+                         prompt
+                         (when (stringp default)
+                           " (default " default "): "))
+                 (append collection extra-collection)
+                 nil nil nil nil
+                 (when (stringp default)
+                   default))))
     (secretary-emit-same-line input)
     ;; TODO: help!! develop midprompt-dispatch
     ;; (when (string-match-p "help" input)
@@ -1118,7 +1116,7 @@ Put this on `window-buffer-change-functions' and
                                  (when (equal mode "exwm-mode") exwm-title)
                                  )))
            (focus-record (list timestamp ;; time the buffer was switched to
-                                ;; the buffer's uuid
+                               ;; the buffer's uuid
                                (if known (cadr known) (cadr exist-record))
                                )))
       (unless (eq secretary-last-buffer buf) ;; you only entered and left minibuffer e.g.
@@ -1143,10 +1141,10 @@ Put this on `window-buffer-change-functions' and
       (ts-format secretary--date)
       response)
     (secretary-emit "Ingredients recorded today: "
-           (->> (nreverse (secretary--get-entries-in-tsv current-dataset))
-                (-map #'-last-item)
-                (s-join ", ")
-                (s-replace ",," ",")))))
+                    (->> (nreverse (secretary--get-entries-in-tsv current-dataset))
+                         (-map #'-last-item)
+                         (s-join ", ")
+                         (s-replace ",," ",")))))
 
 ;;;###autoload
 (secretary-defquery secretary-query-activity ()
@@ -1188,9 +1186,9 @@ Put this on `window-buffer-change-functions' and
 (secretary-defquery secretary-query-weight ()
   (let* ((last-wt (secretary-last-value-in-tsv current-dataset))
          (wt (secretary-read "What do you weigh today? "
-                    `(,last-wt
-                      "I don't know")
-                    last-wt)))
+                             `(,last-wt
+                               "I don't know")
+                             last-wt)))
     (if (= 0 (string-to-number wt)) ;; user typed a string with characters other than num and whitespace
         (secretary-emit "Ok, I'll ask you again later.")
       (secretary-append-tsv current-dataset
@@ -1227,14 +1225,13 @@ the totals correct\" -- the database will interpret it as a
 different sleep block and continue to count the original one as
 having a censored (nonzero!) quantity of sleep on top of what you
 add."
-  ;; TODO: don't pester about an anomalous date more than once
   (secretary-check-yesterday-sleep)
   (let* ((recently-hhmm (ts-format "%H:%M" (ts-dec 'minute 10 secretary--date)))
          (recently-response (concat "Recently (" recently-hhmm ")"))
          (wakeup-time
-          (let* ((reply (secretary-read "When did you wake? "
-                                 `("I don't know"
-                                   ,recently-response))))
+          (let* ((reply (secretary-read "I assume you have slept. When did you wake? "
+                                        `("I don't know"
+                                          ,recently-response))))
             (cond ((equal reply recently-response)
                    recently-hhmm)
                   ((secretary--string-contains-number reply)
@@ -1243,17 +1240,17 @@ add."
          (sleep-minutes
           (secretary-parse-time-amount
            (secretary-read "How long did you sleep? "
-                    `("I don't know"
-                      ,(number-to-string
-                        (/ secretary-length-of-last-idle 60 60)))))))
+                           `("I don't know"
+                             ,(number-to-string
+                               (/ secretary-length-of-last-idle 60 60)))))))
     (secretary-emit (when wakeup-time
-             (concat "You woke at " wakeup-time ". "))
-           (when sleep-minutes
-             (concat "You slept " (number-to-string sleep-minutes)
-                     " minutes (" (number-to-string (/ sleep-minutes 60.0))
-                     " hours)."))
-           (when (-all-p #'null '(wakeup-time sleep-minutes))
-             (concat "One sleep block recorded without metrics.")))
+                      (concat "You woke at " wakeup-time ". "))
+                    (when sleep-minutes
+                      (concat "You slept " (number-to-string sleep-minutes)
+                              " minutes (" (number-to-string (/ sleep-minutes 60.0))
+                              " hours)."))
+                    (when (-all-p #'null '(wakeup-time sleep-minutes))
+                      (concat "One sleep block recorded without metrics.")))
     (secretary-append-tsv current-dataset
       (ts-format "%F" secretary--date) ;; date (no time component)
       wakeup-time ;; time (optional)
@@ -1677,13 +1674,16 @@ separate function from `secretary--user-is-active'."
       (when (ts< secretary--last-chatted chatfile-modtime)
         (setq secretary--last-chatted chatfile-modtime)))))
 
+;; TODO: ensure in some way that restore-variables has been called before
+;; we proceed, so we don't accidentally blank out our files.
+;; Sanity checks: variables to write are not null? At least when file on disk contains data?
 (defun secretary--save-variables-to-disk ()
   (make-directory secretary-memory-dir t)
   (secretary-write-safely (ts-format secretary--last-online) (secretary-last-online-file-name))
   (secretary-write-safely (prin1-to-string secretary-mood-alist) (secretary-mood-alist-file-name))
   (when secretary-chat-log-file-name
     (secretary-write-safely (with-current-buffer (secretary-buffer-chat) (buffer-string))
-                   secretary-chat-log-file-name)))
+                            secretary-chat-log-file-name)))
 
 (defcustom secretary-memory-dir
   (expand-file-name "secretary" user-emacs-directory)
@@ -1786,8 +1786,7 @@ is unspecified, but it shouldn't be possible to do."
                t)
              (if (--all-p (and (boundp it)
                                (not (null it)))
-                          '(secretary-aphorisms
-                            secretary-items))
+                          '(secretary-items))
                  t
                (message "Needed variables not set, read manual or do %s."
                         "M-x load-library secretary-config")
