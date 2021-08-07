@@ -1137,15 +1137,16 @@ Put this on `window-buffer-change-functions' and
 
 ;;;###autoload
 (secretary-defquery secretary-query-ingredients ()
-  (let* ((prompt "Comma-separated list of ingredients: ")
-         (response (progn
-                     (secretary-emit prompt)
-                     (read-string prompt))))
+  (pop-to-buffer (secretary-buffer-chat))
+  (let* ((response (secretary-read-string "What ingredients did you eat recently? ")))
     (secretary-append-tsv current-dataset
       (ts-format secretary--date)
       response)
-    (secretary-emit-same-line
-     (mapconcat #'-last-item (secretary--get-entries-in-tsv current-dataset) ", "))))
+    (secretary-emit "Ingredients recorded today: "
+           (->> (nreverse (secretary--get-entries-in-tsv current-dataset))
+                (-map #'-last-item)
+                (s-join ", ")
+                (s-replace ",," ",")))))
 
 ;;;###autoload
 (secretary-defquery secretary-query-activity ()
