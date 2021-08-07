@@ -109,6 +109,11 @@ of messages. See also `secretary-sit-long' and
   :group 'secretary
   :type 'number)
 
+(defcustom secretary-presumptive-p nil
+  "Whether to skip some prompts and assume yes."
+  :group 'secretary
+  :type 'boolean)
+
 
 ;;; Modes and keys
 
@@ -1394,8 +1399,10 @@ months, and this date the last 50 years."
                (org-next-visible-heading 1))
              (append-to-buffer (get-buffer buffer) beg (point)))))))
     (if (> counter 0)
-        (dotimes (_ 2)
-          (org-map-region #'org-promote (point-min) (point-max)))
+        (progn
+          (dotimes (_ 2)
+            (org-map-region #'org-promote (point-min) (point-max)))
+          (org-global-cycle '(4)))
       (kill-buffer buffer))
     counter))
 ;; (secretary-make-indirect-datetree (get-buffer-create "test")
@@ -1405,17 +1412,22 @@ months, and this date the last 50 years."
 FILE-FORMAT is handled by `parse-time-string'. The value returned
 is a full filesystem path or nil.
 
-When DATE is nil, use today.  Should be a ts object.
+When DATE is nil, use `secretary--date'.  Should be a ts object.
 When DIR is nil, use `org-journal-dir'.
-When FILE-FORMAT is nil, use `org-journal-file-format'.
+When FILE-FORMAT is nil, use `org-journal-file-format'; if that's
+ unset, use \"%F.org\".
 
 Note that org-journal is not needed."
-  (let* ((dir (or dir (bound-and-true-p org-journal-dir)))
-         (file-format (or file-format (and (boundp 'org-journal-file-type)
-                                           (eq org-journal-file-type 'daily)
-                                           org-journal-file-format)))
-         (file (--find (string-match-p (ts-format file-format date)
-                                       it)
+  (let* ((dir (or dir
+                  (bound-and-true-p org-journal-dir)))
+         (file-format (or file-format
+                          (and (boundp 'org-journal-file-type)
+                               (eq org-journal-file-type 'daily)
+                               org-journal-file-format)
+                          "%F.org"))
+         (file (--find (s-contains-p (ts-format file-format
+                                                (or date secretary--date))
+                                     it)
                        (directory-files dir))))
     (unless (null file)
       (expand-file-name file dir))))
@@ -1423,37 +1435,37 @@ Note that org-journal is not needed."
 ;; (secretary-existing-diary (ts-now) "/home/kept/Diary" )
 ;; (--keep (secretary-existing-diary it "/home/kept/Diary") (funcall secretary-past-sample-function))
 
-;; TODO: allow either discrete or datetree to be nil
-;; TODO: allow a list of datetrees
-;; TODO: make separate buffers for each datetree entry (use rename-buffer)
-;; TODO: make the datetree buffer(s) the next in line when you pop the last
-;;       discrete view
-;; TODO: try creating a sparse tree, so user can edit in-place
-;; TODO: show also the agenda log for each date if not empty
+;; TODO: (Feature) Make separate buffers for each datetree-based entry (use
+;;                 rename-buffer?) and interleave with discrete files so it's
+;;                 all in chrono order.
+;; TODO: (Feature) Try creating a sparse tree, so user can edit in-place
+;; TODO: (Feature) Maybe show the agenda log taken from each date?
 ;;;###autoload
-(defun secretary-present-diary (&optional ts skip-prompt)
-  (interactive)
-  (let* ((buffer (get-buffer-create (concat "*" secretary-ai-name ": Selected diary entries*")))
-         (today (or ts secretary--date))
-         (dates-to-check (funcall secretary-past-sample-function today))
+(secretary-defquery secretary-present-diary ()
+  (let* ((dates-to-check (funcall secretary-past-sample-function secretary--date))
          (discrete-files-found (--keep (secretary-existing-diary it) dates-to-check))
+         (buffer (get-buffer-create (concat "*" secretary-ai-name ": Selected diary entries*")))
          (datetree-found-count (secretary-make-indirect-datetree buffer dates-to-check))
          (total-found-count (+ (length discrete-files-found) datetree-found-count)))
     (if (= 0 total-found-count)
-        (secretary-emit "No diary entries relevant to this date.")
-      (if (or skip-prompt
-              (secretary-ynp "Found " (int-to-string total-found-count) " past diary "
-                    (if (= 1 total-found-count) "entry" "entries")
-                    " relevant to this date. Want me to open "
-                    (if (= 1 total-found-count) "it" "them")
-                    "?"))
-          (progn
-            (switch-to-buffer buffer)
-            (view-mode)
-            (if (-non-nil discrete-files-found)
-                (dolist (x discrete-files-found)
-                  (view-file x))))
-        (kill-buffer buffer)))))
+        (message (secretary-emit "No diary entries relevant to this date."))
+      (when (or (when secretary-presumptive-p
+                  (secretary-emit "Opening " (int-to-string total-found-count) " diary entries.")
+                  t)
+                (secretary-ynp "Found " (int-to-string total-found-count) " past diary "
+                               (if (= 1 total-found-count) "entry" "entries")
+                               " relevant to this date. Want me to open "
+                               (if (= 1 total-found-count) "it" "them")
+                               "?"))
+        (if (= 0 datetree-found-count)
+            (kill-buffer buffer)
+          (pop-to-buffer buffer)
+          (view-mode))
+        (when (-non-nil discrete-files-found)
+          (dolist (x discrete-files-found)
+            (view-file x)))
+        (keyboard-quit)))))
+
 ;; (secretary-present-diary (ts-now))
 ;; (secretary-present-diary (ts-dec 'day 1 (ts-now)))
 
