@@ -268,7 +268,8 @@ of messages. See also `secretary-sit-long' and
          (dismissals (secretary-item-dismissals i))
          (min-hrs-wait (secretary-item-min-hours-wait i))
          (min-secs-wait (* 60 60 min-hrs-wait))
-         (successes-today (when (null dataset)
+         (successes-today (when (and (null dataset)
+                                     (f-exists-p alt-dataset))
                             (->> (f-read alt-dataset)
                                  (s-split "\n")
                                  (-remove #'s-blank-p)
@@ -435,15 +436,17 @@ using.")
   (advice-remove 'abort-recursive-edit #'secretary--after-cancel-do-things) ;; needed
   (cl-incf (secretary-item-dismissals
             (secretary--item-by-fn secretary--current-fn)))
-  ;; nonessential, but could prevent confusion sometime
-  (setq secretary--current-fn nil))
+  (setq secretary--current-fn nil)) ;; hygiene
 
+;; TODO: Bind C-- and C-+ to date increment/decrement (C-0 to reset)
 (defun secretary-read (prompt &optional collection default)
+  "Read user input, and allow special responses like \"skip\".
+Echo both prompts and responses to the chat buffer."
   (secretary-emit prompt)
   (let* ((background-info (concat "[Applying to date: "
                                   (ts-format "%Y %b %d" secretary--date) "]\n"))
          (extra-collection '("/skip"))
-         (result (completing-read
+         (input (completing-read
                   (concat background-info
                           (ts-format "[%H:%M] ")
                           prompt
@@ -453,33 +456,56 @@ using.")
                   nil nil nil nil
                   (when (stringp default)
                     default))))
-    (secretary-emit-same-line result)
-    (if (string-match-p "skip" result)
-        (progn
-          (if (and (< 1 (length secretary--queue))
-                   (member secretary--current-fn secretary--queue))
-              ;; Try to proceed to next item
-              (progn
-                (setq secretary--queue
-                      (remove secretary--current-fn secretary--queue))
-                (secretary-resume))
-            ;; Just cancel the session
-            (abort-recursive-edit)))
-      result)))
+    (secretary-emit-same-line input)
+    ;; TODO: help!! develop midprompt-dispatch
+    ;; (when (string-match-p "help" input)
+    ;;   (secretary-dispatch)
+    ;;   (funcall secretary--current-fn))
+    (secretary-check-special-input input)
+    input))
+
+(defun secretary-read-string (prompt)
+  "Like `secretary-read' but call `read-string' internally."
+  (secretary-emit prompt)
+  (let* ((background-info (concat "[Applying to date: "
+                                  (ts-format "%Y %b %d" secretary--date) "]\n"))
+         (input (read-string
+                 (concat background-info
+                         (ts-format "[%H:%M] ")
+                         prompt))))
+    (secretary-emit-same-line input)
+    (secretary-check-special-input input)
+    input))
+
+(defun secretary-check-special-input (input)
+  (when (string-match-p "/skip" input)
+    (progn
+      (if (and (< 1 (length secretary--queue))
+               (member secretary--current-fn secretary--queue))
+          ;; Try to proceed to next item
+          (progn
+            (setq secretary--queue
+                  (remove secretary--current-fn secretary--queue))
+            (secretary-resume))
+        ;; Just cancel the session
+        (abort-recursive-edit)))))
 
 (defcustom secretary-chime-audio-file
-  (expand-file-name
-   ;; From https://freesound.org/people/josepharaoh99/sounds/380482/
-   "assets/Chime Notification-380482.wav"
-   ;; From https://bigsoundbank.com/detail-0319-knock-on-a-glass-door-1.html
-   ;; "assets/DOORKnck_Knock on a glass door 1 (ID 0319)_BSB.wav"
-   (f-dirname (find-library-name "secretary")))
+  (convert-standard-filename
+   (expand-file-name
+    ;; From https://freesound.org/people/josepharaoh99/sounds/380482/
+    "assets/Chime Notification-380482.wav"
+    ;; From https://bigsoundbank.com/detail-0319-knock-on-a-glass-door-1.html
+    ;; "assets/DOORKnck_Knock on a glass door 1 (ID 0319)_BSB.wav"
+    (f-dirname (find-library-name "secretary"))))
   "Sound to play when a welcomer is triggered unannounced."
   :group 'secretary
   :type 'string)
 
 (defcustom secretary-play-sounds-p nil
-  "Whether to play sounds.")
+  "Whether to play sounds."
+  :group 'secretary
+  :type 'boolean)
 
 (defun secretary--chime-aural ()
   (and secretary-play-sounds-p
@@ -787,8 +813,9 @@ In BODY, you have access to the extra temporary variable:
        (setq secretary--current-fn #',name)
        (unless (secretary--item-by-fn secretary--current-fn)
          (error "%s not listed in secretary-items" (symbol-name secretary--current-fn)))
-       (add-hook 'kill-buffer-hook #'secretary-return-from-excursion)
-       (named-timer-run :secretary-excursion (* 5 60) nil #'secretary-end-session)
+       (unless (called-interactively-p 'any) ;; allow manual use via M-x without triggering shenanigans
+         (add-hook 'kill-buffer-hook #'secretary-return-from-excursion)
+         (named-timer-run :secretary-excursion (* 5 60) nil #'secretary-end-session))
        (let ((current-dataset (secretary-item-dataset
                                (secretary--item-by-fn secretary--current-fn))))
          (unwind-protect
@@ -802,10 +829,21 @@ In BODY, you have access to the extra temporary variable:
            (remove-hook 'kill-buffer-hook #'secretary-return-from-excursion)
            (named-timer-cancel :secretary-excursion))))))
 
+(defvar secretary--excursion-buffer nil)
+(defvar secretary--excursion-buffers nil)
+
+(defun secretary-return-from-excursion ()
+  (when (-none-p #'buffer-live-p secretary--excursion-buffers)
+    (named-timer-cancel :secretary-excursion)
+    (remove-hook 'kill-buffer-hook #'secretary-return-from-excursion)
+    (setq secretary--excursion-buffers nil) ;; hygiene
+    (secretary-resume)))
+
 (defun secretary-return-from-excursion ()
   (when (eq (current-buffer) secretary--excursion-buffer)
     (named-timer-cancel :secretary-excursion)
     (remove-hook 'kill-buffer-hook #'secretary-return-from-excursion)
+    (setq secretary--excursion-buffer nil) ;; hygiene
     (secretary-resume)))
 
 (defun secretary-end-session ()
@@ -1301,11 +1339,49 @@ spawned by the functions will be skipped by
 
 ;;;; Presenters
 
+(secretary-defexcursion secretary-present-org-agenda ()
+  ;; (require 'org-agenda) ;; calm down the compiler TODO: test compiling this file on fresh emacs
+  (message (secretary-emit "Sending you to the Org agenda log + archive."))
+  (sit-for secretary-sit-medium)
+  (org-agenda-list)
+  (org-agenda-log-mode)
+  (org-agenda-archives-mode t)
+  (push (current-buffer) secretary--excursion-buffers)
+  (setq secretary--excursion-buffer (current-buffer)))
+
+(defcustom secretary-ledger-file-name
+  (convert-standard-filename "~/ledger.ledger")
+  "File used by `secretary-present-ledger-report'."
+  :group 'secretary
+  :type 'string)
+
+(secretary-defexcursion secretary-present-ledger-report ()
+  "Jump to `secretary-ledger-file-name' and run `ledger-report'.
+Uses the first command specified in `ledger-reports'."
+  (unless (f-exists-p secretary-ledger-file-name)
+    (error "secretary-ledger-file-name does not refer to existing file."))
+  (when (ignore-errors (find-library-name "ledger-mode"))
+    (require 'ledger-mode)
+    (if (get-buffer ledger-report-buffer-name)
+        (ledger-report-goto)
+      (with-current-buffer (find-file-noselect secretary-ledger-file-name)
+        (ledger-report (caar ledger-reports) nil)
+        (setq secretary--excursion-buffer (current-buffer))))))
+
+(secretary-defexcursion secretary-present-ledger-file ()
+  (message (secretary-emit "Sending you to your Ledger file. Sayonara!"))
+  (sit-for secretary-sit-medium)
+  (pop-to-buffer
+   (setq secretary--excursion-buffer
+         (find-file-noselect "/home/kept/Journal/Finances/2021.ledger")))
+  (view-mode)
+  (goto-char (point-max)))
+
 (defun secretary-make-ods-for-finance ()
   "Make and open an ODS spreadsheet from Ledger data.
 Requires the ssconvert program that comes with Gnumeric."
   (interactive)
-  (let* ((script (expand-file-name "R/generate_an_ods.R"
+  (let* ((script (expand-file-name "generate_an_ods.R"
                                    (f-dirname (find-library-name "secretary"))))
          (sheet (expand-file-name ".tmp_finances.ods"
                                   secretary-memory-dir))

@@ -58,50 +58,28 @@ component of what makes a virtual secretary work.  People are
 always wiping their custom-file, admittedly for a reason, but
 this is no mere matter of configuration.")
 
-(setq secretary-x11idle-program-name "x11idle")
 
-(defvar secretary--excursion-buffer nil)
 
 (setq secretary-items
       (list
        (secretary-item-create
-        :fn (secretary-defun secretary-greet ()
-              "Experimental greeter to drop into the queries infrastructure."
-              (pop-to-buffer (secretary-buffer-chat))
+        :fn (secretary-defquery secretary-greet ()
               (message (secretary-emit (secretary-greeting)))
-              (sit-for secretary-sit-medium))
-        :min-hours-wait 1
-        :lookup-posted-time t)
-       (secretary-item-create
-        :fn (secretary-defun secretary-present-ledger-file ()
-              (message (secretary-emit "Sending you to your Ledger file. Sayonara!"))
-              (sit-for secretary-sit-medium)
-              (add-hook 'kill-buffer-hook #'secretary-return-from-excursion)
-              (named-timer-run :secretary-excursion (* 5 60) nil #'secretary-end-session)
-              (display-buffer (setq secretary--excursion-buffer
-                                    (find-file-other-window "/home/kept/Journal/Finances/2021.ledger")))
-              (setq secretary--queue
-                     (remove secretary--current-fn secretary--queue))
-              ;;(keyboard-quit) ;; FIXME
-              ))
-       (secretary-item-create :fn #'secretary-query-sleep
-                              :dataset "/home/kept/Self_data/sleep.tsv"
-                              :min-hours-wait 5
-                              :lookup-posted-time t)
-       (secretary-item-create
-        :fn (secretary-defun secretary-present-org-agenda ()
-              (message (secretary-emit "Sending you to the Org agenda."))
-              (sit-for secretary-sit-short)
-              (add-hook 'kill-buffer-hook #'secretary-return-from-excursion)
-              (named-timer-run :secretary-excursion (* 5 60) nil #'secretary-end-session)
-              (org-agenda-list)
-              (setq secretary--excursion-buffer (current-buffer))))
-
+              (sit-for secretary-sit-long))
+        :min-hours-wait 1)
+       (secretary-item-create :fn #'secretary-present-diary
+                              :max-successes-per-day 1)
+       (secretary-item-create :fn #'secretary-present-ledger-report)
        (secretary-item-create :fn #'secretary-query-weight
                               :dataset "/home/kept/Self_data/weight.tsv"
                               :max-entries-per-day 1)
        (secretary-item-create :fn #'secretary-query-mood
                               :dataset "/home/kept/Self_data/mood.tsv")
+       (secretary-item-create :fn #'secretary-present-org-agenda)
+       (secretary-item-create :fn #'secretary-query-sleep
+                              :dataset "/home/kept/Self_data/sleep.tsv"
+                              :min-hours-wait 5
+                              :lookup-posted-time t)
        (secretary-item-create :fn #'secretary-query-ingredients
                               :dataset "/home/kept/Self_data/ingredients.tsv"
                               :min-hours-wait 5)
@@ -119,36 +97,8 @@ this is no mere matter of configuration.")
        ;;  :fn (secretary-defquery secretary-joke ()
        ;;        (message (secretary-emit (seq-random-elt secretary-aphorisms)))
        ;;        (sit-for secretary-sit-long)))
-       (secretary-item-create
-        :fn (secretary-defexcursion secretary-present-ledger-file ()
-              (message (secretary-emit "Sending you to your Ledger file. Sayonara!"))
-              (sit-for secretary-sit-medium)
-              (pop-to-buffer
-               (setq secretary--excursion-buffer
-                     (view-file-other-window "/home/kept/Journal/Finances/2021.ledger")))))
-       (secretary-item-create
-        :fn (secretary-defquery secretary-present-diary2 ()
-              (let* ((dates-to-check (funcall secretary-past-sample-function secretary--date))
-                     (discrete-files-found (--keep (secretary-existing-diary it) dates-to-check))
-                     (buffer (get-buffer-create (concat "*" secretary-ai-name ": Selected diary entries*")))
-                     (datetree-found-count (secretary-make-indirect-datetree buffer dates-to-check))
-                     (total-found-count (+ (length discrete-files-found) datetree-found-count)))
-                (if (= 0 total-found-count)
-                    (message (secretary-emit "No diary entries relevant to this date."))
-                  (when (secretary-ynp "Found " (int-to-string total-found-count) " past diary "
-                                       (if (= 1 total-found-count) "entry" "entries")
-                                       " relevant to this date. Want me to open "
-                                       (if (= 1 total-found-count) "it" "them")
-                                       "?")
-                    (if (= 0 datetree-found-count)
-                        (kill-buffer buffer)
-                      (switch-to-buffer buffer)
-                      (view-mode))
-                    (when (-non-nil discrete-files-found)
-                      (dolist (x discrete-files-found)
-                        (view-file x)))
-                    (keyboard-quit)))))
-        :max-successes-per-day 1)))
+       (secretary-item-create :fn #'secretary-present-ledger-file)
+       ))
 
 ;; Surprisingly, sublists may not be necessary.
 (setq secretary--queue-sublist-counter 0)
