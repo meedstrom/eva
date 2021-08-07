@@ -58,7 +58,7 @@ everything directly into.  Used by `secretary-present-diary'."
   :group 'secretary
   :type 'string)
 
-(defcustom secretary-ai-name "Val"
+(defcustom secretary-ai-name "Val" ;; short for Virtual Assistant Library
   "Your secretary's name."
   :group 'secretary
   :type 'string)
@@ -149,11 +149,12 @@ of messages. See also `secretary-sit-long' and
 ;; Should the transient take care of resuming the query or should secretary-read do it?
 ;; The former of course! Who knows what actions we'll want to put in.
 ;;
-;; So we need to be able to append `secretary-resume' to some of these commands but not
-;; others. Assume that the prompt died calling this dispatch.
+;; So we need to be able to append `secretary-resume' to some of these commands
+;; but not others. Assume that the previous prompt died calling this dispatch
+;; without modifying `secretary--queue'.
 ;;
 ;; We could also provide information taken from the current fn, perhaps its
-;; docstring.
+;; docstring. Where to put a lambda to insert a string?
 (transient-define-prefix secretary-midprompt-dispatch ()
   ["General actions"
    ("q" "Quit" bury-buffer)
@@ -342,8 +343,7 @@ This may not apply, check the source for the welcomer you are
 using.")
 
 (defun secretary--new-uuid ()
-  "Same as `org-id-uuid'.
-Defined so we don't rely on Org on init."
+  "Same as `org-id-uuid', but avoid relying on Org."
   (let ((rnd (md5 (format "%s%s%s%s%s%s%s"
                           (random)
                           (seconds-to-time (float-time))
@@ -400,7 +400,7 @@ Defined so we don't rely on Org on init."
   (let* (;; (default-y-or-n-p-map y-or-n-p-map)
          ;; (default-cmd (lookup-key y-or-n-p-map (kbd "k")))
          ;; TODO: Also show which log file we're applying to
-         (background-info (concat "[Applying to date: " (ts-format "%Y-%B-%d" secretary--date) "]\n"))
+         (background-info (concat "[Applying to date: " (ts-format "%Y %b %d" secretary--date) "]\n"))
          (prompt (string-join strings)))
     (unwind-protect
         (progn
@@ -503,12 +503,13 @@ Defined so we don't rely on Org on init."
 
 (defun secretary-emit (&rest strings)
   "Write a line to the chat buffer, made from STRINGS.
-Returns a string appropriate for passing to `message'."
+Returns the completed string so you can pass it to `message', for
+example."
   (let ((new-date-maybe (if (/= (ts-day (ts-now))
                                 (ts-day secretary--last-chatted))
-                            (concat "\n\n" (ts-format "%A, %e %B %Y") (secretary--holiday-maybe) "\n")
+                            (concat "\n\n" (ts-format "%A, %d %B %Y") (secretary--holiday-maybe) "\n")
                           ""))
-        (msg (concat "\n[" (ts-format "%H:%M") "] " (string-join strings))))
+        (msg (concat "\n<" (ts-format "%H:%M") "> " (string-join strings))))
     (with-current-buffer (secretary-buffer-chat)
       (goto-char (point-max))
       (with-silent-modifications
@@ -523,8 +524,9 @@ Returns a string appropriate for passing to `message'."
     (with-current-buffer (secretary-buffer-chat)
       (goto-char (point-max))
       (with-silent-modifications
-        (insert msg))))
-  (setq secretary--last-chatted (ts-now)))
+        (insert msg)))
+    (setq secretary--last-chatted (ts-now))
+    msg))
 
 (defvar secretary--last-chatted
   (make-ts :unix 0)
@@ -591,7 +593,12 @@ passed on to `call-process'."
 
 (defcustom secretary-fallback-to-emacs-idle-p nil
   "Track Emacs idle rather than turn off under unknown OS/DE.
-Not recommended.")
+Not recommended, as the idleness log will be meaningless unless
+you never use a graphical program. You'll end up with the
+situation where returning to Emacs from a long Firefox session
+triggers the return-from-idle-hook."
+  :group 'secretary
+  :type 'boolean)
 
 (defvar secretary--idle-seconds-fn nil)
 
@@ -651,6 +658,7 @@ are minutes and numbers below are hours."
 (defun secretary--coerce-to-hh-mm (input)
   "Coerce from inputs matching HH:MM, HH or H, to HH:MM (24-h).
 If \"am\" or \"pm\" present, assume input is in 12-hour clock."
+  (declare (pure t) (side-effect-free t))
   (unless (s-matches-p (rx num) input)
     (error "%s" (concat "Invalid time: " input)))
   (let* ((hhmm (or (cdr (s-match (rx (group (= 2 num)) punct (group (= 2 num))) input))
@@ -725,11 +733,13 @@ In BODY, you have access to the extra temporary variable:
                (setf (secretary-item-dismissals
                       (secretary--item-by-fn secretary--current-fn))
                      0)
-               ;; TODO: actually, just increment a lisp variable, later synced to disk. Let's get around to having a big list instead of a separate var for each thing.
+               ;; TODO: actually, just increment a lisp variable, later synced
+               ;;       to disk. Let's get around to having a big list instead of a
+               ;;       separate var for each thing.
+               ;; Save timestamp of this successful run.
                (when (null current-dataset)
                  (secretary-append-tsv
-                   (expand-file-name ,(concat "successes-" (symbol-name name)) secretary-memory-dir)))
-               )
+                   (expand-file-name ,(concat "successes-" (symbol-name name)) secretary-memory-dir))))
            (advice-remove 'abort-recursive-edit #'secretary--after-cancel-do-things))))))
 
 (defmacro secretary-defexcursion (name arglist &optional docstring &rest body)
@@ -813,6 +823,7 @@ In BODY, you have access to the extra temporary variable:
 
 (defun secretary-set-date (&optional ts)
   (interactive)
+  (require 'org)
   (if ts
       (setq secretary--date ts)
     (let* ((time (ts-format "%T"))
@@ -1322,24 +1333,38 @@ Requires the ssconvert program that comes with Gnumeric."
 
 ;;;; Diary presenter
 
-(defvar secretary-past-sample-function #'secretary-past-sample-default)
+(defvar secretary-past-sample-function #'secretary-past-sample-greedy)
 
-(defun secretary-past-sample-default (&optional ts)
-  "Return a list of ts objects."
-  "Return a list of ts objects referring to yesterday, this
-weekday the last 4 weeks, this day of the month the last 12
-months, and this date the past 50 years."
+(defun secretary-past-sample-greedy (&optional ts)
+  "Return a list of ts objects.
+They refer to yesterday, this weekday the last 4 weeks, this day
+of the month the last 12 months, and this date the last 50
+years."
   (let ((now (or ts (ts-now))))
     (-uniq (append
-            (--iterate (ts-dec 'day 1 it) now 1)
+            (--iterate (ts-dec 'day 1 it) now 1) ;; yesterday
             (--iterate (ts-dec 'woy 1 it) now 4)
             (--iterate (ts-dec 'month 1 it) now 12)
             (--iterate (ts-dec 'year 1 it) now 50)))))
 
+(defun secretary-past-sample-casual (&optional ts)
+  "Return a list of ts objects.
+They refer to to yesterday, this this day of the month the last 6
+months, and this date the last 50 years."
+  (let ((now (or ts (ts-now))))
+    (-uniq (append
+            (--iterate (ts-dec 'day 1 it) now 1)
+            (--iterate (ts-dec 'month 1 it) now 6)
+            (--iterate (ts-dec 'year 1 it) now 50)))))
+
+;; TODO: Allow a list of datetrees
 (defun secretary-make-indirect-datetree (buffer dates)
   (require 'org)
   (let ((dates (-sort 'ts<= dates))
-        (counter 0))
+        (counter 0)
+        ;; Doom greys out the entire headline, making it hard to read, which is
+        ;; good in working files, but bad for perusing an archive.
+        (org-fontify-done-headline nil))
     (switch-to-buffer buffer)
     (org-mode)
     (delete-region (point-min) (point-max))
@@ -1512,8 +1537,8 @@ separate function from `secretary--user-is-active'."
       (secretary--start-next-timer))))
 
 (defcustom secretary-idle-file-name
-  "/home/kept/Self_data/idle.tsv"
-  nil
+  (convert-standard-filename "~/idle.tsv")
+  "Location of the idleness log."
   :group 'secretary
   :type 'string)
 
@@ -1589,7 +1614,7 @@ own R project."
     ;; gotcha: only use `ess-with-current-buffer' for temp output buffers, not for the process buffer
     (with-current-buffer secretary-r-buffer
       ;; TODO: How to check if the script errors out?
-      (ess-execute "source(\"R/make_data_for_plots.R\")" 'buffer))))
+      (ess-execute "source(\"make_data_for_plots.R\")" 'buffer))))
 
 (defun secretary--keepalive ()
   (unless (member (named-timer-get :secretary) timer-list)
@@ -1618,9 +1643,10 @@ is unspecified, but it shouldn't be possible to do."
 
 ;;;###autoload
 (define-minor-mode secretary-mode
-  nil
+  "Wake up the secretary."
   :global t
   (if secretary-mode
+      ;; Check to see whether it should even turn on.
       (when (and
              (cond
               (secretary--idle-seconds-fn  ;; if preset, use that.
@@ -1667,6 +1693,7 @@ is unspecified, but it shouldn't be possible to do."
                         "M-x load-library secretary-config")
                (secretary-mode 0)
                nil))
+        ;; All OK, turn on.
         (mkdir "/tmp/secretary" t)
         (f-write (number-to-string (emacs-pid)) 'utf-8 "/tmp/secretary/pid")
         (add-function :after after-focus-change-function #'secretary-log-buffer)
@@ -1684,6 +1711,7 @@ is unspecified, but it shouldn't be possible to do."
               (secretary--restore-variables-from-disk))
             (secretary--init-r)
             (secretary--user-is-active))))
+    ;; Turn off.
     (secretary--save-variables-to-disk)
     (setq secretary--idle-seconds-fn nil)
     (ignore-errors
