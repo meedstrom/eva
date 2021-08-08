@@ -169,7 +169,7 @@ of messages. See also `secretary-sit-long' and
    ]
   ["Date"
    ("t" "Reset date to today (default)" secretary-set-date-today)
-   ("-" "Decrement the date" secretary-decrement-date)
+   ("-" "Decrement the date" (lambda () (secretary-decrement-date) (secretary-resume)))
    ("+" "Increment the date" secretary-increment-date)
    ("d" "Set date..." secretary-set-date)
    ])
@@ -204,16 +204,17 @@ of messages. See also `secretary-sit-long' and
 (cl-defstruct (secretary-item
                (:constructor secretary-item-create)
                (:copier nil))
-  fn ;; key (must be unique)
+  fn ;; primary key (must be unique)
   dataset
   (dismissals 0)
   max-entries-per-day
-  (max-successes-per-day nil :documentation "Similar in spirit to max-entries, but applies where there is no dataset or you don't wish to check it.")
+  (max-successes-per-day nil :documentation "Alias of max-entries-per-day, more semantically meaningful where there is no dataset.")
+  max-calls-per-day
   (min-hours-wait 3)
   lookup-posted-time
   (last-called (make-ts :unix 0)) ;; prevent nil-value errors
-  ;; experimental truly-unique key (e.g. if you want to call an "emit joke" fn twice)
-  ;; (name (concat (capitalize (symbol-name fn)) ctr))
+  ;; truly-unique key (if you reuse fn in two instances for some reason)
+  ;; name
   )
 
 ;; (secretary-item-create :fn 'foo)
@@ -399,7 +400,7 @@ using.")
   (setq secretary--k t)
   (exit-minibuffer))
 
-;; trivia: lookat map-y-or-n-p in (require 'map-ynp)
+;; Trivia: look at map-y-or-n-p in (require 'map-ynp). Cool!
 (defun secretary-ynp (&rest strings)
   "Wrapper around `y-or-n-p' for secretary-chat-mode."
   (let* (;; (default-y-or-n-p-map y-or-n-p-map)
@@ -993,7 +994,7 @@ of `(ts-format secretary--date)'."
                             ""
                           "\n"))
          (errors-path (concat path "_errors"))
-         (posted (s-pad-right 18 "0" (number-to-string (ts-unix (ts-now)))))
+         (posted (ts-format "%s.%7N")) ;; 7 digits matches `ts-unix' and `float-time'
          (text (string-join fields "\t"))
          (new-text (concat newline-maybe posted "\t" text))
          (maybe-buf (find-buffer-visiting path)))
@@ -1301,6 +1302,7 @@ add."
 
 
 ;;;; Welcomers
+;; TODO: Use consistent naming.
 
 (defun secretary-execute (&optional queue)
   "Call every function from QUEUE, default `secretary--queue'.
