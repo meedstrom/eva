@@ -42,6 +42,7 @@
 (require 'named-timer)
 (require 'transient)
 (require 'ess)
+(require 'pfuture)
 
 (defvar secretary-debug-p nil)
 
@@ -509,7 +510,7 @@ Echo both prompts and responses to the chat buffer."
   (and secretary-play-sounds-p
        (executable-find "aplay")
        (file-exists-p secretary-chime-audio-file)
-       (start-process "aplay" nil "aplay" secretary-chime-audio-file)))
+       (pfuture-new "aplay" secretary-chime-audio-file)))
 
 ;; TODO: Determine step length from secretary-sit-long.
 (defun secretary--chime-visual ()
@@ -714,16 +715,32 @@ If \"am\" or \"pm\" present, assume input is in 12-hour clock."
             (when (< minute 10) "0")
             (number-to-string minute))))
 
-(defmacro secretary--run-async (program &rest args)
-  "Wrapper for `start-process' with fewer arguments."
-  `(start-process ,program (secretary--debug-buf) ,program ,@args))
-
-(defmacro secretary--run (program &rest args)
-  "Wrapper for `call-process' with fewer arguments."
-  `(call-process ,program nil (secretary--debug-buf) nil ,@args))
-
-(defun secretary--debug-buf ()
-  (when secretary-debug-p (get-buffer-create (concat secretary-ai-name "*Process Output*"))))
+(defun secretary--check-for-time-anomalies ()
+  "Check for timestamps that don't look right.
+Good to run after enabling `secretary-mode' or changing
+`secretary-items'."
+  (let* ((datasets (--map (secretary-item-dataset it) secretary-items))
+         (logs (list secretary-idle-file-name
+                     secretary-buffer-focus-log-file-name))
+         (files (-non-nil (append datasets logs)))
+         (anomalous-files nil))
+    (dolist (f files)
+      (when (f-exists-p f)
+        (let ((stamps (->> (secretary--get-all-entries-in-tsv f)
+                           (map-keys) ;; first elem of each row
+                           (-map #'string-to-number))))
+          (unless (<= stamps)
+            (message (concat "Timestamps not strictly increasing in: " f)))
+          ;; Check that no timestamp bigger than current time.
+          (if (--any-p (> it (float-time)) stamps)
+              (push f anomalous-files)))))
+    (when anomalous-files
+      (warn "%s"
+            (->> (append '("Secretary: Anomalous timestamps found in my logs."
+                           "You probably have or have had a wrong system clock."
+                           "These files have timestamps exceeding the current time:")
+                         anomalous-files)
+                 (s-join "\n"))))))
 
 (defvar secretary--queue nil)
 
@@ -875,6 +892,15 @@ In BODY, you have access to the extra temporary variable:
 
 
 ;;;; Library for handling datasets
+;; TODO: Improve names
+
+(defun secretary--get-all-entries-in-tsv (path)
+  "Return the contents of a .tsv at PATH as a Lisp list."
+  (with-temp-buffer
+    (insert-file-contents-literally path)
+    (flush-lines (rx bol eol))
+    (let ((rows (s-split "\n" (buffer-string))))
+      (--map (s-split "\t" it) rows))))
 
 (defun secretary-last-datestamp-in-file (path)
   "Get the last match of YYYY-MM-DD in PATH.
@@ -1390,7 +1416,7 @@ Requires the ssconvert program that comes with Gnumeric."
                                             "mimeopen"
                                             "xdg-open"))))
     (if (= 0 (secretary--run "Rscript" script secretary-ledger-file-name sheet))
-        (secretary--run-async app sheet)
+        (pfuture-new app sheet)
       (message (secretary-emit "Error running " script)))))
 
 ;; TODO: pass start-date (today minus 3mo) and projection incline, letting
@@ -1801,6 +1827,7 @@ is unspecified, but it shouldn't be possible to do."
         (add-hook 'after-init-hook #'secretary--restore-variables-from-disk -90)
         (add-hook 'after-init-hook #'secretary--start-next-timer 90)
         (add-hook 'after-init-hook #'secretary--init-r)
+        (add-hook 'after-init-hook #'secretary--check-for-time-anomalies)
         (named-timer-run :secretary-keepalive 300 300 #'secretary--keepalive)
         (when after-init-time
           (progn
@@ -1809,6 +1836,7 @@ is unspecified, but it shouldn't be possible to do."
                       (= 0 (ts-unix secretary--last-online)))
               (secretary--restore-variables-from-disk))
             (secretary--init-r)
+            (secretary--check-for-time-anomalies)
             (secretary--user-is-active))))
     ;; Turn off.
     (secretary--save-variables-to-disk)
