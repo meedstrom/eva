@@ -46,8 +46,6 @@
 ;; (setq org-journal-dir)
 ;; (setq org-journal-file-format "%F.org")
 
-(require 'secretary)
-
 (defconst secretary-memory '((secretary-user-short-title . "sir")
                              (secretary-user-name . "Martin")
                              (secretary-user-short-title . "1991-12-07"))
@@ -57,6 +55,8 @@ stuff the user doesn't particularly want remembered, is a core
 component of what makes a virtual secretary work.  People are
 always wiping their custom-file, admittedly for a reason, but
 this is no mere matter of configuration.")
+
+(require 'secretary)
 
 ;; HINT: you can even use the same object multiple times in the queue, you'll
 ;; just have to assign the output of (secretary-item-create) to an external
@@ -101,9 +101,6 @@ this is no mere matter of configuration.")
        (secretary-item-create :fn #'secretary-present-ledger-file)
        ))
 
-;; Surprisingly, sublists may not be necessary.
-(setq secretary--queue-sublist-counter 0)
-
 (setq secretary-activities
       (list (secretary-activity-create
              :name "sleep"
@@ -117,35 +114,7 @@ this is no mere matter of configuration.")
              :cost-false-pos 8
              :cost-false-neg 8)))
 
-;; TODO: Merge with `secretary-read'
-(defun secretary-special-handle-current-query ()
-  (interactive)
-  (let ((input (completing-read "Yes? " '(
-                                          "Never mind, let me reply normally."
-                                          "Remind me about this one later."
-                                          "Skip this."
-                                          "Back to previous query."
-                                          "Yes."
-                                          "No."
-                                          "Apply this query to a different date."
-                                          "Apply this query to yesterday."
-                                          "Tell me something profound."))))
-    (cond ((string-match-p (rx (or "remind" "later" "l8r" "resched")) input)
-           'reschedule)
-          ((string-match-p (rx (or "food" "ingred")) input)
-           (secretary-query-ingredients))
-          ((string-match-p (rx (or "profound")) input)
-           (secretary-emit (seq-random-elt secretary-aphorisms)))
-          ((string-match-p (rx (or "yesterday" "yday")) input)
-           (secretary-change-date-yesterday))
-          ((string-match-p (rx "date") input)
-           (secretary-change-date))
-          ((string-match-p (rx (or "nvm" "never mind" (seq bow "nm" eow))) input)
-           nil)
-          ((string-match-p (rx (or "exit" "quit" "ttyl" "bye")) input)
-           (keyboard-quit))
-          (t
-           (secretary-emit "Override not understood.")))))
+(secretary-mode)
 
 (setq secretary-aphorisms
       '("The affairs of the world will go on forever. Do not delay the practice of meditation." ;; not koanish
