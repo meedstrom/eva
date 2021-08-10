@@ -36,3 +36,8 @@ secretary-config.elc: secretary.elc
 # git clone --depth=1 https://github.com/DarwinAwardWinner/emacs-named-timer  deps/named-timer
 # git clone --depth=1 https://github.com/Alexander-Miller/pfuture  deps/pfuture
 # git clone --depth=1 https://github.com/magit/transient deps/transient
+# git clone --depth=1 https://github.com/ledger/ledger-mode deps/ledger-mode
+
+# Not (yet) needed at compilation
+# git clone --depth=1 https://github.com/ch11ng/exwm deps/exwm
+# git clone --depth=1 https://github.com/bastibe/org-journal deps/org-journal

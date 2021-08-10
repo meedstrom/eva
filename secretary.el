@@ -115,64 +115,129 @@ of messages. See also `secretary-sit-long' and
   :group 'secretary
   :type 'boolean)
 
+;; probably going to be deprecated
+(defcustom secretary-memory-dir
+  (expand-file-name "secretary" user-emacs-directory)
+  "Directory for persistent files (not your datasets)."
+  :group 'secretary
+  :type 'string)
+
+(defcustom secretary-mem-loc
+  (convert-standard-filename
+   (expand-file-name "memory.tsv" secretary-memory-dir))
+  nil
+  :group'secretary
+  :type'string)
+
+(defcustom secretary-chat-log-file-name
+  (convert-standard-filename
+   (expand-file-name "chat.log" secretary-memory-dir))
+  "Where to save chat log across sessions. Can be nil."
+  :group 'secretary
+  :type 'string)
+
 
-;;; Modes and keys
+;;;; Handle idle & reboots & crashes
+;; It's big brain time.
 
-(defconst secretary-chat-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "r") #'secretary-resume)
-    (define-key map (kbd "+") #'secretary-increment-date)
-    (define-key map (kbd "-") #'secretary-decrement-date)
-    (define-key map (kbd "0") #'secretary-set-date-today)
-    (define-key map (kbd "d") #'secretary-set-date)
-    (define-key map (kbd "q") #'bury-buffer)
-    (define-key map (kbd "?") #'secretary-dispatch)
-    (define-key map (kbd "h") #'secretary-dispatch)
-    map))
+(defvar secretary--last-online
+  nil)
 
-(define-derived-mode secretary-chat-mode text-mode "Secretary-Chat"
-  :group 'secretary-chat)
+(defvar secretary--idle-beginning
+  nil)
 
-(transient-define-prefix secretary-dispatch ()
-  ["General actions"
-   ("q" "Quit" bury-buffer)
-   ;; ("l" "View Ledger report" secretary-present-ledger-report)
-   ;; ("f" "View finances report" secretary-present-ledger-report)
-   ("l" "View Ledger file" secretary-present-ledger-file)
-   ("a" "View Org agenda" org-agenda)
-   ;; ("v" "Visit directory of log files" (lambda () (dired secretary-memory-dir)))
-   ]
-  ;; TODO: make these nonexiting
-  [;; (lambda () (concat "Date (" (ts-format "%x" secretary--date) ")"))
-   "Date"
-   ("0" "Reset date to today (default)" secretary-set-date-today)
-   ("-" "Decrement the date" secretary-decrement-date)
-   ("+" "Increment the date" secretary-increment-date)
-   ("d" "Set date..." secretary-set-date)
-   ])
+(defvar secretary-length-of-last-idle 0
+  "Length of the last idle period, in seconds.")
 
-;; This needs careful coding.
-;; Should the transient take care of resuming the query or should secretary-read do it?
-;; The former of course! Who knows what actions we'll want to put in.
-;;
-;; So we need to be able to append `secretary-resume' to some of these commands
-;; but not others. Assume that the previous prompt died calling this dispatch
-;; without modifying `secretary--queue'.
-;;
-;; We could also provide information taken from the current fn, perhaps its
-;; docstring. Where to put a lambda to insert a string?
-(transient-define-prefix secretary-midprompt-dispatch ()
-  ["General actions"
-   ("q" "Quit" bury-buffer)
-   ("l" "View Ledger file" secretary-present-ledger-file)
-   ("a" "View Org agenda" org-agenda)
-   ]
-  ["Date"
-   ("t" "Reset date to today (default)" secretary-set-date-today)
-   ("-" "Decrement the date" (lambda () (secretary-decrement-date) (secretary-resume)))
-   ("+" "Increment the date" secretary-increment-date)
-   ("d" "Set date..." secretary-set-date)
-   ])
+(defcustom secretary-idle-threshold-secs-short (* 10 60)
+  "Duration in seconds, above which the user is considered idle."
+  :group 'secretary
+  :type 'number)
+
+(defcustom secretary-idle-threshold-secs-long (* 90 60)
+  "Be idle at least this many seconds to be greeted upon return."
+  :group 'secretary
+  :type 'number)
+
+(defcustom secretary-idle-file-name
+  (convert-standard-filename "~/idle.tsv")
+  "Location of the idleness log."
+  :group 'secretary
+  :type 'string)
+
+(defun secretary-log-idle ()
+  (secretary-append-tsv secretary-idle-file-name
+    (ts-format)
+    (number-to-string (/ (round secretary-length-of-last-idle) 60))))
+
+(defcustom secretary-return-from-idle-hook
+  '(secretary-log-idle
+    secretary-call-from-idle)
+  "Hook run when user returns from a period of idleness.
+Note: An Emacs startup also counts as a return from idleness.
+You'll probably want your hook to be conditional on some value of
+`secretary-length-of-last-idle', which at startup is calculated from
+the last Emacs shutdown or crash (technically, last time
+`secretary-mode' was running)."
+  :group 'secretary
+  :type '(repeat function))
+
+(defcustom secretary-periodic-not-idle-hook
+  '(secretary--save-variables-to-disk
+    secretary--save-buffer-logs-to-disk)
+  "Hook run every minute when the user is not idle."
+  :group 'secretary
+  :type '(repeat function))
+
+(defun secretary--start-next-timer (&optional assume-idle)
+  "Start one or the other timer depending on idleness.
+If ASSUME-IDLE is non-nil, skip the idle check and associated
+overhead."
+  (if (or assume-idle (secretary-idle-p))
+      (named-timer-run :secretary 2 nil #'secretary--user-is-idle t)
+    (named-timer-run :secretary 60 nil #'secretary--user-is-active)))
+
+(defun secretary--user-is-active ()
+  "Do stuff assuming the user is active (not idle).
+This function is called by `secretary--start-next-timer'
+repeatedly for as long as the user is active (not idle).
+
+Runs `secretary-periodic-not-idle-hook'."
+  ;; Guard the case where the user puts the computer to sleep manually, which
+  ;; means this function will still be queued to run when the computer wakes.  If
+  ;; the time difference is suddenly big, hand off to the other function.
+  (if (> (ts-diff (ts-now) secretary--last-online)
+         secretary-idle-threshold-secs-short)
+      (secretary--user-is-idle)
+    (setq secretary--last-online (ts-now))
+    (setq secretary--idle-beginning (ts-now))
+    (secretary--start-next-timer)
+    ;; Run hooks last, in case they contain bugs.
+    (run-hooks 'secretary-periodic-not-idle-hook)))
+
+(defun secretary--user-is-idle (&optional decrement)
+  "Do stuff assuming the user is idle.
+This function is called by `secretary--start-next-timer'
+repeatedly for as long as the user is idle.
+
+When the user comes back, this function will be called one last
+time, at which point the idleness condition will fail and it sets
+`secretary-length-of-last-idle' and runs
+`secretary-return-from-idle-hook'.  That it has to run exactly
+once with a failing condition that normally succeeds, as opposed
+to running never or forever, is the reason it has to be a
+separate function from `secretary--user-is-active'."
+  (setq secretary--last-online (ts-now))
+  (if (secretary-idle-p)
+      (secretary--start-next-timer 'assume-idle)
+    ;; Take the idle threshold into account and correct the idle begin point.
+    (when decrement
+      (ts-decf (ts-sec secretary--idle-beginning) secretary-idle-threshold-secs-short))
+    (setq secretary-length-of-last-idle (ts-diff (ts-now) secretary--idle-beginning))
+    (unwind-protect
+        (run-hooks 'secretary-return-from-idle-hook)
+      (setq secretary--idle-beginning (ts-now))
+      (secretary--start-next-timer))))
 
 
 ;;; Activity structs
@@ -349,6 +414,8 @@ itself through use.")
 
 (defvar secretary--current-fn nil)
 
+(defvar secretary--queue nil)
+
 (defvar secretary--date
   (ts-now)
   "Date to which to apply the current fn.
@@ -356,6 +423,22 @@ Can be set anytime during a welcome to override the date to which
 some queries apply, for example to log something for yesterday.
 This may not apply, check the source for the welcomer you are
 using.")
+
+(defvar secretary-r-buffer nil)
+
+(defun secretary--init-r ()
+  "Spin up an R process and load needed R libraries.
+Uses `run-ess-r' which is full of sanity checks (e.g. for cygwin
+and text encoding), but creates an interactive R buffer which
+unfortunately may surprise the user when they go to work on their
+own R project."
+  (let ((default-directory (f-dirname (find-library-name "secretary"))))
+    (save-window-excursion
+      (setq secretary-r-buffer (run-ess-r)))
+    ;; gotcha: only use `ess-with-current-buffer' for temp output buffers, not for the process buffer
+    (with-current-buffer secretary-r-buffer
+      ;; TODO: How to check if the script errors out?
+      (ess-execute "source(\"make_data_for_plots.R\")" 'buffer))))
 
 (defun secretary--new-uuid ()
   "Same as `org-id-uuid', but avoid relying on Org."
@@ -541,6 +624,10 @@ Echo both prompts and responses to the chat buffer."
         (run-with-timer .6 nil #'set-face-background 'solaire-fringe-face orig)))
     nil))
 
+(defvar secretary--last-chatted
+  (make-ts :unix 0)
+  "Timestamp updated whenever the chat is written to.")
+
 (defun secretary-emit (&rest strings)
   "Write a line to the chat buffer, made from STRINGS.
 Returns the completed string so you can pass it to `message', for
@@ -568,10 +655,6 @@ example."
     (setq secretary--last-chatted (ts-now))
     msg))
 
-(defvar secretary--last-chatted
-  (make-ts :unix 0)
-  "Timestamp updated whenever the chat is written to.")
-
 (defun secretary--holiday-maybe ()
   (require 'calendar)
   (require 'holidays)
@@ -590,7 +673,7 @@ are unsaved changes."
   (let ((buf (find-buffer-visiting path)))
     (and buf
          (buffer-modified-p buf)
-         (error "Unsaved changes in open buffer: " (buffer-name buf)))
+         (error "Unsaved changes in open buffer: %s" (buffer-name buf)))
     (unless (and (f-exists-p path)
                  (string= text (f-read path 'utf-8)))
       (f-write text 'utf-8 path)
@@ -603,7 +686,7 @@ are unsaved changes."
   (let ((buf (find-buffer-visiting path)))
     (and buf
          (buffer-modified-p buf)
-         (error "Unsaved changes in open buffer: " (buffer-name buf)))
+         (error "Unsaved changes in open buffer: %s" (buffer-name buf)))
     (unless (and (f-exists-p path)
                  (= 0 (length text))) ;; no unnecessary disk writes
       (f-append text 'utf-8 path)
@@ -724,35 +807,6 @@ If \"am\" or \"pm\" present, assume input is in 12-hour clock."
             (number-to-string hour) ":"
             (when (< minute 10) "0")
             (number-to-string minute))))
-
-(defun secretary--check-for-time-anomalies ()
-  "Check for timestamps that don't look right.
-Good to run after enabling `secretary-mode' or changing
-`secretary-items'."
-  (let* ((datasets (--map (secretary-item-dataset it) secretary-items))
-         (logs (list secretary-idle-file-name
-                     secretary-buffer-focus-log-file-name))
-         (files (-non-nil (append datasets logs)))
-         (anomalous-files nil))
-    (dolist (f files)
-      (when (f-exists-p f)
-        (let ((stamps (->> (secretary--get-all-entries-in-tsv f)
-                           (map-keys) ;; first elem of each row
-                           (-map #'string-to-number))))
-          (unless (<= stamps)
-            (message (concat "Timestamps not strictly increasing in: " f)))
-          ;; Check that no timestamp bigger than current time.
-          (if (--any-p (> it (float-time)) stamps)
-              (push f anomalous-files)))))
-    (when anomalous-files
-      (warn "%s"
-            (->> (append '("Secretary: Anomalous timestamps found in my logs."
-                           "You probably have or have had a wrong system clock."
-                           "These files have timestamps exceeding the current time:")
-                         anomalous-files)
-                 (s-join "\n"))))))
-
-(defvar secretary--queue nil)
 
 (defmacro secretary-defquery (name args &rest body)
   "Boilerplate wrapper for `cl-defun'.
@@ -1216,7 +1270,8 @@ Put this on `window-buffer-change-functions' and
               (--replace-where (string= (car it) mood-desc)
                                (cons (car it) score)
                                secretary--mood-alist))
-      (push (cons mood-desc score) secretary--mood-alist))))
+      (push (cons mood-desc score) secretary--mood-alist))
+    score-num))
 
 ;;;###autoload
 (secretary-defquery secretary-query-weight ()
@@ -1230,7 +1285,9 @@ Put this on `window-buffer-change-functions' and
       (secretary-append-tsv current-dataset
         (ts-format secretary--date)
         (s-replace "," "." wt))
-      (secretary-emit "Weight today: " (secretary-last-value-in-tsv path) " kg"))))
+      (secretary-emit "Weight today: "
+                      (secretary-last-value-in-tsv current-dataset)
+                      " kg"))))
 
 ;; TODO: This is both a query and excursion, uses another query's dataset, and
 ;; the dialogue wording could benefit from merging with the other query ("Now
@@ -1238,7 +1295,7 @@ Put this on `window-buffer-change-functions' and
 ;; way to define a combined query-and-excursion that fits in with our concepts,
 ;; or a better set of concepts that will cover use cases like this?
 (secretary-defquery secretary-check-yesterday-sleep ()
-  (let* ((dataset (secretary-item-dataset (secretary--item-by-fn secretary-query-sleep)))
+  (let* ((dataset (secretary-item-dataset (secretary--item-by-fn #'secretary-query-sleep)))
          (today-rows (secretary--get-entries-in-tsv dataset (ts-dec 'day 1 secretary--date)))
          (total-yesterday (-sum (--map (string-to-number (nth 3 it)) today-rows))))
     ;; Totalling less than 4 hours is unusual, implying a possible anomaly in data.
@@ -1438,8 +1495,8 @@ Requires the ssconvert program that comes with Gnumeric."
   (interactive)
   (let* ((script (expand-file-name "generate_an_ods.R"
                                    (f-dirname (find-library-name "secretary"))))
-         (sheet (expand-file-name ".tmp_finances.ods"
-                                  secretary-memory-dir))
+         (sheet (expand-file-name "tmp_finances.ods"
+                                  (temporary-file-directory)))
          (default-directory (f-dirname script))
          (app (seq-find #'executable-find '("gnumeric"
                                             "soffice"
@@ -1553,6 +1610,7 @@ Note that org-journal is not needed."
                   (bound-and-true-p org-journal-dir)))
          (file-format (or file-format
                           (and (boundp 'org-journal-file-type)
+                               (boundp 'org-journal-file-format) ;; silence the compiler
                                (eq org-journal-file-type 'daily)
                                org-journal-file-format)
                           "%F.org"))
@@ -1604,110 +1662,7 @@ Note that org-journal is not needed."
 ;; (secretary-present-diary (ts-dec 'day 1 (ts-now)))
 
 
-;;;; Handle idle & reboots & crashes
-
-(defvar secretary--last-online
-  nil)
-
-(defvar secretary--idle-beginning
-  nil)
-
-(defvar secretary-length-of-last-idle 0
-  "Length of the last idle period, in seconds.")
-
-(defcustom secretary-idle-threshold-secs-short (* 10 60)
-  "Duration in seconds, above which the user is considered idle."
-  :group 'secretary
-  :type 'number)
-
-(defcustom secretary-idle-threshold-secs-long (* 90 60)
-  "Be idle at least this many seconds to be greeted upon return."
-  :group 'secretary
-  :type 'number)
-
-(defcustom secretary-return-from-idle-hook
-  '(secretary-log-idle
-    secretary-call-from-idle)
-  "Hook run when user returns from a period of idleness.
-Note: An Emacs startup also counts as a return from idleness.
-You'll probably want your hook to be conditional on some value of
-`secretary-length-of-last-idle', which at startup is calculated from
-the last Emacs shutdown or crash (technically, last time
-`secretary-mode' was running)."
-  :group 'secretary
-  :type '(repeat function))
-
-(defcustom secretary-periodic-not-idle-hook
-  '(secretary--save-variables-to-disk
-    secretary--save-buffer-logs-to-disk)
-  "Hook run every minute when the user is not idle."
-  :group 'secretary
-  :type '(repeat function))
-
-(defun secretary--start-next-timer (&optional assume-idle)
-  "Start one or the other timer depending on idleness.
-If ASSUME-IDLE is non-nil, skip the idle check and associated
-overhead."
-  (if (or assume-idle (secretary-idle-p))
-      (named-timer-run :secretary 2 nil #'secretary--user-is-idle t)
-    (named-timer-run :secretary 60 nil #'secretary--user-is-active)))
-
-(defun secretary--user-is-active ()
-  "Do stuff assuming the user is active (not idle).
-This function is called by `secretary--start-next-timer'
-repeatedly for as long as the user is active (not idle).
-
-Runs `secretary-periodic-not-idle-hook'."
-  ;; Guard the case where the user puts the computer to sleep manually, which
-  ;; means this function will still be queued to run when the computer wakes.  If
-  ;; the time difference is suddenly big, hand off to the other function.
-  (if (> (ts-diff (ts-now) secretary--last-online)
-         secretary-idle-threshold-secs-short)
-      (secretary--user-is-idle)
-    (setq secretary--last-online (ts-now))
-    (setq secretary--idle-beginning (ts-now))
-    (secretary--start-next-timer)
-    ;; Run hooks last, in case they contain bugs.
-    (run-hooks 'secretary-periodic-not-idle-hook)))
-
-(defun secretary--user-is-idle (&optional decrement)
-  "Do stuff assuming the user is idle.
-This function is called by `secretary--start-next-timer'
-repeatedly for as long as the user is idle.
-
-When the user comes back, this function will be called one last
-time, at which point the idleness condition will fail and it sets
-`secretary-length-of-last-idle' and runs
-`secretary-return-from-idle-hook'.  That it has to run exactly
-once with a failing condition that normally succeeds, as opposed
-to running never or forever, is the reason it has to be a
-separate function from `secretary--user-is-active'."
-  (setq secretary--last-online (ts-now))
-  (if (secretary-idle-p)
-      (secretary--start-next-timer 'assume-idle)
-    ;; Take the idle threshold into account and correct the idle begin point.
-    (when decrement
-      (ts-decf (ts-sec secretary--idle-beginning) secretary-idle-threshold-secs-short))
-    (setq secretary-length-of-last-idle (ts-diff (ts-now) secretary--idle-beginning))
-    (unwind-protect
-        (run-hooks 'secretary-return-from-idle-hook)
-      (setq secretary--idle-beginning (ts-now))
-      (secretary--start-next-timer))))
-
-(defcustom secretary-idle-file-name
-  (convert-standard-filename "~/idle.tsv")
-  "Location of the idleness log."
-  :group 'secretary
-  :type 'string)
-
-(defun secretary-log-idle ()
-  (secretary-append-tsv secretary-idle-file-name
-    (ts-format)
-    (number-to-string (/ (round secretary-length-of-last-idle) 60))))
-
-
 ;;;; Persistent variables
-
 
 ;; TODO: should not need to list these. Plus it carries risk of nulling everything.
 (defvar secretary-memory
@@ -1718,18 +1673,20 @@ recover older values as needed. Why not custom-file? People are
 always wiping their custom-file, admittedly for a reason, but
 this is a matter of greater importance.")
 
-(defun secretary-memory-apply (key fn &rest args)
-  "In `secretary-memory', at KEY, apply FN with extra args ARGS.
-Destructive; modifies in place."
-  (secretary-memory-replace
-   key (apply #'funcall fn (map-elt secretary-memory key) args)))
-
 (defun secretary-memory-replace (key value)
   "In `secretary-memory', assign KEY to VALUE.
 Replace if KEY already exists. Destructive."
   (if (assoc key secretary-memory)
       (map-put! secretary-memory key value)
     (setq secretary-memory (map-insert secretary-memory key value))))
+
+(defun secretary-memory-apply (key fn &rest args)
+  "In `secretary-memory', at KEY, apply FN with extra args ARGS.
+Destructive; modifies in place."
+  (secretary-memory-replace
+   key (apply #'funcall fn (map-elt secretary-memory key) args)))
+
+; (setq secretary-memory (map-insert secretary-memory 'secretary-ai-name "foo"))
 
 ;"/home/me/doom-emacs/secretary/memory.tsv"
 ;(secretary--last-value-of-variable 'secretary-debug-p)
@@ -1812,46 +1769,94 @@ assign them in `secretary-memory'."
     (secretary-write-safely (with-current-buffer (secretary-buffer-chat) (buffer-string))
                             secretary-chat-log-file-name)))
 
-;; probably going to be deprecated
-(defcustom secretary-memory-dir
-  (expand-file-name "secretary" user-emacs-directory)
-  "Directory for persistent files (not your datasets)."
-  :group 'secretary
-  :type 'string)
+
+;;; Modes and keys
 
-(defcustom secretary-mem-loc
-  (convert-standard-filename
-   (expand-file-name "memory.tsv" secretary-memory-dir))
-  nil
-  :group'secretary
-  :type'string)
+(defconst secretary-chat-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "r") #'secretary-resume)
+    (define-key map (kbd "+") #'secretary-increment-date)
+    (define-key map (kbd "-") #'secretary-decrement-date)
+    (define-key map (kbd "0") #'secretary-set-date-today)
+    (define-key map (kbd "d") #'secretary-set-date)
+    (define-key map (kbd "q") #'bury-buffer)
+    (define-key map (kbd "?") #'secretary-dispatch)
+    (define-key map (kbd "h") #'secretary-dispatch)
+    map))
 
-(defcustom secretary-chat-log-file-name
-  (convert-standard-filename
-   (expand-file-name "chat.log" secretary-memory-dir))
-  "Where to save chat log across sessions. Can be nil."
-  :group 'secretary
-  :type 'string)
+(define-derived-mode secretary-chat-mode text-mode "Secretary-Chat"
+  :group 'secretary-chat)
+
+(transient-define-prefix secretary-dispatch ()
+  ["General actions"
+   ("q" "Quit" bury-buffer)
+   ;; ("l" "View Ledger report" secretary-present-ledger-report)
+   ;; ("f" "View finances report" secretary-present-ledger-report)
+   ("l" "View Ledger file" secretary-present-ledger-file)
+   ("a" "View Org agenda" org-agenda)
+   ;; ("v" "Visit directory of log files" (lambda () (dired secretary-memory-dir)))
+   ]
+  ;; TODO: make these nonexiting
+  [;; (lambda () (concat "Date (" (ts-format "%x" secretary--date) ")"))
+   "Date"
+   ("0" "Reset date to today (default)" secretary-set-date-today)
+   ("-" "Decrement the date" secretary-decrement-date)
+   ("+" "Increment the date" secretary-increment-date)
+   ("d" "Set date..." secretary-set-date)
+   ])
+
+;; This needs careful coding.
+;; Should the transient take care of resuming the query or should secretary-read do it?
+;; The former of course! Who knows what actions we'll want to put in.
+;;
+;; So we need to be able to append `secretary-resume' to some of these commands
+;; but not others. Assume that the previous prompt died calling this dispatch
+;; without modifying `secretary--queue'.
+;;
+;; We could also provide information taken from the current fn, perhaps its
+;; docstring. Where to put a lambda to insert a string?
+(transient-define-prefix secretary-midprompt-dispatch ()
+  ["General actions"
+   ("q" "Quit" bury-buffer)
+   ("l" "View Ledger file" secretary-present-ledger-file)
+   ("a" "View Org agenda" org-agenda)
+   ]
+  ["Date"
+   ("t" "Reset date to today (default)" secretary-set-date-today)
+   ("-" "Decrement the date" (lambda () (secretary-decrement-date) (secretary-resume)))
+   ("+" "Increment the date" secretary-increment-date)
+   ("d" "Set date..." secretary-set-date)
+   ])
 
 
 ;;;; "Main"
 
-(defvar secretary-r-buffer nil)
-
-(defun secretary--init-r ()
-  "Spin up an R process, loading libraries.
-Uses `run-ess-r' which is full of sanity checks (e.g. for cygwin
-and text encoding), but creates an interactive R buffer which
-unfortunately may surprise the user when they go to work on their
-own R project."
-  (let ((default-directory (convert-standard-filename
-                            (f-dirname (find-library-name "secretary")))))
-    (save-window-excursion
-      (setq secretary-r-buffer (run-ess-r)))
-    ;; gotcha: only use `ess-with-current-buffer' for temp output buffers, not for the process buffer
-    (with-current-buffer secretary-r-buffer
-      ;; TODO: How to check if the script errors out?
-      (ess-execute "source(\"make_data_for_plots.R\")" 'buffer))))
+(defun secretary--check-for-time-anomalies ()
+  "Check for timestamps that don't look right.
+Good to run after enabling `secretary-mode' or changing
+`secretary-items'."
+  (let* ((datasets (--map (secretary-item-dataset it) secretary-items))
+         (logs (list secretary-idle-file-name
+                     secretary-buffer-focus-log-file-name))
+         (files (-non-nil (append datasets logs)))
+         (anomalous-files nil))
+    (dolist (f files)
+      (when (f-exists-p f)
+        (let ((stamps (->> (secretary--get-all-entries-in-tsv f)
+                           (map-keys) ;; first elem of each row
+                           (-map #'string-to-number))))
+          (unless (<= stamps)
+            (message (concat "Timestamps not strictly increasing in: " f)))
+          ;; Check that no timestamp bigger than current time.
+          (if (--any-p (> it (float-time)) stamps)
+              (push f anomalous-files)))))
+    (when anomalous-files
+      (warn "%s"
+            (->> (append '("Secretary: Anomalous timestamps found in my logs."
+                           "You probably have or have had a wrong system clock."
+                           "These files have timestamps exceeding the current time:")
+                         anomalous-files)
+                 (s-join "\n"))))))
 
 (defun secretary--keepalive ()
   (unless (member (named-timer-get :secretary) timer-list)
