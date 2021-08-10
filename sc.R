@@ -64,7 +64,7 @@ d$buf_name
 # Ideally the categories here are slighly more granular. Imagine you change the
 # clock categories later, these should remain meaningful to the modelling
 # machine because they carve reality at the joints. If you have time to kill,
-# see https://www.greaterwrong.com/tag/thingspace for inspiration. The category
+# see https://www.greaterwrong.com/tag/thingspace for inspiration. Additionally note that you can make categories that are conceptual subsets of another even if you don't specify that relation. The category
 # names (after the tilde ~) are just suggestive and meaningless. Consider
 # giving them truly meaningless names, like "fnord" or "1", "2"... so you don't
 # fool yourself.

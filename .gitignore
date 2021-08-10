@@ -1,0 +1,13 @@
+.Rprofile
+.eshell-command-history
+*.pdf
+*.tex
+*.html
+*~
+\#*\#
+.\#*
+
+/BRAINSTORM.org
+/wip.el
+/doc/
+/R/
