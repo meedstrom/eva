@@ -342,12 +342,10 @@ Needed to persist disablings across restarts."
 ;;; Library
 
 ;; REVIEW: see that there's no problem if you delete secretary-memory-dir
-(defvar secretary-mood-alist nil
-  "For suggesting a score in the `secretary-log-mood' prompt.
-Merely a convenience for auto-completion.
-
-The variable populates itself through use, and syncs with a file
-at `secretary-mood-alist-file-name'.")
+(defvar secretary--mood-alist nil
+  "For suggesting a score in the `secretary-query-mood' prompt.
+Merely a convenience for auto-completion. The variable populates
+itself through use.")
 
 (defvar secretary--current-fn nil)
 
@@ -1197,9 +1195,9 @@ Put this on `window-buffer-change-functions' and
 (secretary-defquery secretary-query-mood ()
   (let* ((mood-desc (secretary-read
                      "Your mood: "
-                     (sort (mapcar #'car secretary-mood-alist)
+                     (sort (mapcar #'car secretary--mood-alist)
                            #'secretary--random-p)))
-         (old-score (cdr (assoc mood-desc secretary-mood-alist)))
+         (old-score (cdr (assoc mood-desc secretary--mood-alist)))
          (prompt-for-score
           (concat "Score from 1 to 5"
                   (when old-score " (default " old-score ")")
@@ -1212,13 +1210,13 @@ Put this on `window-buffer-change-functions' and
       (s-replace "," "." score)
       mood-desc)
     (secretary-emit-same-line (nth 2 (secretary--last-in-tsv current-dataset)))
-    ;; Update secretary-mood-alist.
-    (if (assoc mood-desc secretary-mood-alist)
-        (setq secretary-mood-alist
+    ;; Update secretary--mood-alist.
+    (if (assoc mood-desc secretary--mood-alist)
+        (setq secretary--mood-alist
               (--replace-where (string= (car it) mood-desc)
                                (cons (car it) score)
-                               secretary-mood-alist))
-      (push (cons mood-desc score) secretary-mood-alist))))
+                               secretary--mood-alist))
+      (push (cons mood-desc score) secretary--mood-alist))))
 
 ;;;###autoload
 (secretary-defquery secretary-query-weight ()
@@ -1713,29 +1711,12 @@ separate function from `secretary--user-is-active'."
 
 ;; TODO: should not need to list these. Plus it carries risk of nulling everything.
 (defvar secretary-memory
-  '((secretary-ai-name)
-    (secretary-fallback-to-emacs-idle-p)
-    (secretary-user-short-title)
-    (secretary-user-name)
-    (secretary-user-birthday)
-    (secretary-debug-p)
-    (secretary-presumptive-p)
-    (secretary-idle-file-name)
-    (secretary-buffer-focus-log-file-name)
-    (secretary-buffer-existence-log-file-name)
-    (secretary-ledger-file-name)
-    (secretary--idle-beginning)
-    (secretary-mood-alist))
+  nil
   "Alist of all relevant variable values.
-Why not custom-file?  Because...  Remembering past info, even
-stuff the user doesn't particularly want remembered, is a core
-component of what makes a virtual secretary work.  People are
+We log these values to disk at `secretary-mem-loc', so we can
+recover older values as needed. Why not custom-file? People are
 always wiping their custom-file, admittedly for a reason, but
-this is no mere matter of configuration.
-
-In addition, we log these values to disk at `secretary-mem-loc',
-so we can recover older values as needed with
-`secretary--last-value-of-variable' and other functions.")
+this is a matter of greater importance.")
 
 (defun secretary-memory-apply (key fn &rest args)
   "In `secretary-memory', at KEY, apply FN with extra args ARGS.
@@ -1789,12 +1770,6 @@ assign them in `secretary-memory'."
 
 ;(secretary--recover-memory-without-reference)
 
-(defun secretary-last-online-file-name ()
-  (expand-file-name "last-online" secretary-memory-dir))
-
-(defun secretary-mood-alist-file-name ()
-  (expand-file-name "mood-alist" secretary-memory-dir))
-
 ;; TODO: Calc reasonable defaults from dataset contents
 (defun secretary--restore-variables-from-disk ()
   ;; TODO: assign only the variables that should never be nil: mood-alist, various filenames
@@ -1806,33 +1781,32 @@ assign them in `secretary-memory'."
   ;; last-online. Also we will store the contents of secretary-items to
   ;; get/set :last-called and :dismissals, but that's a separate topic.
   (secretary--recover-memory-without-reference)
-  (setq secretary-mood-alist (map-elt secretary-memory 'secretary-mood-alist))
-  ;; (when (f-exists-p (secretary-mood-alist-file-name))
-  ;;   (setq secretary-mood-alist
-  ;;         (read (f-read (secretary-mood-alist-file-name)))))
-  (setq secretary--last-online
-        (if (f-exists-p (secretary-last-online-file-name))
-            (ts-parse (f-read (secretary-last-online-file-name)))
-          (unless (not (null secretary--last-online))
-            (make-ts :unix 0))))
-  (setq secretary--idle-beginning secretary--last-online)
+  (setq secretary--mood-alist (map-elt secretary-memory 'secretary--mood-alist))
+  (setq secretary--last-online (or (map-elt secretary-memory 'secretary--last-online)
+                                   (make-ts :unix 0))) ;; TODO emit error if there are older non-nil values and it's now nil
   (when (and secretary-chat-log-file-name
              (file-exists-p secretary-chat-log-file-name))
-    (let ((chatfile-modtime
-           (make-ts :unix (time-convert (file-attribute-modification-time
-                                         (file-attributes secretary-chat-log-file-name))
-                                        'integer))))
-      (when (ts< secretary--last-chatted chatfile-modtime)
-        (setq secretary--last-chatted chatfile-modtime)))))
+    (let ((chatfile-modtime-unix
+           (time-convert (file-attribute-modification-time
+                          (file-attributes secretary-chat-log-file-name))
+                         'integer))
+          (remembered (map-elt secretary-memory 'secretary--last-chatted)))
+      (setq secretary--last-chatted
+            (make-ts :unix (max chatfile-modtime-unix
+                                (if secretary--last-chatted (ts-unix secretary--last-chatted) 0)
+                                (if remembered (ts-unix remembered) 0))))))
+  (when (ts< secretary--last-online secretary--last-chatted)
+    (setq secretary--last-online secretary--last-chatted))
+  (setq secretary--idle-beginning secretary--last-online))
 
 ;; TODO: ensure in some way that restore-variables has been called before we
 ;; proceed, so we don't accidentally blank out our files.  Sanity checks:
 ;; variables to write are not null? At least when file on disk contains data?
+;; Catch a mass-blanking event: when most variables suddenly null.
 (defun secretary--save-variables-to-disk ()
   (make-directory secretary-memory-dir t)
-  (secretary-write-safely (ts-format secretary--last-online) (secretary-last-online-file-name))
-  ;; (secretary-write-safely (prin1-to-string secretary-mood-alist) (secretary-mood-alist-file-name))
-  (secretary-memory-replace 'secretary-mood-alist secretary-mood-alist)
+  (secretary-memory-replace 'secretary--mood-alist secretary--mood-alist)
+  (secretary-memory-replace 'secretary--last-online secretary--last-online)
   (secretary-save-memory)
   (when secretary-chat-log-file-name
     (secretary-write-safely (with-current-buffer (secretary-buffer-chat) (buffer-string))
@@ -1967,7 +1941,7 @@ is unspecified, but it shouldn't be possible to do."
         (named-timer-run :secretary-keepalive 300 300 #'secretary--keepalive)
         (when after-init-time
           (progn
-            (when (or (null secretary-mood-alist)
+            (when (or (null secretary--mood-alist)
                       (null secretary--last-online)
                       (= 0 (ts-unix secretary--last-online)))
               (secretary--restore-variables-from-disk))
