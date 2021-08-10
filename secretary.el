@@ -1784,7 +1784,8 @@ assign them in `secretary-memory'."
     (while (/= 0 (length table))
       (let ((row (pop table)))
         (unless (member (read (car row)) (-map #'car secretary-memory))
-          (setq secretary-memory (cons (-map #'read row) secretary-memory)))))))
+          (setq secretary-memory (cons (cons (read (car row)) (read (cadr row)))
+                                       secretary-memory)))))))
 
 ;(secretary--recover-memory-without-reference)
 
