@@ -394,7 +394,7 @@ using.")
 (defvar secretary--k nil)
 (defun secretary--y-or-n-p-insert-k ()
   "Mostly like `y-or-n-p-insert-y'."
-  (interactive)
+  (interactive nil special-mode)
   (delete-minibuffer-contents)
   (insert "y")
   (setq secretary--k t)
@@ -869,11 +869,11 @@ In BODY, you have access to the extra temporary variable:
 ;;;; Commands
 
 (defun secretary-decrement-date ()
-  (interactive)
+  (interactive nil secretary-chat-mode)
   (secretary-set-date (ts-dec 'day 1 secretary--date)))
 
 (defun secretary-increment-date ()
-  (interactive)
+  (interactive nil secretary-chat-mode)
   (secretary-set-date (ts-inc 'day 1 secretary--date)))
 
 (defun secretary-set-date-today ()
@@ -1087,10 +1087,10 @@ of `secretary-greeting'. Mutually exclusive with
    (concat (unless secretary-debug-p " ")
            "*" secretary-ai-name ": Buffer focus log*")))
 
-(defun secretary-buffer-existence-log-buffer ()
+(defun secretary-buffer-info-buffer ()
   (get-buffer-create
    (concat (unless secretary-debug-p " ")
-           "*" secretary-ai-name ": Buffer existence log*")))
+           "*" secretary-ai-name ": Buffer info*")))
 
 (defcustom secretary-buffer-focus-log-file-name
   (convert-standard-filename "~/buffer-focus.tsv")
@@ -1098,8 +1098,8 @@ of `secretary-greeting'. Mutually exclusive with
   :group 'secretary
   :type 'string)
 
-(defcustom secretary-buffer-existence-log-file-name
-  (convert-standard-filename "~/buffer-existence.tsv")
+(defcustom secretary-buffer-info-file-name
+  (convert-standard-filename "~/buffer-info.tsv")
   nil
   :group 'secretary
   :type 'string)
@@ -1107,8 +1107,8 @@ of `secretary-greeting'. Mutually exclusive with
 (defun secretary--save-buffer-logs-to-disk ()
   (secretary--transact-buffer-onto-file (secretary-buffer-focus-log-buffer)
                                         secretary-buffer-focus-log-file-name)
-  (secretary--transact-buffer-onto-file (secretary-buffer-existence-log-buffer)
-                                        secretary-buffer-existence-log-file-name))
+  (secretary--transact-buffer-onto-file (secretary-buffer-info-buffer)
+                                        secretary-buffer-info-file-name))
 
 ;; TODO: When buffer major mode changes, count it as a new buffer. Note that
 ;;       (assoc buf secretary-known-buffers) will still work.
@@ -1150,7 +1150,7 @@ Put this on `window-buffer-change-functions' and
         (setq secretary-last-buffer buf)
         (unless known
           (push exist-record secretary-known-buffers)
-          (with-current-buffer (secretary-buffer-existence-log-buffer)
+          (with-current-buffer (secretary-buffer-info-buffer)
             (goto-char (point-max))
             (insert "\n" (string-join (cdr exist-record) "\t"))))
         (with-current-buffer (secretary-buffer-focus-log-buffer)
@@ -1223,20 +1223,40 @@ Put this on `window-buffer-change-functions' and
         (s-replace "," "." wt))
       (secretary-emit "Weight today: " (secretary-last-value-in-tsv path) " kg"))))
 
+;; TODO: This is both a query and excursion, uses another query's dataset, and
+;; the dialogue wording could benefit from merging with the other query ("Now
+;; let's talk about today"). Is merging the best way to go about it? Is there a
+;; way to define a combined query-and-excursion that fits in with our concepts,
+;; or a better set of concepts that will cover use cases like this?
+(secretary-defquery secretary-check-yesterday-sleep ()
+  (let* ((dataset (secretary-item-dataset (secretary--item-by-fn secretary-query-sleep)))
+         (today-rows (secretary--get-entries-in-tsv dataset (ts-dec 'day 1 secretary--date)))
+         (total-yesterday (-sum (--map (string-to-number (nth 3 it)) today-rows))))
+    ;; Totalling less than 4 hours is unusual, implying a possible anomaly in data.
+    (if (> (* 60 4) total-yesterday)
+        (if (secretary-ynp "Yesterday, you slept "
+                           (number-to-string (round (/ total-yesterday 60.0)))
+                           " hours, is this about right?")
+            nil
+          (when (secretary-ynp "Edit " dataset "?")
+            (find-file dataset)
+            (keyboard-quit))))))
+
+;; Old one.
+;; TODO: make it only ask once
 (defun secretary-check-yesterday-sleep ()
   (let* ((dataset (secretary-item-dataset (secretary--item-by-fn secretary--current-fn)))
          (today-rows (secretary--get-entries-in-tsv dataset (ts-dec 'day 1 secretary--date)))
          (total-yesterday (-sum (--map (string-to-number (nth 3 it)) today-rows))))
-    ;; Totalling less than 4 hours is unusual, implying possible anomaly in data.
+    ;; Totalling less than 4 hours is unusual, implying a possible anomaly in data.
     (if (> (* 60 4) total-yesterday)
         (if (secretary-ynp "Yesterday, you slept "
-                    (number-to-string (round (/ total-yesterday 60.0)))
-                    " hours, is this about right?")
+                           (number-to-string (round (/ total-yesterday 60.0)))
+                           " hours, is this about right?")
             nil
           (secretary-emit "You may edit the history at "
-                   dataset
-                   ". For now, let's talk about today.")
-          (sit-for secretary-sit-short)))))
+                          dataset
+                          ". For now, let's talk about today.")))))
 
 ;; TODO: (Feature) Look at when idle ended to suggest a response.
 ;; TODO: (Feature) Let user say "since 5" instead of quantity-art
@@ -1537,6 +1557,9 @@ Note that org-journal is not needed."
 ;; (secretary-existing-diary (ts-now) "/home/kept/Diary" )
 ;; (--keep (secretary-existing-diary it "/home/kept/Diary") (funcall secretary-past-sample-function))
 
+;; FIXME: defquery with keyboard-quit does not write to the alt-dataset, so
+;; :max-successes-per-day is never invoked
+;;
 ;; TODO: (Feature) Make separate buffers for each datetree-based entry (use
 ;;                 rename-buffer?) and interleave with discrete files so it's
 ;;                 all in chrono order.

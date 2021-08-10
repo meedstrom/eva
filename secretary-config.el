@@ -1,4 +1,4 @@
-;;; secretary-config.el -*- lexical-binding: t; nameless-current-name: "secretary"; -*-
+;;; secretary-config.el -*- lexical-binding: t; nameless-current-name: "secretary"; no-byte-compile: t; -*-
 ;; Copyright (C) 2021 Martin Edström
 
 ;; This program is free software: you can redistribute it and/or modify
@@ -41,20 +41,10 @@
 (setq secretary-presumptive-p t)
 (setq secretary-idle-file-name "/home/kept/Self_data/idle.tsv")
 (setq secretary-buffer-focus-log-file-name "/home/kept/Self_data/buffer-focus.tsv")
-(setq secretary-buffer-existence-log-file-name "/home/kept/Self_data/buffer-existence.tsv")
+(setq secretary-buffer-info-file-name "/home/kept/Self_data/buffer-info.tsv")
 (setq secretary-ledger-file-name "/home/kept/Journal/Finances/l.ledger")
 ;; (setq org-journal-dir)
 ;; (setq org-journal-file-format "%F.org")
-
-(defconst secretary-memory '((secretary-user-short-title . "sir")
-                             (secretary-user-name . "Martin")
-                             (secretary-user-short-title . "1991-12-07"))
-  "Alist of variable values.
-Why not custom-file?  Because...  Remembering past info, even
-stuff the user doesn't particularly want remembered, is a core
-component of what makes a virtual secretary work.  People are
-always wiping their custom-file, admittedly for a reason, but
-this is no mere matter of configuration.")
 
 (require 'secretary)
 
