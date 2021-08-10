@@ -327,6 +327,17 @@ Needed to persist disablings across restarts."
                     (read (f-read (secretary-disabled-items-file-name))))))
     (-difference all disabled)))
 
+(defun secretary-reenable-item ()
+  (interactive)
+  (let* ((disabled-fns (when (f-exists-p (secretary-disabled-items-file-name))
+                         (read (f-read (secretary-disabled-items-file-name)))))
+         (coll (when (< 0 (length disabled-fns))
+                 (-map #'symbol-name disabled-fns))))
+    (if coll
+        ;; TODO
+        (completing-read "Reenable: " coll)
+      (message "There are no disabled items"))))
+
 
 ;;; Library
 
