@@ -1710,6 +1710,84 @@ separate function from `secretary--user-is-active'."
 
 ;;;; Persistent variables
 
+
+;; TODO: should not need to list these. Plus it carries risk of nulling everything.
+(defvar secretary-memory
+  '((secretary-ai-name)
+    (secretary-fallback-to-emacs-idle-p)
+    (secretary-user-short-title)
+    (secretary-user-name)
+    (secretary-user-birthday)
+    (secretary-debug-p)
+    (secretary-presumptive-p)
+    (secretary-idle-file-name)
+    (secretary-buffer-focus-log-file-name)
+    (secretary-buffer-existence-log-file-name)
+    (secretary-ledger-file-name)
+    (secretary--idle-beginning)
+    (secretary-mood-alist))
+  "Alist of all relevant variable values.
+Why not custom-file?  Because...  Remembering past info, even
+stuff the user doesn't particularly want remembered, is a core
+component of what makes a virtual secretary work.  People are
+always wiping their custom-file, admittedly for a reason, but
+this is no mere matter of configuration.
+
+In addition, we log these values to disk at `secretary-mem-loc',
+so we can recover older values as needed with
+`secretary--last-value-of-variable' and other functions.")
+
+(defun secretary-memory-apply (key fn &rest args)
+  "In `secretary-memory', at KEY, apply FN with extra args ARGS.
+Destructive; modifies in place."
+  (secretary-memory-replace
+   key (apply #'funcall fn (map-elt secretary-memory key) args)))
+
+(defun secretary-memory-replace (key value)
+  "In `secretary-memory', assign KEY to VALUE.
+Replace if KEY already exists. Destructive."
+  (if (assoc key secretary-memory)
+      (map-put! secretary-memory key value)
+    (setq secretary-memory (map-insert secretary-memory key value))))
+
+;"/home/me/doom-emacs/secretary/memory.tsv"
+;(secretary--last-value-of-variable 'secretary-debug-p)
+;(secretary-save-memory)
+
+;; Guess this works, just takes up a lot of disk space over time.
+(defun secretary-save-memory ()
+  (cl-loop for cell in secretary-memory
+           do (progn
+                (secretary-append-tsv secretary-mem-loc
+                  (prin1-to-string (car cell))
+                  (prin1-to-string (cdr cell))))))
+
+;; DEPRECATED
+(defun secretary--recover-memory-deterministic ()
+  (defun secretary--last-value-of-variable (var)
+    (let* ((table (nreverse (secretary--get-all-entries-in-tsv secretary-mem-loc)))
+           (ok t))
+      (cl-block nil
+        (while ok
+          (let ((row (pop table)))
+            (when (eq (read (nth 1 row)) var)
+              (setq ok nil)
+              (cl-return (read (nth 2 row)))))))))
+  (cl-loop for cell in secretary-memory
+           do (map-put! secretary-memory (car cell)
+                        (secretary--last-value-of-variable (car cell)))))
+
+(defun secretary--recover-memory-without-reference ()
+  "Grab the newest values from file at `secretary-mem-loc' and
+assign them in `secretary-memory'."
+  (let* ((table (-map #'cdr (nreverse (secretary--get-all-entries-in-tsv secretary-mem-loc)))))
+    (while (/= 0 (length table))
+      (let ((row (pop table)))
+        (unless (member (read (car row)) (-map #'car secretary-memory))
+          (setq secretary-memory (cons (-map #'read row) secretary-memory)))))))
+
+;(secretary--recover-memory-without-reference)
+
 (defun secretary-last-online-file-name ()
   (expand-file-name "last-online" secretary-memory-dir))
 
@@ -1718,9 +1796,19 @@ separate function from `secretary--user-is-active'."
 
 ;; TODO: Calc reasonable defaults from dataset contents
 (defun secretary--restore-variables-from-disk ()
-  (when (f-exists-p (secretary-mood-alist-file-name))
-    (setq secretary-mood-alist
-          (read (f-read (secretary-mood-alist-file-name)))))
+  ;; TODO: assign only the variables that should never be nil: mood-alist, various filenames
+  ;;
+  ;; TODO: consider whether to just pull and assign directly from
+  ;; secretary-memory instead of global variables, and if so which
+  ;; variables. Doesn't make sense for user-customizables like
+  ;; mood-alist-file-name, we kinda don't need mood-alist itself. Nor
+  ;; last-online. Also we will store the contents of secretary-items to
+  ;; get/set :last-called and :dismissals, but that's a separate topic.
+  (secretary--recover-memory-without-reference)
+  (setq secretary-mood-alist (map-elt secretary-memory 'secretary-mood-alist))
+  ;; (when (f-exists-p (secretary-mood-alist-file-name))
+  ;;   (setq secretary-mood-alist
+  ;;         (read (f-read (secretary-mood-alist-file-name)))))
   (setq secretary--last-online
         (if (f-exists-p (secretary-last-online-file-name))
             (ts-parse (f-read (secretary-last-online-file-name)))
@@ -1736,25 +1824,36 @@ separate function from `secretary--user-is-active'."
       (when (ts< secretary--last-chatted chatfile-modtime)
         (setq secretary--last-chatted chatfile-modtime)))))
 
-;; TODO: ensure in some way that restore-variables has been called before
-;; we proceed, so we don't accidentally blank out our files.
-;; Sanity checks: variables to write are not null? At least when file on disk contains data?
+;; TODO: ensure in some way that restore-variables has been called before we
+;; proceed, so we don't accidentally blank out our files.  Sanity checks:
+;; variables to write are not null? At least when file on disk contains data?
 (defun secretary--save-variables-to-disk ()
   (make-directory secretary-memory-dir t)
   (secretary-write-safely (ts-format secretary--last-online) (secretary-last-online-file-name))
-  (secretary-write-safely (prin1-to-string secretary-mood-alist) (secretary-mood-alist-file-name))
+  ;; (secretary-write-safely (prin1-to-string secretary-mood-alist) (secretary-mood-alist-file-name))
+  (secretary-memory-replace 'secretary-mood-alist secretary-mood-alist)
+  (secretary-save-memory)
   (when secretary-chat-log-file-name
     (secretary-write-safely (with-current-buffer (secretary-buffer-chat) (buffer-string))
                             secretary-chat-log-file-name)))
 
+;; probably going to be deprecated
 (defcustom secretary-memory-dir
   (expand-file-name "secretary" user-emacs-directory)
   "Directory for persistent files (not your datasets)."
   :group 'secretary
   :type 'string)
 
+(defcustom secretary-mem-loc
+  (convert-standard-filename
+   (expand-file-name "memory.tsv" secretary-memory-dir))
+  nil
+  :group'secretary
+  :type'string)
+
 (defcustom secretary-chat-log-file-name
-  (expand-file-name "chat.log" secretary-memory-dir)
+  (convert-standard-filename
+   (expand-file-name "chat.log" secretary-memory-dir))
   "Where to save chat log across sessions. Can be nil."
   :group 'secretary
   :type 'string)
