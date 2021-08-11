@@ -24,7 +24,7 @@
 ;; (setq secretary--idle-beginning (setq secretary--last-online (make-ts :unix 0)))
 
 ;; HACK: sit times specific to my machine
-(ert-deftest pid ()
+(ert-deftest secretary-test-pid ()
   (secretary-mode 0)
   (let ((p (secretary--run-async "emacs" "--with-profile=doom")))
     (sit-for 5)
@@ -33,7 +33,7 @@
     (sit-for 1)
     (should-not (secretary--another-secretary-running-p))))
 
-(ert-deftest idle1 ()
+(ert-deftest secretary-test-idle1 ()
   (secretary-mode 0)
   (setq secretary--idle-seconds-fn #'org-emacs-idle-seconds)
   (secretary--start-next-timer t)
@@ -42,7 +42,7 @@
   (sit-for 2)
   (should (eq (seq-elt (named-timer-get :secretary) 5) 'secretary--user-is-active)))
 
-(ert-deftest keepalive ()
+(ert-deftest secretary-test-keepalive ()
   (secretary-mode 0)
   (setq secretary--idle-seconds-fn #'org-emacs-idle-seconds)
   (secretary--keepalive)
@@ -51,7 +51,7 @@
   (named-timer-cancel :secretary-keepalive)
   (named-timer-cancel :secretary))
 
-(ert-deftest secretary-defun ()
+(ert-deftest secretary-test-defun ()
   (should
    (equal
     (macroexpand '(secretary-defquery foo (x1 x2)
@@ -81,7 +81,7 @@
 			       (expand-file-name "successes-foo" secretary-memory-dir))))
                         (advice-remove 'abort-recursive-edit #'secretary--after-cancel-do-things))))))))
 
-(ert-deftest ts-usage ()
+(ert-deftest secretary-test-ts-usage ()
   (let ((now (ts-now)))
     (should (equal (ts-dec 'month 12 now)
                    (ts-dec 'year 1 now)))
