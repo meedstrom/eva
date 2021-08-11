@@ -13,9 +13,10 @@ compile-and-clean: $(ELC)
 # $ELC expands to .elc versions of all files listed in $EL.
 compile: $(ELC)
 
-check: secretary-tests.elc
-	$(EMACS) -Q -L . $(LDFLAGS) --batch -l secretary-tests.elc -f ert-run-tests-batch
+check: secretary-test.elc
+	$(EMACS) -Q -L . $(LDFLAGS) --batch -l secretary-test.elc -f ert-run-tests-batch
 
+# alias
 test: check
 
 clean:
@@ -23,7 +24,7 @@ clean:
 
 # Dependencies
 # State that secretary-test depends on all other elc files being built first.
-secretary-tests.elc:  $(ELC)
+secretary-test.elc:  $(ELC)
 secretary-config.elc: secretary.elc
 
 # Tell make how to compile an .el into an .elc.
