@@ -246,9 +246,6 @@ separate function from `secretary--user-is-active'."
 ;; the wrong values!! Be sure you have a good reason.
 
 ;; TODO: remove some/all initvalues?
-;; TODO: Instead of successes-today, just write timestamps of successful runs
-;; to another (private) dataset. That way, we need much less programming logic
-;; in our boilerplates.
 (cl-defstruct (secretary-item
                (:constructor secretary-item-create)
                (:copier nil))
@@ -482,12 +479,6 @@ own R project."
       (dolist (x '("o" "i" "k" "<SPC>"))
         (define-key y-or-n-p-map (kbd x) #'y-or-n-p-insert-other)))))
 
-(defun secretary--after-cancel-do-things ()
-  (advice-remove 'abort-recursive-edit #'secretary--after-cancel-do-things) ;; needed
-  (cl-incf (secretary-item-dismissals
-            (secretary--item-by-fn secretary--current-fn)))
-  (setq secretary--current-fn nil)) ;; hygiene
-
 (defun secretary-check-special-input (input)
   (when (string-match-p "/skip" input)
     (progn
@@ -688,11 +679,11 @@ triggers the return-from-idle-hook."
   "Number of seconds user has been idle, as told by the system."
   (funcall secretary--idle-seconds-fn))
 
-;; DEPRECATED: poor name-funcitonality match anyway
-(defun secretary-idle-p ()
-  (let ((user-idle-or-secretary-offline-seconds (max (secretary--idle-seconds)
-                                                     (ts-diff (ts-now) secretary--last-online))))
-    (> user-idle-or-secretary-offline-seconds secretary-idle-threshold-secs-short)))
+;; ;; DEPRECATED: poor name-funcitonality match anyway
+;; (defun secretary-idle-p ()
+;;   (let ((user-idle-or-secretary-offline-seconds (max (secretary--idle-seconds)
+;;                                                      (ts-diff (ts-now) secretary--last-online))))
+;;     (> user-idle-or-secretary-offline-seconds secretary-idle-threshold-secs-short)))
 
 (defun secretary-idle-p ()
   (> (secretary--idle-seconds) secretary-idle-threshold-secs-short))
@@ -766,6 +757,98 @@ If \"am\" or \"pm\" present, assume input is in 12-hour clock."
             (number-to-string hour) ":"
             (when (< minute 10) "0")
             (number-to-string minute))))
+
+(defvar secretary--excursion-buffers nil)
+
+;; (add-function :after after-focus-change-function #'secretary-log-buffer)
+;; (add-hook 'window-selection-change-functions #'secretary-log-buffer)
+
+(defun secretary--check-return-from-excursion ()
+  (when (-none-p #'buffer-live-p secretary--excursion-buffers)
+    (named-timer-cancel :secretary-excursion)
+    (remove-hook 'kill-buffer-hook #'secretary--check-return-from-excursion)
+    (setq secretary--excursion-buffers nil) ;; hygiene
+    (setq secretary--queue
+          (cl-remove secretary--current-fn secretary--queue :count 1))
+    (secretary-resume)))
+
+;; WIP
+(defun secretary--stop-watching ()
+  "Called after 5 minutes on an excursion."
+  (remove-hook 'kill-buffer-hook #'secretary--check-return-from-excursion))
+
+(defun secretary--after-cancel-do-things ()
+  (advice-remove 'abort-recursive-edit #'secretary--after-cancel-do-things) ;; needed
+  (cl-incf (secretary-item-dismissals
+             (secretary--item-by-fn secretary--current-fn)))
+  ;; Re-add the fn to the queue because it got removed (so I expect); after a
+  ;; cancel, we want it to remain queued up.
+  (cl-pushnew secretary--current-fn secretary--queue)
+  (setq secretary--current-fn nil)) ;; hygiene
+
+;; Ok, here's the shenanigans.  Observe that keyboard-quit and
+;; abort-recursive-edit are distinct.  When the user cancels a "query" by
+;; typing C-g, they were in the minibuffer, so it calls abort-recursive-edit.
+;; You can define an "excursion" by putting a keyboard-quit in BODY.  With
+;; this, we ensure different behavior for queries and excursions.  How?  We
+;; advise abort-recursive-edit to do things that we only want when a query is
+;; cancelled.  In this macro, pay attention to the placement of NEW-BODY, since
+;; it may contain a keyboard-quit.  Thus, everything coming after NEW-BODY will
+;; never be called for excursions, unless of course you use unwind-protect.
+(defmacro secretary-defquery-and-excursion (name args &rest body)
+  (declare (indent defun) (doc-string 3))
+  (let* ((parsed-body (macroexp-parse-body body))
+          (declarations (car parsed-body))
+          (new-body (cdr parsed-body)))
+    `(cl-defun ,name ,args
+       ;; Ensure it's always interactive
+       ,@(if (member 'interactive (-map #'car-safe declarations))
+           declarations
+           (-snoc declarations '(interactive)))
+       (setq secretary--current-fn #',name)
+       (unless (secretary--item-by-fn secretary--current-fn)
+         (error "%s not listed in secretary-items" (symbol-name secretary--current-fn)))
+       ;; Set up watchers in case any "excursion" happens.
+       (unless (called-interactively-p 'any) ;; allow manual use via M-x without triggering shenanigans
+         (add-hook 'kill-buffer-hook #'secretary--check-return-from-excursion)
+         (named-timer-run :secretary-excursion (* 5 60) nil #'secretary-end-session))
+       ;; Set up watcher for cancelled prompt.
+       (advice-add 'abort-recursive-edit :before #'secretary--after-cancel-do-things)
+       (let* ((current-item (secretary--item-by-fn secretary--current-fn))
+              (current-dataset (secretary-item-dataset current-item))
+              (successful-query? nil))
+         (unwind-protect
+             (prog1 (progn
+                      ;; I'm not sure about the :successes-today key, it
+                      ;; doesn't seem ideologically pure because any code
+                      ;; outside this macro could access the key too and then
+                      ;; it may not reflect today's successes.  Regardless, it
+                      ;; doesn't hurt to keep for now.  Here we zero it out if
+                      ;; the day is a new day.
+                      (when (= (ts-day (ts-dec 'day 1 (ts-now)))
+                               (ts-day (secretary-item-last-called current-item)))
+                        (setf (secretary-item-successes current-item) 0))
+                      ;; I suppose we could infer from last-called afterwards
+                      ;; whether the excursion was a failure.
+                      (setf (secretary-item-last-called current-item) (ts-now))
+                      ,@new-body)
+               ;; All below this line will only happen for queries, and only after success.
+               (setq successful-query? t)
+               (setq secretary--queue
+                     (cl-remove secretary--current-fn secretary--queue :count 1))
+               (setf (secretary-item-dismissals current-item) 0)
+               (cl-incf (secretary-item-successes current-item)) ;; TODO: increment it after an excursion too somehow
+               ;; Save timestamp of this successful run, even if there's no user-specified dataset.
+               (when (null current-dataset)
+                 (secretary-append-tsv
+                   (expand-file-name ,(concat "successes-" (symbol-name name)) secretary-memory-dir)))
+               ;; Clean up, because this wasn't an excursion.
+               (remove-hook 'kill-buffer-hook #'secretary--check-return-from-excursion))
+           ;; All below this line will happen for both queries and excursions, success or no.
+           ;; So, here are things to run on any excursion or failed query. IDK if that's useful.
+           (unless successful-query?
+             )
+           (advice-remove 'abort-recursive-edit #'secretary--after-cancel-do-things))))))
 
 (defmacro secretary-defquery (name args &rest body)
   "Boilerplate wrapper for `cl-defun'.
@@ -852,8 +935,8 @@ In BODY, you have access to the extra temporary variable:
        (unless (secretary--item-by-fn secretary--current-fn)
          (error "%s not listed in secretary-items" (symbol-name secretary--current-fn)))
        (unless (called-interactively-p 'any) ;; allow manual use via M-x without triggering shenanigans
-         (add-hook 'kill-buffer-hook #'secretary-return-from-excursion)
-         (named-timer-run :secretary-excursion (* 5 60) nil #'secretary-end-session))
+         (add-hook 'kill-buffer-hook #'secretary--check-return-from-excursion)
+         (named-timer-run :secretary-excursion (* 5 60) nil #'secretary--stop-watching))
        (let ((current-dataset (secretary-item-dataset
                                (secretary--item-by-fn secretary--current-fn))))
          (unwind-protect
@@ -864,21 +947,8 @@ In BODY, you have access to the extra temporary variable:
                (keyboard-quit))  ;; REVIEW: sane?
            ;; If something in BODY broke, clean up. The keyboard-quit above
            ;; means we never arrive here on success.
-           (remove-hook 'kill-buffer-hook #'secretary-return-from-excursion)
+           (remove-hook 'kill-buffer-hook #'secretary--check-return-from-excursion)
            (named-timer-cancel :secretary-excursion))))))
-
-(defvar secretary--excursion-buffers nil)
-
-(defun secretary-return-from-excursion ()
-  (when (-none-p #'buffer-live-p secretary--excursion-buffers)
-    (named-timer-cancel :secretary-excursion)
-    (remove-hook 'kill-buffer-hook #'secretary-return-from-excursion)
-    (setq secretary--excursion-buffers nil) ;; hygiene
-    (secretary-resume)))
-
-;; WIP
-(defun secretary-end-session ()
-  (remove-hook 'kill-buffer-hook #'secretary-return-from-excursion))
 
 
 ;;;; Commands
