@@ -1356,16 +1356,22 @@ indeterminate times."
 
 (defun secretary--restore-item-metadata-from-mem ()
   (dolist (disk-item (map-elt secretary-memory 'secretary-items))
-    (let* ((fn-sym (secretary-item-fn disk-item))
-           (active-item (when (fboundp fn-sym)
-                          (secretary--item-by-fn fn-sym))))
-      ;; if it reflects something we have defined currently
-      (when (fboundp fn-sym)
-        ;;  update the current one's :dismissals etc to match on-disk values.
-        (setf (secretary-item-dismissals active-item)
-              (secretary-item-dismissals disk-item))
-        (setf (secretary-item-last-called active-item)
-              (secretary-item-last-called disk-item))))))
+    (unless (ignore-errors (let* ((fn-sym (secretary-item-fn disk-item))
+                                   (active-item (when (fboundp fn-sym)
+                                                  (secretary--item-by-fn fn-sym))))
+                             ;; if it reflects something we have defined currently
+                             (when (fboundp fn-sym)
+                               ;;  update the current one's :dismissals etc to match on-disk values.
+                               (setf (secretary-item-dismissals active-item)
+                                 (secretary-item-dismissals disk-item))
+                               (setf (secretary-item-last-called active-item)
+                                 (secretary-item-last-called disk-item)))
+                             t))
+      (warn
+        (s-join "\n"
+          '("secretary--restore-item-metadata-from-mem failed. "
+             " Did you change the secretary-item defstruct?"
+             " Proceeding because not critical.  May self-correct next sync."))))))
 
 ;; TODO: Calc reasonable defaults from dataset contents
 (defun secretary--restore-variables-from-disk ()
