@@ -1430,16 +1430,16 @@ indeterminate times."
 
 (transient-define-prefix secretary-dispatch ()
   ["General actions"
-   ("q" "Quit" bury-buffer)
+   ("q" "Quit the chat" bury-buffer)
    ;; ("v" "Visit directory of log files" (lambda () (dired secretary-memory-dir)))
    ]
   ;; TODO: make these nonexiting
   [;; (lambda () (concat "Date (" (ts-format "%x" secretary--date) ")"))
    "Date"
-   ("0" "Reset date to today (default)" secretary-set-date-today)
-   ("-" "Decrement the date" secretary-decrement-date)
-   ("+" "Increment the date" secretary-increment-date)
-   ("d" "Set date..." secretary-set-date)
+   ("0" "Reset date to today (default)" secretary-set-date-today :transient t)
+   ("-" "Decrement the date" secretary-decrement-date :transient t)
+   ("+" "Increment the date" secretary-increment-date :transient t)
+   ("d" "Set date..." secretary-set-date :transient t)
    ])
 
 ;; This needs careful coding.
