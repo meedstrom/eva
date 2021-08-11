@@ -273,28 +273,32 @@ separate function from `secretary--user-is-active'."
   "Get the item associated with the query function FN."
   (--find (equal fn (secretary-item-fn it)) secretary-items))
 
-(defun secretary-call-fn-check-dismissals (fn)
-  "Call a fn, but react specially if it's been dismissed many times."
-  (let* ((item (secretary--item-by-fn fn))
-         (dismissals (secretary-item-dismissals item)))
-    (unless (and (>= dismissals 3)
-                 (when (secretary-ynp
-                        "You have been dismissing "
-                        (symbol-name fn)
-                        ", shall I stop tracking it for now?")
-                   (secretary-disable-item-by-fn fn)
-                   t))
-      (setf (secretary-item-dismissals item) 0)
-      (funcall fn))))
+(defun secretary-disabled-items-file-name ()
+  "Path to file holding list of disabled queries.
+Needed to persist disablings across restarts."
+  (expand-file-name "disabled-items.el" secretary-memory-dir))
 
-;; NOTE: maybe delete
-;; NOTE: Do not move the check to secretary--pending-p, since it needs interactivity.
-(defun secretary-call-fn-check-dismissals (f)
-  "Call a fn, but react specially if it's been dismissed many times."
-  (interactive "CCommand: ")
-  (unless (and (<= 3 (secretary-item-dismissals (secretary--item-by-fn f)))
-               (secretary-ask-disable f))
-    (funcall f)))
+(defun secretary--enabled-items ()
+  (let ((all (-map #'secretary-item-fn secretary-items))
+        (disabled (when (f-exists-p (secretary-disabled-items-file-name))
+                    (read (f-read (secretary-disabled-items-file-name))))))
+    (-difference all disabled)))
+
+(defun secretary-reenable-item ()
+  (interactive)
+  (let* ((disabled-fns (when (f-exists-p (secretary-disabled-items-file-name))
+                         (read (f-read (secretary-disabled-items-file-name)))))
+         (coll (when (< 0 (length disabled-fns))
+                 (-map #'symbol-name disabled-fns))))
+    (if coll
+        ;; TODO
+        (completing-read "Reenable: " coll)
+      (message "There are no disabled items"))))
+
+(defun secretary-disable-item-by-fn (fn)
+  (f-write (prin1-to-string (remove fn (secretary--enabled-items)))
+           'utf-8
+           (secretary-disabled-items-file-name)))
 
 (defun secretary-ask-disable (fn)
   (if (secretary-ynp
@@ -304,6 +308,14 @@ separate function from `secretary--user-is-active'."
              t)
     (setf (secretary-item-dismissals (secretary--item-by-fn fn)) 0)
     nil))
+
+;; NOTE: Do not move the check to secretary--pending-p, since it needs interactivity.
+(defun secretary-call-fn-check-dismissals (fn)
+  "Call FN, but ask to disable if been dismissed many times."
+  (interactive "CCommand: ")
+  (unless (and (<= 3 (secretary-item-dismissals (secretary--item-by-fn fn)))
+               (secretary-ask-disable fn))
+    (funcall fn)))
 
 (defun secretary--pending-p (fn)
   (let* ((i (secretary--item-by-fn fn))
@@ -359,33 +371,6 @@ separate function from `secretary--user-is-active'."
 ;;(secretary--pending-p #'secretary-greet)
 ;;(secretary--pending-p #'secretary-query-sleep)
 ;;(secretary--pending-p #'secretary-query-mood)
-
-(defun secretary-disable-item-by-fn (fn)
-  (f-write (prin1-to-string (remove fn (secretary--enabled-items)))
-           'utf-8
-           (secretary-disabled-items-file-name)))
-
-(defun secretary-disabled-items-file-name ()
-  "Path to file holding list of disabled queries.
-Needed to persist disablings across restarts."
-  (expand-file-name "disabled-items.el" secretary-memory-dir))
-
-(defun secretary--enabled-items ()
-  (let ((all (-map #'secretary-item-fn secretary-items))
-        (disabled (when (f-exists-p (secretary-disabled-items-file-name))
-                    (read (f-read (secretary-disabled-items-file-name))))))
-    (-difference all disabled)))
-
-(defun secretary-reenable-item ()
-  (interactive)
-  (let* ((disabled-fns (when (f-exists-p (secretary-disabled-items-file-name))
-                         (read (f-read (secretary-disabled-items-file-name)))))
-         (coll (when (< 0 (length disabled-fns))
-                 (-map #'symbol-name disabled-fns))))
-    (if coll
-        ;; TODO
-        (completing-read "Reenable: " coll)
-      (message "There are no disabled items"))))
 
 
 ;;; Library
@@ -882,7 +867,6 @@ In BODY, you have access to the extra temporary variable:
            (remove-hook 'kill-buffer-hook #'secretary-return-from-excursion)
            (named-timer-cancel :secretary-excursion))))))
 
-(defvar secretary--excursion-buffer nil)
 (defvar secretary--excursion-buffers nil)
 
 (defun secretary-return-from-excursion ()
@@ -892,13 +876,7 @@ In BODY, you have access to the extra temporary variable:
     (setq secretary--excursion-buffers nil) ;; hygiene
     (secretary-resume)))
 
-(defun secretary-return-from-excursion ()
-  (when (eq (current-buffer) secretary--excursion-buffer)
-    (named-timer-cancel :secretary-excursion)
-    (remove-hook 'kill-buffer-hook #'secretary-return-from-excursion)
-    (setq secretary--excursion-buffer nil) ;; hygiene
-    (secretary-resume)))
-
+;; WIP
 (defun secretary-end-session ()
   (remove-hook 'kill-buffer-hook #'secretary-return-from-excursion))
 
