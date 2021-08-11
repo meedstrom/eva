@@ -48,8 +48,7 @@
   (org-agenda-list)
   (org-agenda-log-mode)
   (org-agenda-archives-mode t)
-  (push (current-buffer) secretary--excursion-buffers)
-  (setq secretary--excursion-buffer (current-buffer)))
+  (push (current-buffer) secretary--excursion-buffers))
 
 ;;;###autoload
 (secretary-defquery secretary-query-ingredients ()
@@ -132,7 +131,7 @@ itself through use.")
   (interactive)
   (setq secretary--current-fn #'secretary-plot-weight-ascii)
   ;; Refresh data with R.
-  (with-current-buffer secretary-r-buffer
+  (with-current-buffer secretary-buffer-r
     (ess-execute "source(\"make_data_for_plots.R\")" 'buffer))
   ;; Plot with gnuplot.
   (let* ((pkg-loc (convert-standard-filename (f-dirname (find-library-name "secretary"))))
@@ -256,15 +255,14 @@ Uses the first command specified in `ledger-reports'."
         (ledger-report-goto)
       (with-current-buffer (find-file-noselect secretary-ledger-file-name)
         (ledger-report (caar ledger-reports) nil)
-        (setq secretary--excursion-buffer (current-buffer))))))
+        (push (current-buffer) secretary--excursion-buffers)))))
 
 ;;;###autoload
 (secretary-defexcursion secretary-present-ledger-file ()
   (message (secretary-emit "Sending you to your Ledger file. Sayonara!"))
   (sit-for secretary-sit-medium)
-  (pop-to-buffer
-   (setq secretary--excursion-buffer
-         (find-file-noselect "/home/kept/Journal/Finances/2021.ledger")))
+  (pop-to-buffer (find-file-noselect secretary-ledger-file-name))
+  (push (current-buffer) secretary--excursion-buffers)
   (view-mode)
   (goto-char (point-max)))
 
