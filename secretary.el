@@ -242,6 +242,9 @@ separate function from `secretary--user-is-active'."
 ;;; Items
 ;; Q: What's cl-defstruct?  A: https://nullprogram.com/blog/2018/02/14/
 
+;; NOTE: If you change the order of keys, secretary--recover-memory will set
+;; the wrong values!! Be sure you have a good reason.
+
 ;; TODO: remove some/all initvalues?
 ;; TODO: Instead of successes-today, just write timestamps of successful runs
 ;; to another (private) dataset. That way, we need much less programming logic
@@ -249,14 +252,15 @@ separate function from `secretary--user-is-active'."
 (cl-defstruct (secretary-item
                (:constructor secretary-item-create)
                (:copier nil))
-  fn ;; primary key (must be unique)
-  dataset
   (dismissals 0)
-  max-entries-per-day
-  (max-successes-per-day nil :documentation "Alias of max-entries-per-day, more semantically meaningful where there is no dataset.")
   max-calls-per-day
+  (max-successes-per-day nil :documentation "Alias of max-entries-per-day, more semantically meaningful where there is no dataset.")
+  max-entries-per-day
   (min-hours-wait 3)
   lookup-posted-time
+  successes
+  fn ;; primary key (must be unique)
+  dataset
   (last-called (make-ts :unix 0)) ;; prevent nil-value errors
   ;; name ;; truly-unique key (if reusing fn in two instances for some reason)
   )
