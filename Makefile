@@ -2,7 +2,7 @@
 .POSIX:
 .SUFFIXES: .el .elc
 EMACS	= emacs
-EL   	= secretary.el secretary-config.el
+EL   	= secretary.el secretary-config.el secretary-builtin.el secretary-activity.el
 ELC  	= $(EL:.el=.elc)
 LDFLAGS = -L deps/ts -L deps/dash -L deps/s -L deps/ess/lisp -L deps/f -L deps/named-timer -L deps/pfuture -L deps/transient/lisp
 

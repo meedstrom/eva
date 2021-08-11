@@ -20,17 +20,11 @@
 
 ;;; Code:
 
-;; user setup
-
 ;; (require 'org-id)
 ;; (org-id-update-id-locations '("/home/kept/Emacs/secretary/test.org"))
 
-
-
 ;; must be set early
 (setq secretary-ai-name "Maya")
-
-;; probably must be set early
 (setq secretary-fallback-to-emacs-idle-p t)
 
 ;; best set early, but not breaking if not
@@ -47,6 +41,8 @@
 ;; (setq org-journal-file-format "%F.org")
 
 (require 'secretary)
+(require 'secretary-builtin)
+(require 'secretary-activity)
 
 ;; HINT: you can even use the same object multiple times in the queue, you'll
 ;; just have to assign the output of (secretary-item-create) to an external
@@ -90,6 +86,29 @@
        ;;        (sit-for secretary-sit-long)))
        (secretary-item-create :fn #'secretary-present-ledger-file)
        ))
+
+
+;;; Add hotkeys
+
+(transient-replace-suffix 'secretary-dispatch '(0)
+  '["General actions"
+    ("q" "Quit" bury-buffer)
+    ("l" "View Ledger report" secretary-present-ledger-report)
+    ("f" "View Ledger file" secretary-present-ledger-file)
+    ("a" "View Org agenda" org-agenda)])
+
+;; (transient-append-suffix 'secretary-dispatch "q"
+;;   '("l" "View Ledger report" secretary-present-ledger-report))
+;; (transient-append-suffix 'secretary-dispatch "q"
+;;   '("f" "View Ledger file" secretary-present-ledger-file))
+;; (transient-append-suffix 'secretary-dispatch "q"
+;;   '("a" "View Org agenda" org-agenda))
+
+(define-key secretary-chat-mode-map (kbd "l") #'secretary-present-ledger-report)
+(define-key secretary-chat-mode-map (kbd "a") #'org-agenda)
+
+
+;;; Finally
 
 (setq secretary-activities
       (list (secretary-activity-create

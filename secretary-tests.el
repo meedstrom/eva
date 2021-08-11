@@ -23,7 +23,7 @@
 
 ;; (setq secretary--idle-beginning (setq secretary--last-online (make-ts :unix 0)))
 
-;; HACK: specific to my machine
+;; HACK: sit times specific to my machine
 (ert-deftest pid ()
   (secretary-mode 0)
   (let ((p (secretary--run-async "emacs" "--with-profile=doom")))
@@ -54,7 +54,7 @@
 (ert-deftest secretary-defun ()
   (should
    (equal
-    (macroexpand '(secretary-defun foo (x1 x2)
+    (macroexpand '(secretary-defquery foo (x1 x2)
                     "docstr"
                     (bar)
                     (baz)))
@@ -75,7 +75,10 @@
                                   (remove secretary--current-fn secretary--queue))
                             (setf (secretary-item-dismissals
                                    (secretary--item-by-fn secretary--current-fn))
-                                  0))
+                                  0)
+			    (when (null current-dataset)
+			      (secretary-append-tsv
+			       (expand-file-name "successes-foo" secretary-memory-dir))))
                         (advice-remove 'abort-recursive-edit #'secretary--after-cancel-do-things))))))))
 
 (ert-deftest ts-usage ()
@@ -86,7 +89,7 @@
                                   (--iterate (ts-dec 'month 1 it) now 12)
                                   (--iterate (ts-dec 'year 1 it) now 5))))))
     ;; (should (= 66 (length (secretary-past-sample-default))))
-    (should (-all-p #'ts-p (secretary-past-sample-default)))))
+    (should (-all-p #'ts-p (secretary-past-sample-greedy)))))
 
 (provide 'secretary-tests)
 
