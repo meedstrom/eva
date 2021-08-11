@@ -1,1 +1,3 @@
-.gitignore
+/renv/library/
+/deps/
+/.git/

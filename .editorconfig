@@ -1,6 +1,12 @@
-# top-most EditorConfig file
 root = true
 
-# Unix-style newlines with a newline ending for *.el files (prevents QUELPA errors)
-[*.el]
+[*]
 end_of_line = lf
+charset = utf-8
+
+[*.{el,R}]
+indent_style = space
+indent_size = 2
+
+[Makefile]
+indent_style = tab
