@@ -326,6 +326,7 @@ separate function from `secretary--user-is-active'."
                                  (-map #'string-to-number)
                                  (--filter (> it (ts-unix (ts-apply :hour 4 :minute 0 (ts-now)))))
                                  (length))))
+         (successes-today (secretary--count-successes-today fn)) ;; better?
          (successes-specified-and-exceeded (and successes-today
                                                 max-successes
                                                 (>= successes-today max-successes)))
@@ -1009,6 +1010,15 @@ meant to get."
       (with-temp-buffer
         (insert-file-contents-literally path)
         (ignore-errors (search-forward (ts-format "%F" day)))))))
+
+(defun secretary--count-successes-today (fn)
+  (let ((dataset (secretary-item-dataset (secretary--item-by-fn fn)))
+        (log (expand-file-name (concat "successes-" (symbol-name fn)) secretary-memory-dir)))
+    (if dataset
+        (length (secretary--get-entries-in-tsv dataset))
+      (if (f-exists-p log)
+          (length (secretary--get-entries-in-tsv log))
+        (error "undefined behavior in secretary--count-successes-today")))))
 
 (defun secretary-append-tsv (path &rest fields)
   "Append a line to the file located at PATH.
