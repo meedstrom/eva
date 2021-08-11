@@ -1,4 +1,4 @@
-;;; secretary-tests.el -*- lexical-binding: t; -*-
+;;; secretary-test.el -*- lexical-binding: t; -*-
 ;; Copyright (C) 2020 Martin Edström
 
 ;; This program is free software: you can redistribute it and/or modify
@@ -91,6 +91,6 @@
     ;; (should (= 66 (length (secretary-past-sample-default))))
     (should (-all-p #'ts-p (secretary-past-sample-greedy)))))
 
-(provide 'secretary-tests)
+(provide 'secretary-test)
 
-;;; secretary-tests.el ends here
+;;; secretary-test.el ends here

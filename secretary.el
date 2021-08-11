@@ -137,7 +137,7 @@ of messages. See also `secretary-sit-long' and
 
 
 ;;;; Handle idle & reboots & crashes
-;; It's big brain time.  Many edge cases covered.
+;; It's big brain time.
 
 (defvar secretary--last-online
   nil)
@@ -1493,8 +1493,9 @@ Good to run after enabling `secretary-mode' or changing
                          anomalous-files)
                  (s-join "\n"))))))
 
-;; NOTE: very good especially while hacking on the package
 (defun secretary--keepalive ()
+  "Re-start the :secretary timer if dead.
+Very good while hacking on the package."
   (unless (member (named-timer-get :secretary) timer-list)
     (message "[%s] secretary timer found dead, reviving it."
              (format-time-string "%H:%M"))
