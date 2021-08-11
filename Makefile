@@ -4,6 +4,7 @@
 EMACS	= emacs
 EL   	= secretary.el secretary-config.el secretary-builtin.el secretary-activity.el
 ELC  	= $(EL:.el=.elc)
+# external dependencies
 LDFLAGS = -L deps/ts -L deps/dash -L deps/s -L deps/ess/lisp -L deps/f -L deps/named-timer -L deps/pfuture -L deps/transient/lisp
 
 # default make action just to give us static analysis for now
@@ -20,12 +21,13 @@ check: secretary-test.elc
 test: check
 
 clean:
-	rm -f $(ELC)
+	rm -f $(ELC) secretary-test.elc
 
 # Dependencies
-# State that secretary-test depends on all other elc files being built first.
 secretary-test.elc:  $(ELC)
-secretary-config.elc: secretary.elc
+secretary-config.elc: secretary.elc secretary-builtin.elc secretary-activity.elc
+secretary-activity.elc: secretary.elc secretary-builtin.elc
+secretary-builtin.elc: secretary.elc
 
 # Tell make how to compile an .el into an .elc.
 .el.elc:
