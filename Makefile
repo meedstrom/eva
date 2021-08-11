@@ -6,6 +6,10 @@ EL   	= secretary.el secretary-config.el secretary-builtin.el secretary-activity
 ELC  	= $(EL:.el=.elc)
 LDFLAGS = -L deps/ts -L deps/dash -L deps/s -L deps/ess/lisp -L deps/f -L deps/named-timer -L deps/pfuture -L deps/transient/lisp
 
+# default make action just to give us static analysis for now
+compile-and-clean: $(ELC)
+	rm -f $(ELC)
+
 # $ELC expands to .elc versions of all files listed in $EL.
 compile: $(ELC)
 
