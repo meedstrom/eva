@@ -1344,6 +1344,19 @@ indeterminate times."
   :group 'secretary
   :type '(repeat function))
 
+(defun secretary--restore-item-metadata-from-mem ()
+  (dolist (disk-item (map-elt secretary-memory 'secretary-items))
+    (let* ((fn-sym (secretary-item-fn disk-item))
+           (active-item (when (fboundp fn-sym)
+                          (secretary--item-by-fn fn-sym))))
+      ;; if it reflects something we have defined currently
+      (when (fboundp fn-sym)
+        ;;  update the current one's :dismissals etc to match on-disk values.
+        (setf (secretary-item-dismissals active-item)
+              (secretary-item-dismissals disk-item))
+        (setf (secretary-item-last-called active-item)
+              (secretary-item-last-called disk-item))))))
+
 ;; TODO: Calc reasonable defaults from dataset contents
 (defun secretary--restore-variables-from-disk ()
   (secretary--recover-memory-without-reference)
@@ -1371,21 +1384,10 @@ indeterminate times."
              (ts< secretary--last-online secretary--last-chatted))
     (setq secretary--last-online secretary--last-chatted))
   (setq secretary--idle-beginning secretary--last-online)
+  (secretary--restore-item-metadata-from-mem)
   (run-hooks 'secretary-load-vars-hook))
 
-;; UNTESTED
-(defun secretary--restore-item-metadata-from-mem ()
-  (dolist (disk-item (map-elt secretary-memory 'secretary-items))
-    (let* ((fn-sym (secretary-item-fn disk-item))
-           (active-item (when (fboundp fn-sym)
-                          (secretary-item-by-fn fn-sym))))
-      ;; if it reflects something we have defined currently
-      (when (fboundp fn-sym)
-        ;;  update the current one's :dismissals etc to match on-disk values.
-        (setf (secretary-item-dismissals active-item)
-              (secretary-item-dismissals disk-item))
-        (setf (secretary-item-last-called active-item)
-              (secretary-item-last-called disk-item))))))
+;; (secretary-memory-put 'secretary-items secretary-items)
 
 ;; TODO: ensure in some way that restore-variables has been called before we
 ;; proceed, so we don't accidentally blank out our files.  Sanity checks:
