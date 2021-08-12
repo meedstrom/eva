@@ -41,14 +41,15 @@
       rating)))
 
 ;;;###autoload
-(secretary-defexcursion secretary-present-org-agenda ()
-  ;; (require 'org-agenda) ;; calm down the compiler TODO: test compiling this file on fresh emacs
+(secretary-defquery-and-excursion secretary-present-org-agenda ()
+  (require 'org-agenda)
   (message (secretary-emit "Sending you to the Org agenda log + archive."))
   (sit-for secretary-sit-medium)
   (org-agenda-list)
   (org-agenda-log-mode)
   (org-agenda-archives-mode t)
-  (push (current-buffer) secretary--excursion-buffers))
+  (push (current-buffer) secretary--excursion-buffers)
+  (keyboard-quit))
 
 ;;;###autoload
 (secretary-defquery secretary-query-ingredients ()
@@ -238,32 +239,56 @@ add."
 ;;; Ledger & finances
 
 (defcustom secretary-ledger-file-name
-  (convert-standard-filename "~/ledger.ledger")
+  (convert-standard-filename "~/my.ledger")
   "File used by `secretary-present-ledger-report'."
   :group 'secretary
   :type 'string)
 
 ;;;###autoload
-(secretary-defexcursion secretary-present-ledger-report ()
+(secretary-defquery-and-excursion secretary-present-ledger-report ()
+  "Jump to `secretary-ledger-file-name' and run `ledger-report'.
+Uses the first command specified in `ledger-reports'."
+  (cond ((not (f-exists-p secretary-ledger-file-name))
+         (message (secretary-emit
+                   "secretary-ledger-file-name does not refer to existing file,"
+                   " skipping Ledger report."))
+         ((not (require 'ledger-mode nil t))
+          (message (secretary-emit
+                    "Ledger-mode failed to load, skipping Ledger report.")))
+         (t
+          (message (secretary-emit "Sending you to your Ledger report."))
+          (if (get-buffer ledger-report-buffer-name)
+              (ledger-report-goto)
+            (with-current-buffer (find-file-noselect secretary-ledger-file-name)
+              (ledger-report (caar ledger-reports) nil)))
+          (push (get-buffer ledger-report-buffer-name) secretary--excursion-buffers)
+          (keyboard-quit)))))
+
+(secretary-defquery-and-excursion secretary-present-ledger-report ()
   "Jump to `secretary-ledger-file-name' and run `ledger-report'.
 Uses the first command specified in `ledger-reports'."
   (unless (f-exists-p secretary-ledger-file-name)
     (error "secretary-ledger-file-name does not refer to existing file."))
   (when (ignore-errors (find-library-name "ledger-mode"))
     (require 'ledger-mode)
+    (message (secretary-emit "Sending you to your Ledger report."))
     (if (get-buffer ledger-report-buffer-name)
-        (ledger-report-goto)
+        (progn
+          (ledger-report-goto)
+          (push (current-buffer) secretary--excursion-buffers))
       (with-current-buffer (find-file-noselect secretary-ledger-file-name)
         (ledger-report (caar ledger-reports) nil)
-        (push (current-buffer) secretary--excursion-buffers)))))
+        (push (get-buffer ledger-report-buffer-name) secretary--excursion-buffers)))
+    (keyboard-quit)))
 
 ;;;###autoload
 (secretary-defexcursion secretary-present-ledger-file ()
   (message (secretary-emit "Sending you to your Ledger file. Sayonara!"))
   (sit-for secretary-sit-medium)
-  (pop-to-buffer (find-file-noselect secretary-ledger-file-name))
+  ;; (pop-to-buffer (find-file-noselect secretary-ledger-file-name))
+  ;; (view-mode)
+  (view-file-other-window secretary-ledger-file-name) ;; testing this form of the above
   (push (current-buffer) secretary--excursion-buffers)
-  (view-mode)
   (goto-char (point-max)))
 
 (defun secretary-make-ods-for-finance ()
@@ -391,7 +416,7 @@ Note that org-journal is not needed."
 ;; TODO: (Feature) Try creating a sparse tree, so user can edit in-place
 ;; TODO: (Feature) Maybe show the agenda log taken from each date?
 ;;;###autoload
-(secretary-defquery secretary-present-diary ()
+(secretary-defquery-and-excursion secretary-present-diary ()
   (let* ((dates-to-check (funcall secretary-past-sample-function secretary--date))
          (discrete-files-found (--keep (secretary-existing-diary it) dates-to-check))
          (buffer (get-buffer-create (concat "*" secretary-ai-name ": Selected diary entries*")))
@@ -409,11 +434,13 @@ Note that org-journal is not needed."
                                "?"))
         (if (= 0 datetree-found-count)
             (kill-buffer buffer)
-          (pop-to-buffer buffer)
-          (view-mode))
+          ;; TODO: pressing q should kill it!
+          (view-buffer buffer #'kill-buffer-if-not-modified)
+          (push (current-buffer) secretary--excursion-buffers))
         (when (-non-nil discrete-files-found)
           (dolist (x discrete-files-found)
-            (view-file x)))
+            (view-file x)
+            (push (current-buffer) secretary--excursion-buffers)))
         (keyboard-quit)))))
 
 ;; (secretary-present-diary (ts-now))

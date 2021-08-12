@@ -45,6 +45,11 @@
 (require 'secretary-builtin)
 (require 'secretary-activity)
 
+;; (secretary--count-successes-today 'secretary-present-diary)
+;; (secretary--pending-p #'secretary-present-diary)
+;; (secretary-call-fn-check-dismissals #'secretary-present-diary)
+
+
 ;; HINT: you can even use the same object multiple times in the queue, you'll
 ;; just have to assign the output of (secretary-item-create) to an external
 ;; variable and refer to it.
@@ -56,11 +61,11 @@
               (sit-for secretary-sit-long))
         :min-hours-wait 1)
        (secretary-item-create :fn #'secretary-present-diary
-                              :max-successes-per-day 1)
-       (secretary-item-create :fn #'secretary-present-ledger-report)
+                     :max-successes-per-day 1)
        (secretary-item-create :fn #'secretary-query-weight
                               :dataset "/home/kept/Self_data/weight.tsv"
                               :max-entries-per-day 1)
+       (secretary-item-create :fn #'secretary-present-ledger-report)
        (secretary-item-create :fn #'secretary-query-mood
                               :dataset "/home/kept/Self_data/mood.tsv")
        (secretary-item-create :fn #'secretary-present-org-agenda)
