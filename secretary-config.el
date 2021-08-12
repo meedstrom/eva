@@ -1,4 +1,4 @@
-;;; secretary-config.el -*- lexical-binding: t; nameless-current-name: "secretary"; no-byte-compile: t; -*-
+;;; secretary-config.el -*- lexical-binding: t; nameless-current-name: "secretary"; -*-
 ;; Copyright (C) 2021 Martin Edström
 
 ;; This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,7 @@
 
 ;;; Commentary:
 
-;; Example config.
+;; Example config to put in init files.
 
 ;;; Code:
 
@@ -32,11 +32,12 @@
 (setq secretary-user-name "Martin")
 (setq secretary-user-birthday "1991-12-07")
 (setq secretary-debug-p t)
-(setq secretary-presumptive-p t)
-(setq secretary-idle-file-name "/home/kept/Self_data/idle.tsv")
+(setq secretary-presumptive-p nil)
+(setq secretary-idle-file-name             "/home/kept/Self_data/idle.tsv")
 (setq secretary-buffer-focus-log-file-name "/home/kept/Self_data/buffer-focus.tsv")
-(setq secretary-buffer-info-file-name "/home/kept/Self_data/buffer-info.tsv")
-(setq secretary-ledger-file-name "/home/kept/Journal/Finances/l.ledger")
+(setq secretary-buffer-info-file-name      "/home/kept/Self_data/buffer-info.tsv")
+(setq secretary-ledger-file-name           "/home/kept/Journal/Finances/l.ledger")
+(setq secretary-location-main-datetree     "/home/kept/Journal/diary.org")
 ;; (setq org-journal-dir)
 ;; (setq org-journal-file-format "%F.org")
 
@@ -126,7 +127,8 @@
 (secretary-mode)
 
 (setq secretary-aphorisms
-      '("The affairs of the world will go on forever. Do not delay the practice of meditation." ;; not koanish
+      (list
+      "The affairs of the world will go on forever. Do not delay the practice of meditation." ;; not koanish
         "It takes all the running you can do, to keep in the same place."
         "You can't hate yourself into someone that loves who they are."
         "Don't show up to prove, show up to improve."
@@ -150,7 +152,8 @@
         ;; https://en.wikipedia.org/wiki/Koan
         "If you meet the Buddha, kill the Buddha."
         "One day as Manjusri stood outside the gate, the Buddha called to him, “Manjusri, Manjusri, why do you not enter?” Manjusri replied, “I do not see myself as outside. Why enter?”"
-        "Koan after koan explores the theme of nonduality. Hakuin's well-known koan, \"Two hands clap and there is a sound, what is the sound of one hand?\" is clearly about two and one. The koan asks, you know what duality is, now what is nonduality? In \"What is your original face before your mother and father were born?\" the phrase \"father and mother\" alludes to duality. This is obvious to someone versed in the Chinese tradition, where so much philosophical thought is presented in the imagery of paired opposites. The phrase \"your original face\" alludes to the original nonduality."
+        (concat "Koan after koan explores the theme of nonduality. Hakuin's well-known koan, \"Two hands clap and there is a sound, what is the sound of one hand?\" is clearly about two and one. The koan asks, you know what duality is, now what is nonduality? "
+                "In \"What is your original face before your mother and father were born?\" the phrase \"father and mother\" alludes to duality. This is obvious to someone versed in the Chinese tradition, where so much philosophical thought is presented in the imagery of paired opposites. The phrase \"your original face\" alludes to the original nonduality.")
         "Subject and object - this is two hands clapping. When the monk realizes that the koan is not merely an object of consciousness but is also he himself as the activity of seeking an answer to the koan, then subject and object are no longer separate and distinct [...] This is one hand clapping."
         ;; https://www.greaterwrong.com/posts/3GZmttQJ4CRdMLsmJ/aphorisms-on-motivation
         "All motivation ultimately stems from belief. If you don’t know why you want something, it stems from an alief that is hidden."
@@ -179,7 +182,9 @@
         "Misspellers learn from speech, mispronouncers from books."
         "The people are flattered more obsequiously than the monarch ever was."
         "The incorruptible politician merely prefers power to money."
-        "Why do aphorisms and cynicism go together? A good single sentence saying can’t require background evidencing or further explanation. It must be instantly recognizable as true. It also needs to be news to the listener. Most single sentences that people can immediately verify as true they already believe. What’s left? Things that people don’t believe or think about much for lack of wanting to, despite evidence. Drawing attention to these is called cynicism."
+        (concat "Why do aphorisms and cynicism go together? A good single sentence saying can’t require background evidencing or further explanation. "
+                "It must be instantly recognizable as true. It also needs to be news to the listener. Most single sentences that people can immediately verify as true they already believe. "
+                " What’s left? Things that people don’t believe or think about much for lack of wanting to, despite evidence. Drawing attention to these is called cynicism.")
         ;; Atomic Habits
         "Missing once is an accident, missing twice is the start of a new habit."
         "If it happens once it's a mistake. If it happens twice, it's a choice."))

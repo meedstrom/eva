@@ -8,8 +8,8 @@ ELC  	= $(EL:.el=.elc)
 LDFLAGS = -L deps/ts -L deps/dash -L deps/s -L deps/ess/lisp -L deps/f -L deps/named-timer -L deps/pfuture -L deps/transient/lisp
 
 # default make action just to give us static analysis for now
-compile-and-clean: $(ELC)
-	rm -f $(ELC)
+compile-and-clean: clean $(ELC)
+	rm -f $(ELC) secretary-test.elc
 
 # $ELC expands to .elc versions of all files listed in $EL.
 compile: $(ELC)

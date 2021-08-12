@@ -33,15 +33,15 @@
 (require 'subr-x)
 (require 'cl-lib)
 (require 'find-func)
+(require 'transient) ;; Emacs 28 builtin
 
 ;; external
-(require 'ts)
-(require 'f)
-(require 's)
-(require 'dash)
-(require 'named-timer)
-(require 'transient)
+(require 'ts) ;; essential
+(require 'named-timer) ;; essential
 (require 'ess)
+(require 'dash)
+(require 's)
+(require 'f) ;; f-read is just nice
 (require 'pfuture)
 
 (defvar secretary-debug-p nil)

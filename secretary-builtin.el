@@ -280,7 +280,7 @@ Requires the ssconvert program that comes with Gnumeric."
                                             "open"
                                             "mimeopen"
                                             "xdg-open"))))
-    (if (= 0 (secretary--run "Rscript" script secretary-ledger-file-name sheet))
+    (if (= 0 (call-process "Rscript" nil nil nil script secretary-ledger-file-name sheet))
         (pfuture-new app sheet)
       (message (secretary-emit "Error running " script)))))
 
@@ -288,11 +288,11 @@ Requires the ssconvert program that comes with Gnumeric."
 ;;; Diary
 
 (defcustom secretary-location-main-datetree
-  "/home/kept/Journal/diary.org"
+  "~/org/archive.org"
   "The file name of your main datetree, if you have one.
 Only relevant if you have one you use as a big archive file, see
 Info node `(org) Moving subtrees', or you write/capture
-everything directly into.  Used by `secretary-present-diary'."
+diary entries directly into.  Checked by `secretary-present-diary'."
   :group 'secretary
   :type 'string)
 
