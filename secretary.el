@@ -32,7 +32,7 @@
 (require 'map)
 (require 'subr-x)
 (require 'cl-lib)
-(require 'find-func)
+(require 'find-func) ;; find-library-name
 (require 'transient) ;; Emacs 28 builtin
 
 ;; external
@@ -41,7 +41,7 @@
 (require 'ess)
 (require 'dash)
 (require 's)
-(require 'f) ;; f-read is just nice
+(require 'f) ;; f-read and f-append are just nice
 (require 'pfuture)
 
 (defvar secretary-debug-p nil)
@@ -62,7 +62,7 @@
 ;;        (set-default sym val)))
 
 (defcustom secretary-user-birthday nil
-  "Your birthday."
+  "Your birthday, an YYYY-MM-DD string."
   :group 'secretary
   :type 'string
   :safe t)
@@ -71,7 +71,7 @@
   (if (s-equals? user-full-name "")
       "Mr. Bond"
     (-first-item (s-split " " user-full-name)))
-  "Your name, that you prefer to be addressed by."
+  "Name by which you prefer the secretary to address you."
   :group 'secretary
   :type 'string
   :safe t)
@@ -165,6 +165,7 @@ of messages. See also `secretary-sit-long' and
   :type 'string)
 
 (defun secretary-log-idle ()
+  "Log chunk of idle time to disk."
   (secretary-append-tsv secretary-idle-file-name
     (ts-format)
     (number-to-string (/ (round secretary-length-of-last-idle) 60))))
@@ -179,14 +180,16 @@ You'll probably want your hook to be conditional on some value of
 the last Emacs shutdown or crash (technically, last time
 `secretary-mode' was running)."
   :group 'secretary
-  :type '(repeat function))
+  :type '(hook :options (secretary-log-idle
+                         secretary-call-from-idle)))
 
 (defcustom secretary-periodic-not-idle-hook
   '(secretary--save-variables-to-disk
     secretary--save-buffer-logs-to-disk)
   "Hook run every minute when the user is not idle."
   :group 'secretary
-  :type '(repeat function))
+  :type '(hook :options (secretary--save-variables-to-disk
+                         secretary--save-buffer-logs-to-disk)))
 
 (defun secretary--start-next-timer (&optional assume-idle)
   "Start one or the other timer depending on idleness.
@@ -667,7 +670,10 @@ passed on to `call-process'."
 Not recommended, as the idleness log will be meaningless unless
 you never use a graphical program. You'll end up with the
 situation where returning to Emacs from a long Firefox session
-triggers the return-from-idle-hook."
+triggers the return-from-idle-hook.
+
+Even EXWM will not update `current-idle-time' while an X window
+is in focus."
   :group 'secretary
   :type 'boolean)
 
@@ -1308,7 +1314,7 @@ spawned by the functions will be skipped by
   (secretary-execute))
 
 (defun secretary-call-from-idle ()
-  "Called by idleness-related hooks, doesn't do much if idle was not long."
+  "Start a session if idle was long."
   (unless (< secretary-length-of-last-idle secretary-idle-threshold-secs-long)
     (secretary--call-timidly)))
 ;; (run-with-timer 3 nil (lambda ()  (print (frame-focus-state))))
@@ -1560,7 +1566,7 @@ Good to run after enabling `secretary-mode' or changing
 
 (defun secretary--keepalive ()
   "Re-start the :secretary timer if dead.
-Very good while hacking on the package."
+Indispensable while hacking on the package."
   (unless (member (named-timer-get :secretary) timer-list)
     (message "[%s] secretary timer found dead, reviving it."
              (format-time-string "%H:%M"))
