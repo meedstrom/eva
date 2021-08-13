@@ -97,12 +97,12 @@ itself through use.")
       (push (cons mood-desc score) secretary--mood-alist))
     score-num))
 
-(add-hook 'secretary-load-vars-hook
+(add-hook 'secretary-after-load-vars-hook
           (defun secretary--mood-load ()
             (setq secretary--mood-alist
                   (map-elt secretary-memory 'secretary--mood-alist))))
 
-(add-hook 'secretary-save-vars-hook
+(add-hook 'secretary-before-save-vars-hook
           (defun secretary--mood-save ()
             (secretary-memory-put 'secretary--mood-alist
                                   secretary--mood-alist)))

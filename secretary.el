@@ -244,9 +244,8 @@ separate function from `secretary--user-is-active'."
 
 ;;; Items
 ;; Q: What's cl-defstruct?  A: https://nullprogram.com/blog/2018/02/14/
-
 ;; NOTE: If you change the order of keys, secretary--recover-memory will set
-;; the wrong values!! Be sure you have a good reason.
+;; the wrong values! Be sure you have a good reason.
 
 ;; TODO: remove some/all initvalues?
 (cl-defstruct (secretary-item
@@ -1281,9 +1280,6 @@ spawned by the functions will be skipped by
 
 ;; (secretary--count-successes-today #'secretary-present-diary)
 
-;; TODO: Wait far longer than 5 mins if the idle time never becomes high and
-;; the buffer never strays outside excursion-buffers or org-capture.
-
 
 (defun secretary--call-timidly ()
   "Butt in if any queries are pending."
@@ -1322,6 +1318,7 @@ spawned by the functions will be skipped by
 
 
 ;;;; Persistent variables
+;; TODO: More consistent naming. Pick one word for mem-as-on-disk and one for mem-as-variable.
 
 (defvar secretary-memory
   nil
@@ -1330,6 +1327,31 @@ We log these values to disk at `secretary-mem-loc', so we can
 recover older values as needed. Why not custom-file? People are
 always wiping their custom-file, admittedly for a reason, but
 this is a matter of greater importance.")
+
+(defcustom secretary-after-load-vars-hook nil
+  "Invoked right after populating `secretary-memory' from disk.
+The most recent values are therefore available.  If you've
+previously saved data in that list (typically via
+`secretary-before-save-vars-hook'), it should now be back even if Emacs
+has restarted, so you can run something like the following.
+
+    (setq my-var (map-elt secretary-memory 'my-var))"
+  :group 'secretary
+  :type 'hook)
+
+
+(defcustom secretary-before-save-vars-hook nil
+  "Invoked right before saving `secretary-memory' to disk.
+You should add to that list anything you want to persist across
+reboots, using something like the following.
+
+    (secretary-memory-put 'my-var my-var)
+
+Of course, you can do that at any time, this hook isn't needed
+unless you do things with 'my-var at indeterminate times and you
+want to be sure what goes in before it gets written to disk."
+  :group 'secretary
+  :type 'hook)
 
 (defun secretary-memory-put (key value)
   "In `secretary-memory', assign KEY to VALUE.
@@ -1344,23 +1366,28 @@ Destructive; modifies in place."
   (secretary-memory-put
    key (apply #'funcall fn (map-elt secretary-memory key) args)))
 
-; (setq secretary-memory (map-insert secretary-memory 'secretary-ai-name "foo"))
+(defun secretary--filter-mem-for-variable (var)
+    (let* ((table (secretary--get-all-entries-in-tsv secretary-mem-loc))
+           (table-subset (--filter (eq var (read (elt it 1))) table)))
+      table-subset))
 
-;"/home/me/doom-emacs/secretary/memory.tsv"
-;(secretary--last-value-of-variable 'secretary-debug-p)
-;(secretary-save-memory)
-
-;; Guess this works, just takes up a lot of disk space over time.
-(defun secretary-save-memory ()
+(defun secretary--save-memory-only-changed-vars ()
   (cl-loop for cell in secretary-memory
            do (progn
-                (secretary-append-tsv secretary-mem-loc
-                  (prin1-to-string (car cell))
-                  (prin1-to-string (cdr cell))))))
+                (let ((foo (secretary--filter-mem-for-variable (car cell)))
+                      (write? nil))
+                  (if (null foo)
+                      (setq write? t)
+                    (unless (equal (cdr cell)
+                                   ;; read is dangerous: it doesn't take nil value well
+                                   (read (nth 2 (-last-item foo))))
+                      (setq write? t)))
+                  (when write?
+                    (secretary-append-tsv secretary-mem-loc
+                      (prin1-to-string (car cell))
+                      (prin1-to-string (cdr cell))))))))
 
-;; DEPRECATED
-(defun secretary--recover-memory-deterministic ()
-  (defun secretary--last-value-of-variable (var)
+(defun secretary--last-value-of-variable (var)
     (let* ((table (nreverse (secretary--get-all-entries-in-tsv secretary-mem-loc)))
            (ok t))
       (cl-block nil
@@ -1369,11 +1396,14 @@ Destructive; modifies in place."
             (when (eq (read (nth 1 row)) var)
               (setq ok nil)
               (cl-return (read (nth 2 row)))))))))
+
+;; DEPRECATED
+(defun secretary--recover-memory-only-update-present ()
   (cl-loop for cell in secretary-memory
            do (map-put! secretary-memory (car cell)
                         (secretary--last-value-of-variable (car cell)))))
 
-(defun secretary--recover-memory-without-reference ()
+(defun secretary--recover-memory ()
   "Grab the newest values from file at `secretary-mem-loc' and
 assign them in `secretary-memory'."
   (let* ((table (-map #'cdr (nreverse (secretary--get-all-entries-in-tsv secretary-mem-loc)))))
@@ -1382,32 +1412,6 @@ assign them in `secretary-memory'."
         (unless (member (read (car row)) (-map #'car secretary-memory))
           (setq secretary-memory (cons (cons (read (car row)) (read (cadr row)))
                                        secretary-memory)))))))
-
-;(secretary--recover-memory-without-reference)
-
-(defcustom secretary-load-vars-hook nil
-  "Invoked right after populating `secretary-memory' from disk.
-The most recent values are therefore available.  If you've
-previously saved data in that list (typically via
-`secretary-save-vars-hook'), it should now be back even if Emacs
-has restarted, so you can run something like the following.
-
-    (setq my-var (map-elt secretary-memory 'my-var))"
-  :group 'secretary
-  :type '(repeat function))
-
-(defcustom secretary-save-vars-hook nil
-  "Invoked right before saving `secretary-memory' to disk.
-You should add to that list anything you want to persist across
-reboots, using something like the following.
-
-    (secretary-memory-put 'my-var my-var)
-
-Of course, you can do it at any time, doing it via this hook
-isn't needed unless you do a lot of things with 'my-var at
-indeterminate times."
-  :group 'secretary
-  :type '(repeat function))
 
 (defun secretary--restore-item-metadata-from-mem ()
   (dolist (disk-item (map-elt secretary-memory 'secretary-items))
@@ -1426,11 +1430,12 @@ indeterminate times."
         (s-join "\n"
           '("secretary--restore-item-metadata-from-mem failed. "
              " Did you change the secretary-item defstruct?"
-             " Proceeding because not critical.  May self-correct next sync."))))))
+             " Not critical so proceeding.  May self-correct next sync."))))))
 
+;; TODO:
 ;; TODO: Calc reasonable defaults from dataset contents
 (defun secretary--restore-variables-from-disk ()
-  (secretary--recover-memory-without-reference)
+  (secretary--recover-memory)
   (setq secretary--last-online (ts-fill
                                 (or (map-elt secretary-memory 'secretary--last-online)
                                     (make-ts :unix 0)))) ;; TODO emit error if there are older non-nil values and it's now nil
@@ -1456,7 +1461,7 @@ indeterminate times."
     (setq secretary--last-online secretary--last-chatted))
   (setq secretary--idle-beginning secretary--last-online)
   (secretary--restore-item-metadata-from-mem)
-  (run-hooks 'secretary-load-vars-hook))
+  (run-hooks 'secretary-after-load-vars-hook))
 
 ;; (secretary-memory-put 'secretary-items secretary-items)
 
@@ -1478,8 +1483,8 @@ indeterminate times."
   (when secretary-chat-log-file-name
     (secretary-write-safely (with-current-buffer (secretary-buffer-chat) (buffer-string))
                             secretary-chat-log-file-name))
-  (run-hooks 'secretary-save-vars-hook)
-  (secretary-save-memory))
+  (run-hooks 'secretary-before-save-vars-hook)
+  (secretary--save-memory-only-changed-vars))
 
 
 ;;; Modes and keys
