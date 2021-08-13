@@ -613,32 +613,37 @@ example."
   "Write TEXT to file at PATH if the content differs.
 Also revert any buffer visiting it, or signal an error if there
 are unsaved changes."
-  (let ((buf (find-buffer-visiting path)))
+  (let ((buf (find-buffer-visiting path))
+        (errors-path (concat path "_errors")))
     (and buf
          (buffer-modified-p buf)
          (error "Unsaved changes in open buffer: %s" (buffer-name buf)))
     (unless (and (f-exists-p path)
                  (string= text (f-read path 'utf-8)))
       (f-write text 'utf-8 path)
-      (and buf (with-current-buffer buf (revert-buffer))))))
+      (and buf (with-current-buffer buf
+                 (revert-buffer))))))
 
 (defun secretary-append-safely (text path)
-  "Append TEXT to file at PATH if the content differs.
-Also revert any buffer visiting it, or signal an error if there
-are unsaved changes."
-  (let ((buf (find-buffer-visiting path)))
+  "Append TEXT to file at PATH.
+Also revert any buffer visiting it, or warn if there are unsaved
+changes and append to a file named PATH_errors."
+  (let ((buf (find-buffer-visiting path))
+        (errors-path (concat path "_errors")))
     (and buf
          (buffer-modified-p buf)
-         (error "Unsaved changes in open buffer: %s" (buffer-name buf)))
-    (unless (and (f-exists-p path)
-                 (= 0 (length text))) ;; no unnecessary disk writes
+         (warn "Unsaved changes in open buffer: %s, writing to %s"
+               (buffer-name buf) errors-path)
+         (f-append text 'utf-8 errors-path))
+    (unless (= 0 (length text)) ;; no unnecessary disk writes
       (f-append text 'utf-8 path)
-      (and buf (with-current-buffer buf (revert-buffer))))))
+      (and buf (with-current-buffer buf
+                 (revert-buffer))))))
 
 (defun secretary--transact-buffer-onto-file (buffer path)
   "Append contents of BUFFER to file at PATH, emptying BUFFER."
   (with-current-buffer buffer
-    (whitespace-cleanup)
+    (whitespace-cleanup) ;; TODO dont use this (user may have customized)
     (secretary-append-safely (buffer-string) path)
     (delete-region (point-min) (point-max))))
 
@@ -1077,17 +1082,16 @@ of `(ts-format secretary--date)'."
          (newline-maybe (if (s-ends-with-p "\n" (f-read-bytes path))
                             ""
                           "\n"))
-         (errors-path (concat path "_errors"))
-         (posted (ts-format "%s.%7N")) ;; 7 digits matches `ts-unix' and `float-time'
+         ;; don't do a blank initial line on a new file
+         (newline-maybe-really (if (string= "" (f-read-bytes path))
+                                   ""
+                                 newline-maybe))
+         ;; 7 digits are used by `ts-unix' and `float-time', at least on my
+         ;; machine, match it for consistent string lengths (aesthetic)
+         (posted (ts-format "%s.%7N"))
          (text (string-join fields "\t"))
-         (new-text (concat newline-maybe posted "\t" text))
-         (maybe-buf (find-buffer-visiting path)))
+         (new-text (concat newline-maybe-really posted "\t" text)))
     (cond
-     ;; TODO: superfluous clause
-     ((and maybe-buf (buffer-modified-p maybe-buf))
-      (warn "Cancelled write because of unsaved open buffer at %s, wrote to %s" path errors-path)
-      (f-append new-text 'utf-8 errors-path)
-      nil)
      ((--any-p (s-contains-p "\t" it) fields)
       (warn "Entry had tabs inside fields, wrote to %s" errors-path)
       (f-append new-text 'utf-8 errors-path)
