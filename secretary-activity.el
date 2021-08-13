@@ -40,11 +40,21 @@
   (-map #'secretary-activity-name secretary-activities))
 
 (secretary-defquery secretary-query-activity ()
-  (let* ((name (secretary-read "What are you up to? " (secretary-activities-names))))
+  (let* ((name (secretary-read "What are you up to? " (secretary-activities-names)))
+         (name-corrected
+          (--find (member it (secretary-activities-names))
+                  (list name
+                        (capitalize name)
+                        (downcase name))))
+         (name (if name-corrected
+                   name-corrected
+                 name))
+         (activity (secretary-activity-by-name name)))
     (secretary-append-tsv current-dataset
       (ts-format secretary--date) ;; the time the activity happened
       name
-      (secretary-activity-id (secretary-activity-by-name name)))
+      (when activity
+        (secretary-activity-id activity)))
     (secretary-emit-same-line name)))
 
 (provide 'secretary-activity)
