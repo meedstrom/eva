@@ -29,7 +29,7 @@
 ;;;###autoload
 (secretary-defquery secretary-query-meditation ()
   (when (secretary-ynp "Did you meditate today?")
-    (let* ((mins (read-string "Do you know how long (in minutes)? "))
+    (let* ((mins (secretary-read-string "Do you know how long (in minutes)? "))
            (cleaned-mins (number-to-string (string-to-number mins)))) ;; ugly, I know
       (secretary-append-tsv current-dataset
         (ts-format)
@@ -38,7 +38,7 @@
 
 ;;;###autoload
 (secretary-defquery secretary-query-cold-shower ()
-  (let ((rating (read-string "Cold rating? ")))
+  (let ((rating (secretary-read-string "Cold rating? ")))
     (secretary-append-tsv current-dataset
       (ts-format secretary--date)
       rating)))
