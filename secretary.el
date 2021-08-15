@@ -284,15 +284,23 @@ Needed to persist disablings across restarts."
   (expand-file-name "disabled-items.el" secretary-memory-dir))
 
 (defun secretary--enabled-items ()
-  (let ((all (-map #'secretary-item-fn secretary-items))
-        (disabled (when (f-exists-p (secretary-disabled-items-file-name))
-                    (read (f-read (secretary-disabled-items-file-name))))))
+  (let* ((all (-map #'secretary-item-fn secretary-items))
+         (disabled-items-string
+          (and (f-exists-p (secretary-disabled-items-file-name))
+               (f-read     (secretary-disabled-items-file-name))))
+         (disabled (and (stringp       disabled-items-string)
+                        (not (s-blank? disabled-items-string))
+                        (read          disabled-items-string))))
     (-difference all disabled)))
 
 (defun secretary-reenable-item ()
   (interactive)
-  (let* ((disabled-fns (when (f-exists-p (secretary-disabled-items-file-name))
-                         (read (f-read (secretary-disabled-items-file-name)))))
+  (let* ((disabled-fns-string
+          (and (f-exists-p (secretary-disabled-items-file-name))
+               (f-read     (secretary-disabled-items-file-name))))
+         (disabled-fns (and (stringp       disabled-items-string)
+                            (not (s-blank? disabled-items-string))
+                            (read          disabled-items-string)))
          (coll (when (< 0 (length disabled-fns))
                  (-map #'symbol-name disabled-fns)))
          (resp (when coll (completing-read "Re-enable: " coll)))
@@ -1390,8 +1398,16 @@ Destructive; modifies in place."
 
 (defun secretary--filter-mem-for-variable (var)
     (let* ((table (secretary--get-all-entries-in-tsv secretary-mem-loc))
-           (table-subset (--filter (eq var (read (elt it 1))) table)))
+           (table-subset (--filter (eq var (secretary--if-stringp-then-read
+                                            (elt it 1)))
+                                   table)))
       table-subset))
+
+(defun secretary--if-stringp-then-read (s)
+  (and (stringp s)
+       (not (s-blank? s))
+       (not (equal s "nil"))
+       (read s)))
 
 (defun secretary--save-memory-only-changed-vars ()
   (cl-loop for cell in secretary-memory
@@ -1402,7 +1418,8 @@ Destructive; modifies in place."
                       (setq write? t)
                     (unless (equal (cdr cell)
                                    ;; read is dangerous: it doesn't take nil value well...
-                                   (read (nth 2 (-last-item foo))))
+                                   (secretary--if-stringp-then-read
+                                    (nth 2 (-last-item foo))))
                       (setq write? t)))
                   (when write?
                     (secretary-append-tsv secretary-mem-loc
@@ -1419,7 +1436,7 @@ Destructive; modifies in place."
       (cl-block nil
         (while ok
           (let ((row (pop table)))
-            (when (eq (read (nth 1 row)) var)
+            (when (eq (secretary--if-stringp-then-read (nth 1 row)) var)
               (setq ok nil)
               (cl-return (read (nth 2 row)))))))))
 
@@ -1429,16 +1446,13 @@ Destructive; modifies in place."
 Members will be saved to `secretary-mem-loc' as numbers instead
 of ts objects for legibility.")
 
-
 (defun secretary--recover-memory ()
   "Grab the newest values from file at `secretary-mem-loc' and
 assign them in `secretary-memory'."
   (let* ((table (-map #'cdr (nreverse (secretary--get-all-entries-in-tsv secretary-mem-loc)))))
     (while (/= 0 (length table))
       (let* ((row (pop table))
-             (parsed-row (--map (if (member it '("nil" ""))
-                                    nil ;; guard clause b/c (read nil) has terrible behavior
-                                  (read it))
+             (parsed-row (--map (secretary--if-stringp-then-read it)
                                 row)))
         (unless (member (car parsed-row) (-map #'car secretary-memory))
           ;; Convert numbers back into ts objects.
