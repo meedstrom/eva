@@ -73,24 +73,34 @@ Merely a convenience for auto-completion. The variable populates
 itself through use.")
 
 ;;;###autoload
-(secretary-defquery secretary-query-mood ()
-  (let* ((mood-desc (secretary-read
-                     "Your mood: "
-                     (sort (mapcar #'car secretary--mood-alist)
-                           #'secretary--random-p)))
-         (old-score (cdr (assoc mood-desc secretary--mood-alist)))
+(secretary-defquery-and-excursion secretary-query-mood ()
+  (let* ((first-response (secretary-read
+                          "Your mood: "
+                          (sort (mapcar #'car secretary--mood-alist)
+                                #'secretary--random-p)))
+         (old-score (cdr (assoc first-response secretary--mood-alist)))
          (prompt-for-score
           (concat "Score from 1 to 5"
                   (when old-score " (default " old-score ")")
                   ": "))
-         (score (progn (secretary-emit "Score from 1 to 5: ")
-                       (read-string prompt-for-score nil nil old-score)))
+         (second-response
+          (if (s-numeric? first-response)
+              (secretary-read "Mood description (optional): ")
+            (secretary-read-string prompt-for-score nil nil old-score)))
+         (mood-desc (if (s-numeric? first-response)
+                        second-response
+                      first-response))
+         (score (if (s-numeric? first-response)
+                    first-response
+                  second-response))
          (score-num (string-to-number score)))
     (secretary-append-tsv current-dataset
       (ts-format)
       (s-replace "," "." score)
       mood-desc)
-    (secretary-emit-same-line (nth 2 (secretary--last-in-tsv current-dataset)))
+    (when secretary-debug-p
+      (secretary-emit "Recorded mood: "
+                      (s-join " " (cdr (secretary--last-in-tsv current-dataset)))))
     ;; Update secretary--mood-alist.
     (if (assoc mood-desc secretary--mood-alist)
         (setq secretary--mood-alist
