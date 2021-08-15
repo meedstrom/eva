@@ -660,6 +660,7 @@ changes and append to a file named PATH_errors."
 
 (defun secretary--transact-buffer-onto-file (buffer path)
   "Append contents of BUFFER to file at PATH, emptying BUFFER."
+  (mkdir (f-dirname path) t)
   (with-current-buffer buffer
     (whitespace-cleanup) ;; TODO dont use this (user may have customized)
     (secretary-append-safely (buffer-string) path)
@@ -997,7 +998,7 @@ In BODY, you have access to the extra temporary variable:
   (with-temp-buffer
     (insert-file-contents-literally path)
     (flush-lines (rx bol eol))
-    (let ((rows (s-split "\n" (buffer-string))))
+    (let ((rows (s-split "\n" (buffer-string) t)))
       (--map (s-split "\t" it) rows))))
 
 (defun secretary-last-datestamp-in-file (path)
