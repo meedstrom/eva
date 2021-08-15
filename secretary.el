@@ -621,8 +621,7 @@ example."
   "Write TEXT to file at PATH if the content differs.
 Also revert any buffer visiting it, or signal an error if there
 are unsaved changes."
-  (let ((buf (find-buffer-visiting path))
-        (errors-path (concat path "_errors")))
+  (let ((buf (find-buffer-visiting path)))
     (and buf
          (buffer-modified-p buf)
          (error "Unsaved changes in open buffer: %s" (buffer-name buf)))
@@ -1110,7 +1109,8 @@ integer for the first field."
                      (ts-format "%s.%7N")
                    (ts-format "%s")))
          (text (string-join fields "\t"))
-         (new-text (concat newline-maybe-really posted "\t" text)))
+         (new-text (concat newline-maybe-really posted "\t" text))
+         (errors-path (concat path "_errors")))
     (cond
      ((--any-p (s-contains-p "\t" it) fields)
       (warn "Entry had tabs inside fields, wrote to %s" errors-path)
@@ -1421,11 +1421,11 @@ Destructive; modifies in place."
               (cl-return (read (nth 2 row)))))))))
 
 ;; REVIEW: We may not need this
-(defvar secretary--mem-timestamp-variables
+(defvar secretary--mem-timestamp-variables '(secretary--last-online)
   "List of variables that are ts objects.
 Members will be saved to `secretary-mem-loc' as numbers instead
-of ts objects for legibility."
-  '(secretary--last-online))
+of ts objects for legibility.")
+
 
 (defun secretary--recover-memory ()
   "Grab the newest values from file at `secretary-mem-loc' and
