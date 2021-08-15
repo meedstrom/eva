@@ -1657,6 +1657,9 @@ is unspecified, but it shouldn't be possible to do."
       (and (/= pid (emacs-pid))
            (member pid (list-system-processes))))))
 
+(defun secretary--emacs-init-message ()
+  (secretary-emit "------ Emacs (re)started. ------"))
+
 (defun secretary-unload-function ()
   "Unload the Secretary library."
   (secretary-mode 0)
@@ -1724,6 +1727,7 @@ is unspecified, but it shouldn't be possible to do."
         (add-hook 'window-selection-change-functions #'secretary-log-buffer)
         (add-hook 'after-init-hook #'secretary--restore-variables-from-disk -90)
         (add-hook 'after-init-hook #'secretary--init-r)
+        (add-hook 'after-init-hook #'secretary--emacs-init-message)
         (add-hook 'after-init-hook #'secretary--check-for-time-anomalies)
         (add-hook 'after-init-hook #'secretary--start-next-timer 90)
         (named-timer-run :secretary-keepalive 300 300 #'secretary--keepalive)
@@ -1734,8 +1738,10 @@ is unspecified, but it shouldn't be possible to do."
               (secretary--restore-variables-from-disk))
             (secretary--init-r)
             (secretary--check-for-time-anomalies)
-            (secretary--user-is-active))))
+            (secretary--user-is-active)
+            (secretary-emit "------ Mode turned on. ------"))))
     ;; Turn off.
+    (secretary-emit "Mode turning off.")
     (secretary--save-variables-to-disk)
     (setq secretary--idle-seconds-fn nil)
     (ignore-errors
@@ -1745,6 +1751,7 @@ is unspecified, but it shouldn't be possible to do."
     (remove-hook 'window-selection-change-functions #'secretary-log-buffer)
     (remove-hook 'after-init-hook #'secretary--restore-variables-from-disk)
     (remove-hook 'after-init-hook #'secretary--init-r)
+    (remove-hook 'after-init-hook #'secretary--emacs-init-message)
     (remove-hook 'after-init-hook #'secretary--check-for-time-anomalies)
     (remove-hook 'after-init-hook #'secretary--start-next-timer)
     (named-timer-cancel :secretary)
