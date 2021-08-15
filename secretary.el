@@ -248,6 +248,7 @@ separate function from `secretary--user-is-active'."
 ;; NOTE: If you change the order of keys, secretary--recover-memory will set
 ;; the wrong values! Be sure you have a good reason.
 
+;; TODO: order all the variables with integer initvalues first, for eye scannability
 ;; TODO: Make last-called an integer
 ;; TODO: remove some/all initvalues?
 (cl-defstruct (secretary-item
@@ -262,7 +263,7 @@ separate function from `secretary--user-is-active'."
   successes
   fn ;; primary key (must be unique)
   dataset
-  (last-called (make-ts :unix 0)) ;; prevent nil-value errors
+  last-called
   ;; name ;; truly-unique key (if reusing fn in two instances for some reason)
   )
 
@@ -340,7 +341,7 @@ Needed to persist disablings across restarts."
          (successes-specified-and-exceeded (and successes-today
                                                 max-successes
                                                 (>= successes-today max-successes)))
-         (last-called (secretary-item-last-called i))
+         (last-called (make-ts :unix (or (secretary-item-last-called i) 0)))
          (called-today (and (= (ts-day last-called) (ts-day (ts-now)))
                             (> (ts-hour last-called) 4)))
          (recently-logged
@@ -830,7 +831,8 @@ If \"am\" or \"pm\" present, assume input is in 12-hour clock."
              (prog1 (progn
                       ;; I suppose we could infer from last-called afterwards
                       ;; whether the excursion was a failure?
-                      (setf (secretary-item-last-called current-item) (ts-now))
+                      (setf (secretary-item-last-called current-item)
+                            (time-convert (current-time) 'integer))
                       ,@new-body)
                ;; All below this line will only happen for pure queries, and only after success.
                (setq secretary--queue
@@ -1379,6 +1381,10 @@ Destructive; modifies in place."
   (secretary-memory-put
    key (apply #'funcall fn (map-elt secretary-memory key) args)))
 
+;; TODO: we save 60 values of last-called per hour! Good to
+;; declutter it somehow, at least 59 out of every 60 values.
+(defun secretary--mem-cleanup-old-values-of-var (var))
+
 (defun secretary--filter-mem-for-variable (var)
     (let* ((table (secretary--get-all-entries-in-tsv secretary-mem-loc))
            (table-subset (--filter (eq var (read (elt it 1))) table)))
@@ -1400,7 +1406,7 @@ Destructive; modifies in place."
                       (prin1-to-string (car cell))
                       (if (ts-p (cdr cell))
                           ;; Convert ts structs because they're clunky to read
-                          (ts-format "%s.%7N" (cdr cell))
+                          (ts-format "%s" (cdr cell))
                         (prin1-to-string (cdr cell)))))))))
 ;;(secretary--save-memory-only-changed-vars)
 
@@ -1416,6 +1422,9 @@ Destructive; modifies in place."
 
 ;; REVIEW: We may not need this
 (defvar secretary--mem-timestamp-variables
+  "List of variables that are ts objects.
+Members will be saved to `secretary-mem-loc' as numbers instead
+of ts objects for legibility."
   '(secretary--last-online))
 
 (defun secretary--recover-memory ()
@@ -1430,7 +1439,7 @@ assign them in `secretary-memory'."
                                 row)))
         (unless (member (car parsed-row) (-map #'car secretary-memory))
           ;; Convert numbers back into ts objects.
-          (when (member (car parsed-row) '(secretary--last-online))
+          (when (member (car parsed-row) secretary--mem-timestamp-variables)
             (setf (cadr parsed-row) (ts-fill (make-ts :unix (cadr parsed-row)))))
           (setq secretary-memory (cons (cons  (car parsed-row) (cadr parsed-row))
                                        secretary-memory)))))))
