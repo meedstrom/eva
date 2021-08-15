@@ -482,7 +482,7 @@ Note that org-journal is not needed."
               (secretary-memory-pushnew-alt transformed-org-templates))))
 
 ;; UNTESTED
-(defun secretary--check-org-variables ()
+(defun secretary-check-org-variables ()
   "Check for changes to certain variables.
 Suitable on `secretary-after-load-vars-hook'."
   (let ((restored-templates
@@ -500,7 +500,7 @@ Suitable on `secretary-after-load-vars-hook'."
         (message (secretary-emit "org-agenda-files changed!"))))))
 
 ;; UNTESTED
-(defun secretary--check-clock ()
+(defun secretary-check-clock ()
   "If there's a dangling clock, prompt to load Org.
 Suitable on `secretary-after-load-vars-hook'."
   (and (map-elt secretary-memory 'org-clock-current-task)

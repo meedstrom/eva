@@ -32,8 +32,8 @@
 (require 'secretary-builtin)
 (require 'secretary-activity)
 
-(add-hook 'secretary-after-load-vars-hook #'secretary--check-clock)
-(add-hook 'secretary-after-load-vars-hook #'secretary--check-org-variables)
+(add-hook 'secretary-after-load-vars-hook #'secretary-check-clock)
+(add-hook 'secretary-after-load-vars-hook #'secretary-check-org-variables)
 
 ;; (secretary--count-successes-today 'secretary-present-diary)
 ;; (secretary--pending-p #'secretary-present-diary)

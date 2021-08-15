@@ -47,13 +47,14 @@
 (require 'f) ;; f-read and f-append are just nice
 (require 'pfuture)
 
-(defvar secretary-debug-p nil)
+(defvar secretary-debug-p
+  init-file-debug)
 
 (defgroup secretary nil "The Emacs in-house secretary."
   :prefix "secretary-"
   :group 'convenience)
 
-(defcustom secretary-ai-name "Val" ;; short for Virtual Assistant Library
+(defcustom secretary-ai-name "Alfred" 
   "Your secretary's name."
   :group 'secretary
   :type 'string
@@ -517,7 +518,7 @@ Echo both prompts and responses to the chat buffer."
          (extra-collection '("/skip" "/help"))
          (input (completing-read
                  (concat background-info
-                         (ts-format "[%H:%M] ")
+                         (ts-format "<%H:%M> ")
                          prompt
                          (when (stringp default)
                            " (default " default "): "))
@@ -529,15 +530,20 @@ Echo both prompts and responses to the chat buffer."
     (secretary-check-special-input input)
     input))
 
-(defun secretary-read-string (prompt)
-  "Like `secretary-read' but call `read-string' internally."
+(defun secretary-read-string (prompt &optional initial-input history default-value)
+  "Like `secretary-read' but call `read-string' internally.
+All of PROMPT, INITIAL-INPUT, HISTORY, DEFAULT-VALUE are passed
+to that function, though PROMPT is prepended with extra info."
   (secretary-emit prompt)
   (let* ((background-info (concat "[Applying to date: "
                                   (ts-format "%Y %b %d" secretary--date) "]\n"))
          (input (read-string
                  (concat background-info
-                         (ts-format "[%H:%M] ")
-                         prompt))))
+                         (ts-format "<%H:%M> ")
+                         prompt)
+                 initial-input
+                 history
+                 default-value)))
     (secretary-emit-same-line input)
     (secretary-check-special-input input)
     input))
