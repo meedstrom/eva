@@ -211,12 +211,13 @@ Runs `secretary-periodic-not-idle-hook'."
   (if (> (ts-diff (ts-now) secretary--last-online)
          secretary-idle-threshold-secs-short)
       (secretary--user-is-idle)
-    (setq secretary--last-online (ts-now))
-    (setq secretary--idle-beginning (ts-now))
+    (setq secretary--last-online (ts-fill (ts-now)))
+    (setq secretary--idle-beginning (ts-fill (ts-now)))
     (secretary--start-next-timer)
     ;; Run hooks last, in case they contain bugs.
     (run-hooks 'secretary-periodic-not-idle-hook)))
 
+;; NOTE: This runs rapidly, so it should be relatively efficient
 (defun secretary--user-is-idle (&optional decrement)
   "Do stuff assuming the user is idle.
 This function is called by `secretary--start-next-timer'
@@ -247,6 +248,7 @@ separate function from `secretary--user-is-active'."
 ;; NOTE: If you change the order of keys, secretary--recover-memory will set
 ;; the wrong values! Be sure you have a good reason.
 
+;; TODO: Make last-called an integer
 ;; TODO: remove some/all initvalues?
 (cl-defstruct (secretary-item
                (:constructor secretary-item-create)
@@ -1068,7 +1070,7 @@ meant to get."
         (message "No dataset or log file found for %s." (symbol-name fn))
         0))))
 
-(defun secretary-append-tsv (path &rest fields)
+(cl-defun secretary-append-tsv (path &rest fields &key float-time &allow-other-keys)
   "Append a line to the file located at PATH.
 Create the file and its parent directories if it doesn't exist,
 and make sure the line begins on a newline.  Treat each argument
@@ -1076,10 +1078,13 @@ in FIELDS... as a separate data field, inserting a tab character
 in between, and warn if a field contains a tab character.
 
 For database purposes (which you may not need), FIELDS is
-prepended with a field for the Unix timestamp representing right
-now. If timestamps are an actual variable you want to track, add
-a separate field containing something like the output
-of `(ts-format secretary--date)'."
+prepended with a field for the Unix timestamp representing
+\"posted time\" i.e. right now, the time the row was added.  If
+time is also an actual variable you want to track, add a separate
+field containing something like the output of `(ts-format
+secretary--date)'.  The first field is not for that.  Optional
+key FLOAT-TIME, if non-nil, means to use a float instead of
+integer for the first field."
   (declare (indent defun))
   (unless (file-exists-p path)
     (make-empty-file path t))
@@ -1091,9 +1096,14 @@ of `(ts-format secretary--date)'."
          (newline-maybe-really (if (string= "" (f-read-bytes path))
                                    ""
                                  newline-maybe))
-         ;; 7 digits are used by `ts-unix' and `float-time', at least on my
-         ;; machine, match it for consistent string lengths (aesthetic)
-         (posted (ts-format "%s.%7N"))
+         ;; On my machine at least, `ts-unix' and `float-time' very frequently
+         ;; return numbers at a precision of 7 subsecond digits, ensure it for
+         ;; consistent string lengths (aesthetic).
+         ;;
+         ;; TODO: Actually it sometimes (very rarely) hits 8, should we just use the full %N?
+         (posted (if float-time
+                     (ts-format "%s.%7N")
+                   (ts-format "%s")))
          (text (string-join fields "\t"))
          (new-text (concat newline-maybe-really posted "\t" text)))
     (cond
@@ -1379,13 +1389,17 @@ Destructive; modifies in place."
                   (if (null foo)
                       (setq write? t)
                     (unless (equal (cdr cell)
-                                   ;; read is dangerous: it doesn't take nil value well
+                                   ;; read is dangerous: it doesn't take nil value well...
                                    (read (nth 2 (-last-item foo))))
                       (setq write? t)))
                   (when write?
                     (secretary-append-tsv secretary-mem-loc
                       (prin1-to-string (car cell))
-                      (prin1-to-string (cdr cell))))))))
+                      (if (ts-p (cdr cell))
+                          ;; Convert ts structs because they're clunky to read
+                          (ts-format "%s.%7N" (cdr cell))
+                        (prin1-to-string (cdr cell)))))))))
+;;(secretary--save-memory-only-changed-vars)
 
 (defun secretary--last-value-of-variable (var)
     (let* ((table (nreverse (secretary--get-all-entries-in-tsv secretary-mem-loc)))
@@ -1397,20 +1411,25 @@ Destructive; modifies in place."
               (setq ok nil)
               (cl-return (read (nth 2 row)))))))))
 
-;; DEPRECATED
-(defun secretary--recover-memory-only-update-present ()
-  (cl-loop for cell in secretary-memory
-           do (map-put! secretary-memory (car cell)
-                        (secretary--last-value-of-variable (car cell)))))
+;; REVIEW: We may not need this
+(defvar secretary--mem-timestamp-variables
+  '(secretary--last-online))
 
 (defun secretary--recover-memory ()
   "Grab the newest values from file at `secretary-mem-loc' and
 assign them in `secretary-memory'."
   (let* ((table (-map #'cdr (nreverse (secretary--get-all-entries-in-tsv secretary-mem-loc)))))
     (while (/= 0 (length table))
-      (let ((row (pop table)))
-        (unless (member (read (car row)) (-map #'car secretary-memory))
-          (setq secretary-memory (cons (cons (read (car row)) (read (cadr row)))
+      (let* ((row (pop table))
+             (parsed-row (--map (if (member it '("nil" ""))
+                                    nil ;; guard clause b/c (read nil) has terrible behavior
+                                  (read it))
+                                row)))
+        (unless (member (car parsed-row) (-map #'car secretary-memory))
+          ;; Convert numbers back into ts objects.
+          (when (member (car parsed-row) '(secretary--last-online))
+            (setf (cadr parsed-row) (ts-fill (make-ts :unix (cadr parsed-row)))))
+          (setq secretary-memory (cons (cons  (car parsed-row) (cadr parsed-row))
                                        secretary-memory)))))))
 
 (defun secretary--restore-item-metadata-from-mem ()
