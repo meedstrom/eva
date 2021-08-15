@@ -251,7 +251,7 @@ Uses the first command specified in `ledger-reports'."
   (cond ((not (f-exists-p secretary-ledger-file-name))
          (message (secretary-emit
                    "secretary-ledger-file-name does not refer to existing file,"
-                   " skipping Ledger report."))
+                   " skipping Ledger report.")))
          ((not (require 'ledger-mode nil t))
           (message (secretary-emit
                     "Ledger-mode failed to load, skipping Ledger report.")))
@@ -262,7 +262,7 @@ Uses the first command specified in `ledger-reports'."
             (with-current-buffer (find-file-noselect secretary-ledger-file-name)
               (ledger-report (caar ledger-reports) nil)))
           (push (get-buffer ledger-report-buffer-name) secretary--excursion-buffers)
-          (keyboard-quit)))))
+          (keyboard-quit))))
 
 (secretary-defquery-and-excursion secretary-present-ledger-report ()
   "Jump to `secretary-ledger-file-name' and run `ledger-report'.
