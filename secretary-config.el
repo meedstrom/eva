@@ -23,27 +23,17 @@
 ;; (require 'org-id)
 ;; (org-id-update-id-locations '("/home/kept/Emacs/secretary/test.org"))
 
-;; must be set early
-(setq secretary-ai-name "Maya")
-(setq secretary-fallback-to-emacs-idle-p t)
-
-;; best set early, but not breaking if not
-(setq secretary-user-short-title "sir")
 (setq secretary-user-name "Martin")
 (setq secretary-user-birthday "1991-12-07")
-(setq secretary-debug-p t)
-(setq secretary-presumptive-p nil)
-(setq secretary-idle-file-name             "/home/kept/Self_data/idle.tsv")
-(setq secretary-buffer-focus-log-file-name "/home/kept/Self_data/buffer-focus.tsv")
-(setq secretary-buffer-info-file-name      "/home/kept/Self_data/buffer-info.tsv")
-(setq secretary-ledger-file-name           "/home/kept/Journal/Finances/l.ledger")
-(setq secretary-location-main-datetree     "/home/kept/Journal/diary.org")
-;; (setq org-journal-dir)
-;; (setq org-journal-file-format "%F.org")
+(setq secretary-ledger-file-name       "/home/kept/Journal/Finances/l.ledger")
+(setq secretary-location-main-datetree "/home/kept/Journal/diary.org")
 
 (require 'secretary)
 (require 'secretary-builtin)
 (require 'secretary-activity)
+
+(add-hook 'secretary-after-load-vars-hook #'secretary--check-clock)
+(add-hook 'secretary-after-load-vars-hook #'secretary--check-org-variables)
 
 ;; (secretary--count-successes-today 'secretary-present-diary)
 ;; (secretary--pending-p #'secretary-present-diary)

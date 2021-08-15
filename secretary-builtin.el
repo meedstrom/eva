@@ -16,8 +16,8 @@
 
 ;;; Commentary:
 
-;; Premade queries and presenters. I dogfood these, you can use them as-is or
-;; define your own alternatives.
+;; Premade queries, hooks and other uses of the core library. I dogfood these,
+;; you can use them as-is or define your own alternatives.
 
 ;;; Code:
 
@@ -445,6 +445,51 @@ Note that org-journal is not needed."
 
 ;; (secretary-present-diary (ts-now))
 ;; (secretary-present-diary (ts-dec 'day 1 (ts-now)))
+
+
+;;; Org
+;; TODO: Expand this stuff.
+
+(add-hook 'secretary-before-save-vars-hook
+          (defun secretary--save-org-variables ()
+            (when (featurep 'org-clock)
+              (secretary-memory-pushnew 'org-clock-current-task))
+            (when (featurep 'org-agenda)
+              (secretary-memory-pushnew 'org-agenda-files))
+            ;; Transform newlines; secretary-append-tsv correctly refuses them.
+            (let ((transformed-org-templates
+                   (cl-loop for template in org-capture-templates
+                            collect (--map (if (stringp it)
+                                               (s-replace "\n" "\\n" it)
+                                             it)
+                                           template))))
+              (secretary-memory-pushnew-alt transformed-org-templates))))
+
+;; UNTESTED
+(defun secretary--check-org-variables ()
+  "Check for changes to certain variables.
+Suitable on `secretary-after-load-vars-hook'."
+  (let ((restored-templates
+         (cl-loop for template in (map-elt secretary-memory 'transformed-org-templates)
+                  collect (--map (if (stringp it)
+                                     (s-replace "\\n" "\n" it)
+                                   it)
+                                 template))))
+    (when secretary-debug-p
+      (if (equal restored-templates org-capture-templates)
+          (message (secretary-emit "org-capture-templates unchanged"))
+        (message (secretary-emit "org-capture-templates changed!")))
+      (if (equal org-agenda-files (map-elt secretary-memory 'org-agenda-files))
+          (message (secretary-emit "org-agenda-files unchanged"))
+        (message (secretary-emit "org-agenda-files changed!"))))))
+
+;; UNTESTED
+(defun secretary--check-clock ()
+  "If there's a dangling clock, prompt to load Org.
+Suitable on `secretary-after-load-vars-hook'."
+  (and (map-elt secretary-memory 'org-clock-current-task)
+       (secretary-ynp "Dangling clock found, activate Org?")
+       (require 'org-clock)))
 
 (provide 'secretary-builtin)
 
