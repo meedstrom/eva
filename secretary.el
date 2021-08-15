@@ -290,18 +290,23 @@ Needed to persist disablings across restarts."
   (let* ((disabled-fns (when (f-exists-p (secretary-disabled-items-file-name))
                          (read (f-read (secretary-disabled-items-file-name)))))
          (coll (when (< 0 (length disabled-fns))
-                 (-map #'symbol-name disabled-fns))))
+                 (-map #'symbol-name disabled-fns)))
+         (resp (when coll (completing-read "Re-enable: " coll)))
+         (new-list (remove resp coll))
+         (new-list (if (null new-list)
+                       "nil"
+                     new-list)))
     (if coll
-        ;; TODO
-        (completing-read "Reenable: " coll)
+        (secretary-write-safely new-list (secretary-disabled-items-file-name))
       (message "There are no disabled items"))))
 
 (defun secretary-disable-item-by-fn (fn)
-  (f-write (prin1-to-string (remove fn (secretary--enabled-items)))
+  (f-write (prin1-to-string (list fn))
            'utf-8
            (secretary-disabled-items-file-name)))
 
 (defun secretary-ask-disable (fn)
+  "Ask to disable item indicated by FN; return t on success."
   (if (secretary-ynp
        "You have been dismissing " (symbol-name fn)
        ", shall I stop tracking it for now?")
