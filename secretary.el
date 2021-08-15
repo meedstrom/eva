@@ -159,7 +159,7 @@ of messages. See also `secretary-sit-long' and
   :type 'number)
 
 (defcustom secretary-idle-file-name
-  (convert-standard-filename "~/idle.tsv")
+  (convert-standard-filename "~/self-data/idle.tsv")
   "Location of the idleness log."
   :group 'secretary
   :type 'string)
@@ -186,7 +186,7 @@ the last Emacs shutdown or crash (technically, last time
 (defcustom secretary-periodic-not-idle-hook
   '(secretary--save-variables-to-disk
     secretary--save-buffer-logs-to-disk)
-  "Hook run every minute when the user is not idle."
+  "Hook run every minute as long as the user is not idle."
   :group 'secretary
   :type '(hook :options (secretary--save-variables-to-disk
                          secretary--save-buffer-logs-to-disk)))
@@ -1186,13 +1186,13 @@ of `secretary-greeting'. Mutually exclusive with
            "*" secretary-ai-name ": Buffer info*")))
 
 (defcustom secretary-buffer-focus-log-file-name
-  (convert-standard-filename "~/buffer-focus.tsv")
+  (convert-standard-filename "~/self-data/buffer-focus.tsv")
   nil
   :group 'secretary
   :type 'string)
 
 (defcustom secretary-buffer-info-file-name
-  (convert-standard-filename "~/buffer-info.tsv")
+  (convert-standard-filename "~/self-data/buffer-info.tsv")
   nil
   :group 'secretary
   :type 'string)
@@ -1214,13 +1214,13 @@ Put this on `window-buffer-change-functions' and
 `window-selection-change-functions'."
   (unless (minibufferp)
     (let* ((buf (current-buffer))
-           (mode (symbol-name (buffer-local-value 'major-mode buf)))
+           (mode (symbol-name major-mode))
            (known (assoc buf secretary-known-buffers))
-           (timestamp (s-pad-right 18 "0" (number-to-string (ts-unix (ts-now)))))
-           (visiting (if (equal mode "dired-mode")
+           (timestamp (ts-format "%s.%N"))
+           (visiting (if (eq major-mode 'dired-mode)
                          default-directory
                        buffer-file-name))
-           (eww-url (when (equal mode "eww-mode")
+           (eww-url (when (eq major-mode 'eww-mode)
                       (eww-current-url)))
            (exist-record (unless (and known
                                       ;; TODO: make a new exist-record when mode changes

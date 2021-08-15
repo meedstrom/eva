@@ -16,7 +16,7 @@
 
 ;;; Commentary:
 
-;; Premade queries and presenters. I dogfood these -- you can use them as-is or
+;; Premade queries and presenters. I dogfood these, you can use them as-is or
 ;; define your own alternatives.
 
 ;;; Code:
