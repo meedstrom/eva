@@ -482,17 +482,19 @@ own R project."
         (define-key y-or-n-p-map (kbd x) #'y-or-n-p-insert-other)))))
 
 (defun secretary-check-special-input (input)
-  (when (string-match-p "/skip" input)
-    (progn
-      (if (and (< 1 (length secretary--queue))
-               (member secretary--current-fn secretary--queue))
-          ;; Try to proceed to next item
-          (progn
-            (setq secretary--queue
-                  (cl-remove secretary--current-fn secretary--queue :count 1))
-            (secretary-resume))
-        ;; Just cancel the session
-        (abort-recursive-edit)))))
+  (cond ((string-match-p "/skip" input)
+         (if (and (< 1 (length secretary--queue))
+                  (member secretary--current-fn secretary--queue))
+             ;; Try to proceed to next item
+             (progn
+               (setq secretary--queue
+                     (cl-remove secretary--current-fn secretary--queue :count 1))
+               (secretary-resume))
+           ;; Just cancel the session
+           (abort-recursive-edit)))
+        ((string-match-p "help" input)
+         (secretary-dispatch) ;; TODO: develop a midprompt-dispatch
+         (abort-recursive-edit))))
 
 ;; TODO: Bind C-- and C-+ to date increment/decrement (C-0 to reset)
 (defun secretary-read (prompt &optional collection default)
@@ -501,7 +503,7 @@ Echo both prompts and responses to the chat buffer."
   (secretary-emit prompt)
   (let* ((background-info (concat "[Applying to date: "
                                   (ts-format "%Y %b %d" secretary--date) "]\n"))
-         (extra-collection '("/skip"))
+         (extra-collection '("/skip" "/help"))
          (input (completing-read
                  (concat background-info
                          (ts-format "[%H:%M] ")
@@ -513,10 +515,6 @@ Echo both prompts and responses to the chat buffer."
                  (when (stringp default)
                    default))))
     (secretary-emit-same-line input)
-    ;; TODO: help!! develop midprompt-dispatch
-    ;; (when (string-match-p "help" input)
-    ;;   (secretary-dispatch)
-    ;;   (funcall secretary--current-fn))
     (secretary-check-special-input input)
     input))
 
