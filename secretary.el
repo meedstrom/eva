@@ -1153,7 +1153,7 @@ do so again."
 (defun secretary-greeting ()
   "Return a greeting string."
   (let ((bday (ts-parse secretary-user-birthday)))
-    (cond ((ts-in bday bday (ts-now))
+    (cond ((equal (ts-format "%F" bday) (ts-format "%F" (ts-now)))
            (concat "Happy birthday, " secretary-user-name "."))
           ;; If it's morning, always use a variant of "good morning"
           ((> 10 (ts-hour (ts-now)) 5)
@@ -1434,7 +1434,9 @@ Destructive; modifies in place."
   (cl-loop for cell in secretary-memory
            do (progn
                 (let ((foo (secretary--filter-mem-for-variable (car cell)))
-                      (write? nil))
+                      (write? nil)
+                      (print-level nil)
+                      (print-length nil))
                   (if (null foo)
                       (setq write? t)
                     (unless (equal (cdr cell)
