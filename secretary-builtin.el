@@ -285,6 +285,8 @@ Uses the first command specified in `ledger-reports'."
 
 ;;;###autoload
 (secretary-defexcursion secretary-present-ledger-file ()
+  (unless (f-exists-p secretary-ledger-file-name)
+    (warn "not found: secretary-ledger-file-name"))
   (message (secretary-emit "Sending you to your Ledger file. Sayonara!"))
   (sit-for secretary-sit-medium)
   ;; (pop-to-buffer (find-file-noselect secretary-ledger-file-name))
@@ -297,6 +299,8 @@ Uses the first command specified in `ledger-reports'."
   "Make and open an ODS spreadsheet from Ledger data.
 Requires the ssconvert program that comes with Gnumeric."
   (interactive)
+  (unless (f-exists-p secretary-ledger-file-name)
+    (warn "not found: secretary-ledger-file-name"))
   (let* ((script (expand-file-name "generate_an_ods.R"
                                    (f-dirname (find-library-name "secretary"))))
          (sheet (expand-file-name "tmp_finances.ods"
