@@ -1,5 +1,8 @@
 ;;; secretary-builtin.el -*- lexical-binding: t; nameless-current-name: "secretary"; -*-
+
 ;; Copyright (C) 2021 Martin Edström
+
+;; This file is not part of GNU Emacs.
 
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -242,7 +245,7 @@ add."
   (convert-standard-filename "~/my.ledger")
   "File used by `secretary-present-ledger-report'."
   :group 'secretary
-  :type 'string)
+  :type 'file)
 
 ;;;###autoload
 (secretary-defquery-and-excursion secretary-present-ledger-report ()
@@ -319,7 +322,7 @@ Only relevant if you have one you use as a big archive file, see
 Info node `(org) Moving subtrees', or you write/capture
 diary entries directly into.  Checked by `secretary-present-diary'."
   :group 'secretary
-  :type 'string)
+  :type 'file)
 
 (defvar secretary-past-sample-function #'secretary-past-sample-greedy)
 

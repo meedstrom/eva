@@ -1,12 +1,15 @@
 ;;; secretary.el --- Help the user meet goals -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2020-2021 Martin Edström
+
 ;; Author: Martin Edström <meedstrom@teknik.io>
 ;; URL: https://github.com/meedstrom/secretary
 ;; Version: 0.1.0
 ;; Created: 2020-12-03
 ;; Keywords: convenience
-;; Package-Requires: ((emacs "27.1"))
+;; Package-Requires: ((emacs "27.1") (ts) (s) (dash) (f) (ess) (pfuture) (named-timer) (transient))
 
-;; Copyright (C) 2020-2021 Martin Edström
+;; This file is not part of GNU Emacs.
 
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU Affero General Public License as published by
@@ -23,7 +26,7 @@
 
 ;;; Commentary:
 
-;; See README.org or website: https://github.com/meedstrom/secretary
+;; See README.org, info node (secretary) or website: https://github.com/meedstrom/secretary
 
 ;;; Code:
 
@@ -38,7 +41,7 @@
 ;; external
 (require 'ts) ;; essential
 (require 'named-timer) ;; essential
-(require 'ess)
+(require 'ess) ;; TODO: Drop this
 (require 'dash)
 (require 's)
 (require 'f) ;; f-read and f-append are just nice
@@ -87,7 +90,7 @@
 of messages. See also `secretary-sit-medium' and
 `secretary-sit-short'."
   :group 'secretary
-  :type 'number
+  :type 'float
   :safe t)
 
 (defcustom secretary-sit-medium .8
@@ -95,7 +98,7 @@ of messages. See also `secretary-sit-medium' and
 of messages. See also `secretary-sit-long' and
 `secretary-sit-short'."
   :group 'secretary
-  :type 'number
+  :type 'float
   :safe t)
 
 (defcustom secretary-sit-short .5
@@ -103,7 +106,7 @@ of messages. See also `secretary-sit-long' and
 of messages. See also `secretary-sit-long' and
 `secretary-sit-medium'."
   :group 'secretary
-  :type 'number
+  :type 'float
   :safe t)
 
 (defcustom secretary-presumptive-p nil
@@ -116,7 +119,7 @@ of messages. See also `secretary-sit-long' and
   (expand-file-name "secretary" user-emacs-directory)
   "Directory for persistent files (not your datasets)."
   :group 'secretary
-  :type 'string
+  :type 'directory
   :risky t)
 
 (defcustom secretary-mem-loc
@@ -124,7 +127,7 @@ of messages. See also `secretary-sit-long' and
    (expand-file-name "memory.tsv" secretary-memory-dir))
   nil
   :group 'secretary
-  :type 'string
+  :type 'file
   :risky t)
 
 (defcustom secretary-chat-log-file-name
@@ -132,7 +135,7 @@ of messages. See also `secretary-sit-long' and
    (expand-file-name "chat.log" secretary-memory-dir))
   "Where to save chat log across sessions. Can be nil."
   :group 'secretary
-  :type 'string
+  :type 'file
   :risky t)
 
 
@@ -151,18 +154,18 @@ of messages. See also `secretary-sit-long' and
 (defcustom secretary-idle-threshold-secs-short (* 10 60)
   "Duration in seconds, above which the user is considered idle."
   :group 'secretary
-  :type 'number)
+  :type 'integer)
 
 (defcustom secretary-idle-threshold-secs-long (* 90 60)
   "Be idle at least this many seconds to be greeted upon return."
   :group 'secretary
-  :type 'number)
+  :type 'integer)
 
 (defcustom secretary-idle-file-name
   (convert-standard-filename "~/self-data/idle.tsv")
   "Location of the idleness log."
   :group 'secretary
-  :type 'string)
+  :type 'file)
 
 (defun secretary-log-idle ()
   "Log chunk of idle time to disk."
@@ -542,7 +545,7 @@ Echo both prompts and responses to the chat buffer."
     (f-dirname (find-library-name "secretary"))))
   "Sound to play when a welcomer is triggered unannounced."
   :group 'secretary
-  :type 'string)
+  :type 'file)
 
 (defcustom secretary-play-sounds-p nil
   "Whether to play sounds."
@@ -1204,13 +1207,13 @@ of `secretary-greeting'. Mutually exclusive with
   (convert-standard-filename "~/self-data/buffer-focus.tsv")
   nil
   :group 'secretary
-  :type 'string)
+  :type 'file)
 
 (defcustom secretary-buffer-info-file-name
   (convert-standard-filename "~/self-data/buffer-info.tsv")
   nil
   :group 'secretary
-  :type 'string)
+  :type 'file)
 
 (defun secretary--save-buffer-logs-to-disk ()
   (secretary--transact-buffer-onto-file (secretary-buffer-focus-log-buffer)
