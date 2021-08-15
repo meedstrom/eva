@@ -107,8 +107,7 @@ itself through use.")
 
 (add-hook 'secretary-before-save-vars-hook
           (defun secretary--mood-save ()
-            (secretary-memory-put 'secretary--mood-alist
-                                  secretary--mood-alist)))
+            (secretary-memory-pushnew 'secretary--mood-alist)))
 
 ;;;###autoload
 (secretary-defquery secretary-query-weight ()

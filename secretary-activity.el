@@ -1,4 +1,4 @@
-;;; secretary-activity.el -*- lexical-binding: t; -*-
+;;; secretary-activity.el -*- lexical-binding: t; nameless-current-name: "secretary"; -*-
 ;; Copyright (C) 2021 Martin Edström
 
 ;; This program is free software: you can redistribute it and/or modify

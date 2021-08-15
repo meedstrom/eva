@@ -258,15 +258,14 @@ separate function from `secretary--user-is-active'."
                (:constructor secretary-item-create)
                (:copier nil))
   (dismissals 0)
+  (min-hours-wait 3)
+  last-called ;; almost always filled-in
+  fn ;; primary key (must be unique)
   max-calls-per-day
   (max-successes-per-day nil :documentation "Alias of max-entries-per-day, more semantically meaningful where there is no dataset.")
   max-entries-per-day
-  (min-hours-wait 3)
   lookup-posted-time
-  successes
-  fn ;; primary key (must be unique)
   dataset
-  last-called
   ;; name ;; truly-unique key (if reusing fn in two instances for some reason)
   )
 
@@ -1366,7 +1365,6 @@ has restarted, so you can run something like the following.
   :group 'secretary
   :type 'hook)
 
-
 (defcustom secretary-before-save-vars-hook nil
   "Invoked right before saving `secretary-memory' to disk.
 You should add to that list anything you want to persist across
@@ -1374,19 +1372,41 @@ reboots, using something like the following.
 
     (secretary-memory-put 'my-var my-var)
 
+or simply
+
+    (secretary-memory-pushnew 'my-var)
+
 Of course, you can do that at any time, this hook isn't needed
 unless you do things with 'my-var at indeterminate times and you
 want to be sure what goes in before it gets written to disk."
   :group 'secretary
   :type 'hook)
 
+(defun secretary-memory-pushnew (var)
+  "In `secretary-memory', store variable VAR's current value.
+You should quote VAR, like with `set', not `setq'."
+  (if (assoc var secretary-memory)
+      (map-put! secretary-memory var (symbol-value var))
+    (setq secretary-memory
+          (map-insert secretary-memory var (symbol-value var)))))
+
+(defmacro secretary-memory-pushnew-alt (var)
+  "In `secretary-memory', store variable VAR's current value."
+  `(if (assoc ',var secretary-memory)
+       (map-put! secretary-memory ',var ,var)
+     (setq secretary-memory
+           (map-insert secretary-memory ',var ,var))))
+
+;; DEPRECATED
 (defun secretary-memory-put (key value)
   "In `secretary-memory', assign KEY to VALUE.
 Replace if KEY already exists. Destructive."
   (if (assoc key secretary-memory)
       (map-put! secretary-memory key value)
-    (setq secretary-memory (map-insert secretary-memory key value))))
+    (setq secretary-memory
+          (map-insert secretary-memory key value))))
 
+;; DEPRECATED
 (defun secretary-memory-apply (key fn &rest args)
   "In `secretary-memory', at KEY, apply FN with extra args ARGS.
 Destructive; modifies in place."
@@ -1481,7 +1501,6 @@ assign them in `secretary-memory'."
              " Did you change the secretary-item defstruct?"
              " Not critical so proceeding.  May self-correct next sync."))))))
 
-;; TODO:
 ;; TODO: Calc reasonable defaults from dataset contents
 (defun secretary--restore-variables-from-disk ()
   (secretary--recover-memory)
@@ -1519,15 +1538,15 @@ assign them in `secretary-memory'."
 ;; variables to write are not null? At least when file on disk contains data?
 ;; Catch a mass-blanking event: when most variables suddenly null.
 (defun secretary--save-variables-to-disk ()
-  (secretary-memory-put 'secretary--last-online secretary--last-online)
+  (secretary-memory-pushnew 'secretary--last-online)
   ;; TODO: Should I encode like this or keep track of secretary-items as a
   ;; whole? Because the latter is a bit clunky. Also TODO: I notice I could
   ;; assign the entire structs to a variable name that's the same as the
-  ;; function name, is that sensible? Could hook the :constructor to do that
+  ;; function name, is that sensible? Could advise the :constructor to do that
   ;; automatically.
   ;; (dolist (i secretary-items)
   ;;   (secretary-memory-put (secretary-item-fn i) i))
-  (secretary-memory-put 'secretary-items secretary-items)
+  (secretary-memory-pushnew 'secretary-items)
   (make-directory secretary-memory-dir t)
   (when secretary-chat-log-file-name
     (secretary-write-safely (with-current-buffer (secretary-buffer-chat) (buffer-string))

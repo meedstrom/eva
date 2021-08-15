@@ -51,7 +51,7 @@
               (sit-for secretary-sit-long))
         :min-hours-wait 1)
        (secretary-item-create :fn #'secretary-present-diary
-                     :max-successes-per-day 1)
+                              :max-successes-per-day 1)
        (secretary-item-create :fn #'secretary-query-weight
                               :dataset "/home/kept/Self_data/weight.tsv"
                               :max-entries-per-day 1)
