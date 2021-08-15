@@ -82,7 +82,7 @@
        (secretary-item-create :fn #'secretary-query-activity
                               :dataset "/home/kept/Self_data/activities.tsv")
        (secretary-item-create
-        :fn (secretary-defquery secretary-koan ()
+        :fn (secretary-defquery my-koan ()
               (message (secretary-emit (seq-random-elt secretary-aphorisms)))
               (sit-for secretary-sit-long))
         :min-hours-wait 16)
@@ -91,6 +91,11 @@
        ;;        (message (secretary-emit (seq-random-elt secretary-aphorisms)))
        ;;        (sit-for secretary-sit-long)))
        (secretary-item-create :fn #'secretary-present-ledger-file)
+       (secretary-item-create
+        :fn (secretary-defquery-and-excursion my-bye ()
+              (message (secretary-emit "All done for now."))
+              (bury-buffer (secretary-buffer-chat)))
+        :min-hours-wait 0)
        ))
 
 
@@ -101,7 +106,7 @@
     ("q" "Quit" bury-buffer)
     ("l" "View Ledger report" secretary-present-ledger-report)
     ("f" "View Ledger file" secretary-present-ledger-file)
-    ("a" "View Org agenda" org-agenda)])
+    ("a" "View Org agenda" org-agenda-list)])
 
 ;; (transient-append-suffix 'secretary-dispatch "q"
 ;;   '("l" "View Ledger report" secretary-present-ledger-report))
@@ -111,7 +116,7 @@
 ;;   '("a" "View Org agenda" org-agenda))
 
 (define-key secretary-chat-mode-map (kbd "l") #'secretary-present-ledger-report)
-(define-key secretary-chat-mode-map (kbd "a") #'org-agenda)
+(define-key secretary-chat-mode-map (kbd "a") #'org-agenda-list)
 
 
 ;;; Finally
