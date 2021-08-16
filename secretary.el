@@ -316,9 +316,9 @@ Needed to persist disablings across restarts."
   (let* ((disabled-fns-string
           (and (f-exists-p (secretary-disabled-items-file-name))
                (f-read     (secretary-disabled-items-file-name))))
-         (disabled-fns (and (stringp       disabled-items-string)
-                            (not (s-blank? disabled-items-string))
-                            (read          disabled-items-string)))
+         (disabled-fns (and (stringp       disabled-fns-string)
+                            (not (s-blank? disabled-fns-string))
+                            (read          disabled-fns-string)))
          (coll (when (< 0 (length disabled-fns))
                  (-map #'symbol-name disabled-fns)))
          (resp (when coll (completing-read "Re-enable: " coll)))
