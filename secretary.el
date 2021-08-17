@@ -1281,13 +1281,19 @@ their value."
 Return a list looking like
 \((TIMESTAMP KEY VALUE) (TIMESTAMP KEY VALUE) ...)."
   (let* ((table (secretary-tsv-all-entries secretary-mem-history-path))
-         (table-subset (--filter (eq var (secretary--read-lisp
-                                          (elt it 1)))
+         (table-subset (--filter (eq var (secretary--read-lisp (cadr it)))
                                  table)))
     table-subset))
 
+(defun secretary--mem-check-history-sanity ()
+  "Check that the mem history is sane."
+  (unless (--all-p (= 3 (length it))
+                   (secretary-tsv-all-entries secretary-mem-history-path))
+    (error "Memory looks corrupt: not all lines have 3 fields")))
+
 (defun secretary--mem-save-only-changed-vars ()
   "Save new or changed `secretary-mem' values to disk."
+  (secretary--mem-check-history-sanity)
   (cl-loop for cell in secretary-mem
            do (progn
                 (let ((foo (secretary--mem-filter-for-variable (car cell)))
