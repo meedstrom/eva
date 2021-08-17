@@ -1596,6 +1596,8 @@ interest to persist across sessions."
              " Did you change the secretary-item defstruct?"
              " Not critical so proceeding.  May self-correct next sync."))))))
 
+(defvar secretary--has-restored-variables nil)
+
 ;; TODO: Calc all reasonable defaults we can from known dataset contents
 (defun secretary--restore-variables-from-disk ()
   "Master function restoring all relevant variables.
@@ -1626,13 +1628,16 @@ Appropriate on init."
     (setq secretary--last-online secretary--last-chatted))
   (setq secretary--idle-beginning secretary--last-online)
   (secretary--restore-item-metadata-from-mem)
-  (run-hooks 'secretary-after-load-vars-hook))
+  (run-hooks 'secretary-after-load-vars-hook)
+  (setq secretary--has-restored-variables t))
 
-;; TODO: ensure that restore-variables has been called before we
-;; proceed, so we don't accidentally blank out our files.  Sanity check:
-;; catch when most variables suddenly null.
 (defun secretary--save-variables-to-disk ()
   "Sync all relevant variables to disk."
+  (unless secretary--has-restored-variables
+    (error "Attempted to save variables to disk, but never fully \n%s\n%s\n%s"
+           "restored them from disk first, so the results would have been"
+           "built on blank data, which is not right.  Please post an issue:"
+           "https://github.com/meedstrom/secretary (even if you fix it)"))
   (secretary-memory-pushnew 'secretary--last-online)
   (secretary-memory-pushnew 'secretary-items)
   (make-directory secretary-memory-dir t)
