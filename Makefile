@@ -2,13 +2,13 @@
 .POSIX:
 .SUFFIXES: .el .elc
 EMACS	= emacs
-EL   	= secretary.el secretary-config.el secretary-builtin.el secretary-activity.el
+EL   	= secretary.el secretary-config.el secretary-builtin.el secretary-doing.el
 ELC  	= $(EL:.el=.elc)
 # external dependencies
 LDFLAGS = -L deps/ts -L deps/dash -L deps/s -L deps/ess/lisp -L deps/f -L deps/named-timer -L deps/pfuture -L deps/transient/lisp
 
-# default make action just to give us static analysis for now
-compile-and-clean: clean $(ELC)
+# default make action to run frequently during devel
+compile-and-clean: clean $(ELC) test
 	rm -f $(ELC) secretary-test.elc
 
 # $ELC expands to .elc versions of all files listed in $EL.
@@ -25,7 +25,7 @@ clean:
 
 # Dependencies
 secretary-test.elc:  $(ELC)
-secretary-config.elc: secretary.elc secretary-builtin.elc secretary-activity.elc
+secretary-config.elc: secretary.elc secretary-builtin.elc secretary-doing.elc
 secretary-activity.elc: secretary.elc secretary-builtin.elc
 secretary-builtin.elc: secretary.elc
 
