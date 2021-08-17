@@ -1731,7 +1731,7 @@ is unspecified, but it shouldn't be possible to do."
   "Emit the message that Emacs has started.
 So that we can see in the chat log when Emacs was (re)started,
 creating some context."
-  (secretary-emit "------ Emacs (re)started."))
+  (secretary-emit "------ Emacs (re)started. -------"))
 
 (defun secretary-unload-function ()
   "Unload the Secretary library."
@@ -1766,7 +1766,9 @@ creating some context."
                                        (getenv "DESKTOP_SESSION"))))
                (setq secretary--idle-seconds-fn #'secretary--gnome-idle-seconds)
                t)
-              ((and (eq window-system 'x) ;; true also under XWayland, so this condition must be below any check for Wayland
+              ;; NOTE: This condition is true under XWayland, so it must come
+              ;; after any check for Wayland if we want it to mean X only.
+              ((and (eq window-system 'x)
                     (setq secretary--x11idle-program-name
                           (seq-find #'executable-find '("x11idle" "xprintidle"))))
                (setq secretary--idle-seconds-fn #'secretary--x11-idle-seconds)
