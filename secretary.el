@@ -452,7 +452,8 @@ using.")
 (defun secretary-buffer-chat ()
   "Buffer where the secretary sends its messages."
   (or (get-buffer (concat "*" secretary-ai-name ": chat log*"))
-      (let ((buf (get-buffer-create (concat "*" secretary-ai-name ": chat log*"))))
+      (let ((buf (get-buffer-create
+                  (concat "*" secretary-ai-name ": chat log*"))))
         (with-current-buffer buf
           (secretary-chat-mode)
           (setq-local auto-save-visited-mode nil)
@@ -477,7 +478,8 @@ own R project."
   (let ((default-directory (f-dirname (find-library-name "secretary"))))
     (save-window-excursion
       (setq secretary-buffer-r (run-ess-r)))
-    ;; gotcha: only use `ess-with-current-buffer' for temp output buffers, not for the process buffer
+    ;; gotcha: only use `ess-with-current-buffer' for temp output buffers, not
+    ;; for the process buffer
     (with-current-buffer secretary-buffer-r
       ;; TODO: How to check if the script errors out?
       (ess-execute "source(\"make_data_for_plots.R\")" 'buffer))))
@@ -1731,7 +1733,8 @@ is unspecified, but it shouldn't be possible to do."
   "Emit the message that Emacs has started.
 So that we can see in the chat log when Emacs was (re)started,
 creating some context."
-  (secretary-emit "------ Emacs (re)started. -------"))
+  (when secretary--has-restored-variables
+    (secretary-emit "------ Emacs (re)started. -------")))
 
 (defun secretary-unload-function ()
   "Unload the Secretary library."
@@ -1816,6 +1819,9 @@ creating some context."
             (secretary--check-for-time-anomalies)
             (secretary--user-is-active)
             (secretary-emit "------ Mode turned on. ------"))))
+    ;; BUG: seems to emit at startup. ???  (Or it runs when turning off emacs
+    ;;      but why would it print out date then?)
+    ;;
     ;; Turn off.
     (secretary-emit "Mode turning off.")
     (secretary--save-variables-to-disk)

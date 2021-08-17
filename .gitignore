@@ -2,6 +2,7 @@
 .eshell-command-history
 *.pdf
 *.tex
+*.log
 *.html
 *~
 \#*\#
@@ -10,3 +11,4 @@
 /BRAINSTORM.org
 /wip.el
 /doc/
+/deps/
