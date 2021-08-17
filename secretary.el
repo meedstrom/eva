@@ -967,13 +967,13 @@ the mode was enabled)."
                          secretary-session-from-idle)))
 
 (defcustom secretary-periodic-present-hook
-  '(secretary--save-variables-to-disk
+  '(secretary--save-vars-to-disk
     secretary--save-buffer-logs-to-disk)
   "Hook run periodically as long as the user is not idle.
 Many things do not need to be done while the user is idle, so
 think about whether your function does.  If not, put them here."
   :group 'secretary
-  :type '(hook :options (secretary--save-variables-to-disk
+  :type '(hook :options (secretary--save-vars-to-disk
                          secretary--save-buffer-logs-to-disk)))
 
 (defvar secretary--x11idle-program-name nil)
@@ -1190,64 +1190,6 @@ Return non-nil on yes, and nil on no."
     (setf (secretary-item-dismissals (secretary-item-by-fn fn)) 0)
     nil))
 
-;; DEPRECATED
-(defun secretary-disabled-items-path ()
-  "Path to file holding list of disabled queries.
-Needed to persist disablings across restarts."
-  (expand-file-name "disabled-items.el" secretary-cache-dir-path))
-
-;; DEPRECATED
-(defun secretary--enabled-items ()
-  "Subset of `secretary-items' not known as disabled."
-  (let* ((all (-map #'secretary-item-fn secretary-items))
-         (disabled-items-string
-          (and (f-exists-p (secretary-disabled-items-path))
-               (f-read     (secretary-disabled-items-path))))
-         (disabled (and (stringp       disabled-items-string)
-                        (not (s-blank? disabled-items-string))
-                        (read          disabled-items-string))))
-    (-difference all disabled)))
-
-;; DEPRECATED
-(defun secretary-reenable-item ()
-  "Prompt to reenable one of the disabled items."
-  (declare (interactive-only t))
-  (interactive)
-  (let* ((disabled-fns-string
-          (and (f-exists-p (secretary-disabled-items-path))
-               (f-read     (secretary-disabled-items-path))))
-         (disabled-fns (and (stringp       disabled-fns-string)
-                            (not (s-blank? disabled-fns-string))
-                            (read          disabled-fns-string)))
-         (coll (when (< 0 (length disabled-fns))
-                 (-map #'symbol-name disabled-fns)))
-         (resp (when coll (completing-read "Re-enable: " coll)))
-         (new-list (remove resp coll))
-         (new-list (if (null new-list)
-                       "nil"
-                     new-list)))
-    (if coll
-        (secretary-write-safely new-list (secretary-disabled-items-path))
-      (message "There are no disabled items"))))
-
-;; DEPRECATED
-(defun secretary-disable-item-by-fn (fn)
-  "Add FN to `secretary-disabled-items-path'."
-  (f-write (prin1-to-string (list fn))
-           'utf-8
-           (secretary-disabled-items-path)))
-
-;; DEPRECATED
-(defun secretary-ask-disable* (fn)
-  "Ask to disable item indicated by FN; return t on success."
-  (if (secretary-ynp "You have been dismissing "
-                     (symbol-name fn)
-                     ", shall I stop tracking it for now?")
-      (progn (secretary-disable-item-by-fn fn)
-             t)
-    (setf (secretary-item-dismissals (secretary-item-by-fn fn)) 0)
-    nil))
-
 ;; NOTE: Do not move the check to secretary--pending-p, that is passive and
 ;; this needs interactivity.
 (defun secretary-call-fn-check-dismissals (fn)
@@ -1270,7 +1212,7 @@ Needed to persist disablings across restarts."
 ;; TODO: Test this
 ;; :set (lambda (sym val)
 ;;        (secretary--save-buffer-logs-to-disk)
-;;        (secretary--save-variables-to-disk)
+;;        (secretary--save-vars-to-disk)
 ;;        (set-default sym val)))
 
 (defcustom secretary-after-load-vars-hook nil
@@ -1313,7 +1255,7 @@ instead of ts objects for legibility.")
 (defvar secretary--has-restored-variables nil)
 
 (defun secretary--read-lisp (s)
-  "Check that string S isn't blank or nil, then `read' it.
+  "Check that string S isn't blank, then `read' it.
 Otherwise, signal an error, which `read' doesn't normally do."
   (if (and (stringp s)
            (not (string-blank-p s)))
@@ -1356,7 +1298,6 @@ Return a list looking like
                   (if (null foo)
                       (setq write? t)
                     (unless (equal (cdr cell)
-                                   ;; read is dangerous: it doesn't take nil value well...
                                    (secretary--read-lisp
                                     (nth 2 (-last-item foo))))
                       (setq write? t)))
@@ -1388,9 +1329,8 @@ Assign them to the same names inside the alist
                                        secretary-mem-history-path)))))
     (while (/= 0 (length table))
       (let* ((row (pop table))
-             (parsed-row (--map (secretary--read-lisp it)
-                                row)))
-        (unless (member (car parsed-row) (-map #'car secretary-mem))
+             (parsed-row (-map #'secretary--read-lisp row)))
+        (unless (member (car parsed-row) (map-keys secretary-mem))
           ;; Convert numbers back into ts objects.
           (when (member (car parsed-row) secretary--mem-timestamp-variables)
             (setf (cadr parsed-row) (ts-fill (make-ts :unix (cadr parsed-row)))))
@@ -1421,15 +1361,17 @@ interest to persist across sessions."
 
 ;; TODO: Calc all reasonable defaults we can from known dataset contents (we
 ;;       already do it some but we can do more).
-(defun secretary--restore-variables-from-disk ()
+(defun secretary--init ()
   "Master function restoring all relevant variables.
 Appropriate on init."
   (secretary--mem-recover)
-  (setq secretary--last-online (ts-fill
-                                (or (map-elt secretary-mem 'secretary--last-online)
-                                    (make-ts :unix 0)))) ;; TODO emit error if there are older non-nil values and it's now nil
+  (setq secretary--last-online
+        (ts-fill
+         ;; TODO: error if there are older non-nil values and it's now nil
+         (or (map-elt secretary-mem 'secretary--last-online)
+             (make-ts :unix 0))))
   (when (and secretary-chat-log-path
-             (file-exists-p secretary-chat-log-path))
+             (f-exists? secretary-chat-log-path))
     (let ((chatfile-modtime-unix
            (time-convert (file-attribute-modification-time
                           (file-attributes secretary-chat-log-path))
@@ -1453,7 +1395,7 @@ Appropriate on init."
   (run-hooks 'secretary-after-load-vars-hook)
   (setq secretary--has-restored-variables t))
 
-(defun secretary--save-variables-to-disk ()
+(defun secretary--save-vars-to-disk ()
   "Sync all relevant variables to disk."
   (unless secretary--has-restored-variables
     (error "Attempted to save variables to disk, but never fully \n%s\n%s\n%s"
@@ -1743,11 +1685,11 @@ Good to run after enabling `secretary-mode' or changing
           (if (--any-p (> it (float-time)) stamps)
               (push f anomalous-files)))))
     (when anomalous-files
-      (warn "%s"
-            (->> (append '("Secretary: Anomalous timestamps found in my logs."
-                           "You probably have or have had a wrong system clock."
-                           "These files have timestamps exceeding the current time:")
-                         anomalous-files)
+      (warn (->> (append
+                  '("Secretary: Anomalous timestamps found in my logs."
+                    "You probably have or have had a wrong system clock."
+                    "These files have timestamps exceeding the current time:")
+                  anomalous-files)
                  (s-join "\n"))))))
 
 (defun secretary--keepalive ()
@@ -1773,7 +1715,30 @@ is unspecified, but it shouldn't be possible to do."
 So that we can see in the chat log when Emacs was (re)started,
 creating some context."
   (when secretary--has-restored-variables
-    (secretary-emit "------ Emacs (re)started. -------")))
+    (secretary-emit "------ Emacs (re)started. ------")))
+
+(defun secretary--idle-set-fn ()
+  "Set `secretary--idle-secs-fn' to an appropriate function.
+Return the function on success, nil otherwise."
+  (or (symbol-value 'secretary--idle-secs-fn)  ; if preset, use that.
+      (and (eq system-type 'darwin)
+           (autoload #'org-mac-idle-seconds "org-clock")
+           (setq secretary--idle-secs-fn #'org-mac-idle-seconds))
+      ;; If under Mutter's Wayland compositor
+      (and (getenv "DESKTOP_SESSION")
+           (s-matches-p (rx (or "gnome" "ubuntu"))
+                        (getenv "DESKTOP_SESSION"))
+           (not (s-contains-p "xorg"
+                              (getenv "DESKTOP_SESSION")))
+           (setq secretary--idle-secs-fn #'secretary--idle-secs-gnome))
+      ;; NOTE: This condition is true under XWayland, so it must come
+      ;; after any check for Wayland if we want it to mean X only.
+      (and (eq window-system 'x)
+           (setq secretary--x11idle-program-name
+                 (seq-find #'executable-find '("x11idle" "xprintidle")))
+           (setq secretary--idle-secs-fn #'secretary--idle-secs-x11))
+      (and (symbol-value 'secretary-fallback-to-emacs-idle)
+           (setq secretary--idle-secs-fn #'secretary--idle-secs-emacs))))
 
 (defun secretary-unload-function ()
   "Unload the Secretary library."
@@ -1791,89 +1756,54 @@ creating some context."
   "Wake up the secretary."
   :global t
   (if secretary-mode
-      (when secretary-debug
-        (secretary-emit "------ (debug message) Trying to turn on."))
-      ;; Check to see whether it should even turn on.
-      (when (and
-             (cond
-              ((symbol-value 'secretary--idle-secs-fn)  ; if preset, use that.
-               t)
-              ((eq system-type 'darwin)
-               (autoload #'org-mac-idle-seconds "org-clock")
-               (setq secretary--idle-secs-fn #'org-mac-idle-seconds)
-               t)
-              ;; If under Mutter's Wayland compositor
-              ((and (getenv "DESKTOP_SESSION")
-                    (s-matches-p (rx (or "gnome" "ubuntu"))
-                                 (getenv "DESKTOP_SESSION"))
-                    (not (s-contains-p "xorg"
-                                       (getenv "DESKTOP_SESSION"))))
-               (setq secretary--idle-secs-fn #'secretary--idle-secs-gnome)
-               t)
-              ;; NOTE: This condition is true under XWayland, so it must come
-              ;; after any check for Wayland if we want it to mean X only.
-              ((and (eq window-system 'x)
-                    (setq secretary--x11idle-program-name
-                          (seq-find #'executable-find '("x11idle" "xprintidle"))))
-               (setq secretary--idle-secs-fn #'secretary--idle-secs-x11)
-               t)
-              ((symbol-value 'secretary-fallback-to-emacs-idle)
-               (setq secretary--idle-secs-fn #'secretary--idle-secs-emacs)
-               t)
-              (t
-               (message secretary-ai-name ": Not able to detect idleness, "
-                        "I'll be useless. Disabling secretary-mode.")
-               ;; BUG: when secretary-mode is called twice, we end up here.
-               ;; Even worse, the mode stays on...
-               (debug)
-               (secretary-mode 0)
-               nil))
-             (if (secretary--another-secretary-running-p)
-                 (progn
-                   (message "Another secretary active.")
-                   (secretary-mode 0)
-                   nil)
-               t)
-             (if (--all-p (and (boundp it)
-                               (not (null it)))
-                          '(secretary-items))
-                 t
-               (message "Needed variables not set, read manual or do %s."
-                        "M-x load-library secretary-config")
-               (secretary-mode 0)
-               nil))
-        ;; All OK, turn on.
-        (mkdir "/tmp/secretary" t)
-        (f-write (number-to-string (emacs-pid)) 'utf-8 "/tmp/secretary/pid")
-        (add-function :after after-focus-change-function #'secretary--log-buffer)
-        (add-hook 'window-buffer-change-functions #'secretary--log-buffer)
-        (add-hook 'window-selection-change-functions #'secretary--log-buffer)
-        (add-hook 'after-init-hook #'secretary--restore-variables-from-disk -90)
-        (add-hook 'after-init-hook #'secretary--emacs-init-message 1)
-        (add-hook 'after-init-hook #'secretary--check-for-time-anomalies 2)
-        (add-hook 'after-init-hook #'secretary--init-r 3)
-        (add-hook 'after-init-hook #'secretary--start-next-timer 90)
-        (named-timer-run :secretary-keepalive 300 300 #'secretary--keepalive)
-        (when after-init-time
-          (progn
-            (when (or (null secretary--last-online)
-                      (= 0 (ts-unix secretary--last-online)))
-              (secretary--restore-variables-from-disk))
-            (secretary--init-r)
-            (secretary--check-for-time-anomalies)
-            (secretary--user-is-present)
-            (when secretary-debug
-              (secretary-emit "------ (debug message) Mode turned on. ----------")))))
+      (progn
+        (when secretary-debug
+          (secretary-emit "------ (debug message) Trying to turn on. ------"))
+        ;; Check to see whether it's ok to turn on.
+        (when (and (or (secretary--idle-set-fn)
+                       (prog1 nil
+                         (message
+                          (concat secretary-ai-name
+                                  ": Not able to detect idleness, I'll be"
+                                  " useless.  Disabling secretary-mode."))
+                         (secretary-mode 0)))
+                   (if (secretary--another-secretary-running-p)
+                       (prog1 nil
+                         (message "Another secretary active.")
+                         (secretary-mode 0))
+                     t))
+          ;; All OK, turn on.
+          (mkdir "/tmp/secretary" t)
+          (f-write (number-to-string (emacs-pid)) 'utf-8 "/tmp/secretary/pid")
+          (add-function :after after-focus-change-function
+                        #'secretary--log-buffer)
+          (add-hook 'window-buffer-change-functions #'secretary--log-buffer)
+          (add-hook 'window-selection-change-functions #'secretary--log-buffer)
+          (add-hook 'after-init-hook #'secretary--init -90)
+          (add-hook 'after-init-hook #'secretary--emacs-init-message 1)
+          (add-hook 'after-init-hook #'secretary--check-for-time-anomalies 2)
+          (add-hook 'after-init-hook #'secretary--init-r 3)
+          (add-hook 'after-init-hook #'secretary--start-next-timer 90)
+          (named-timer-run :secretary-keepalive 300 300 #'secretary--keepalive)
+          (when after-init-time
+            (progn
+              (secretary--init)
+              (secretary--check-for-time-anomalies)
+              (secretary--init-r)
+              (secretary--user-is-present)
+              (when secretary-debug
+                (secretary-emit
+                 "------ (debug message) Mode turned on. ------"))))))
     ;; Turn off.
     (secretary-emit "Turning off.")
-    (secretary--save-variables-to-disk)
+    (secretary--save-vars-to-disk)
     (setq secretary--idle-secs-fn nil)
     (ignore-errors
       (f-delete "/tmp/secretary/pid"))
     (remove-function after-focus-change-function #'secretary--log-buffer)
     (remove-hook 'window-buffer-change-functions #'secretary--log-buffer)
     (remove-hook 'window-selection-change-functions #'secretary--log-buffer)
-    (remove-hook 'after-init-hook #'secretary--restore-variables-from-disk)
+    (remove-hook 'after-init-hook #'secretary--init)
     (remove-hook 'after-init-hook #'secretary--emacs-init-message)
     (remove-hook 'after-init-hook #'secretary--check-for-time-anomalies)
     (remove-hook 'after-init-hook #'secretary--init-r)
