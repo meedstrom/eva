@@ -21,16 +21,18 @@
 
 ;; Example config to put in init files.
 
+;; Probably NOT idempotent; don't require twice.
+
 ;;; Code:
 
 (setq secretary-user-name "Martin")
 (setq secretary-user-birthday "1991-12-07")
-(setq secretary-ledger-file-name       "/home/kept/Journal/Finances/l.ledger")
-(setq secretary-location-main-datetree "/home/kept/Journal/diary.org")
+(setq secretary-main-ledger-path   "/home/kept/Journal/Finances/l.ledger")
+(setq secretary-main-datetree-path "/home/kept/Journal/diary.org")
 
 (require 'secretary)
 (require 'secretary-builtin)
-(require 'secretary-activity)
+(require 'secretary-doing)
 
 (add-hook 'secretary-after-load-vars-hook #'secretary-check-clock)
 (add-hook 'secretary-after-load-vars-hook #'secretary-check-org-variables)
@@ -50,7 +52,7 @@
                               :dataset "/home/kept/Self_data/mood.tsv"
                               :min-hours-wait 1)
 
-       (secretary-item-create :fn #'secretary-query-activity
+       (secretary-item-create :fn #'secretary-query-doing
                               :dataset "/home/kept/Self_data/activities.tsv"
                               :min-hours-wait 1)
 
@@ -118,14 +120,14 @@
 
 ;;; Finally
 
-(setq secretary-activities
-      (list (secretary-activity-create
+(setq secretary-doings
+      (list (secretary-doing-create
              :name "sleep"
              :id "ac93c132-ab74-455f-a456-71d7b5ee88a6"
              :cost-false-pos 3
              :cost-false-neg 3
              :query #'secretary-query-sleep)
-            (secretary-activity-create
+            (secretary-doing-create
              :name "studying"
              :id "24553859-2214-4fb0-bdc9-84e7f3d04b2b"
              :cost-false-pos 8

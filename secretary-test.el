@@ -82,11 +82,11 @@
                     "docstr"
                     (interactive)
                     (setq secretary--current-fn #'foo)
-                    (unless (secretary--item-by-fn secretary--current-fn)
+                    (unless (secretary-item-by-fn secretary--current-fn)
                       (error "%s not listed in secretary-items" (symbol-name secretary--current-fn)))
                     (advice-add 'abort-recursive-edit :before #'secretary--after-cancel-do-things)
                     (let ((current-dataset (secretary-item-dataset
-                                            (secretary--item-by-fn secretary--current-fn))))
+                                            (secretary-item-by-fn secretary--current-fn))))
                       (unwind-protect
                           (prog1 (progn
                                    (bar)
@@ -94,10 +94,10 @@
                             (setq secretary--queue
                                   (remove secretary--current-fn secretary--queue))
                             (setf (secretary-item-dismissals
-                                   (secretary--item-by-fn secretary--current-fn))
+                                   (secretary-item-by-fn secretary--current-fn))
                                   0)
 			    (when (null current-dataset)
-			      (secretary-append-tsv
+			      (secretary-tsv-append
 			       (expand-file-name "successes-foo" secretary-memory-dir))))
                         (advice-remove 'abort-recursive-edit #'secretary--after-cancel-do-things))))))))
 
