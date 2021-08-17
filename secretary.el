@@ -1801,11 +1801,11 @@ Return the function on success, nil otherwise."
                 (secretary-emit
                  "------ (debug message) Mode turned on. ------"))))))
     ;; Turn off.
-    (secretary-emit "Turning off.")
-    (secretary--save-vars-to-disk)
+    (unless (secretary--another-secretary-running-p)
+      (secretary-emit "Turning off.")
+      (secretary--save-vars-to-disk)
+      (ignore-errors (f-delete "/tmp/secretary/pid")))
     (setq secretary--idle-secs-fn nil)
-    (ignore-errors
-      (f-delete "/tmp/secretary/pid"))
     (remove-function after-focus-change-function #'secretary--log-buffer)
     (remove-hook 'window-buffer-change-functions #'secretary--log-buffer)
     (remove-hook 'window-selection-change-functions #'secretary--log-buffer)
