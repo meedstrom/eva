@@ -1,5 +1,8 @@
-;;; secretary-config.el -*- lexical-binding: t; nameless-current-name: "secretary"; -*-
+;;; secretary-config.el --- Example config -*- lexical-binding: t; -*-
+
 ;; Copyright (C) 2021 Martin Edström
+
+;; This file is not part of GNU Emacs.
 
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -20,9 +23,6 @@
 
 ;;; Code:
 
-;; (require 'org-id)
-;; (org-id-update-id-locations '("/home/kept/Emacs/secretary/test.org"))
-
 (setq secretary-user-name "Martin")
 (setq secretary-user-birthday "1991-12-07")
 (setq secretary-ledger-file-name       "/home/kept/Journal/Finances/l.ledger")
@@ -35,44 +35,51 @@
 (add-hook 'secretary-after-load-vars-hook #'secretary-check-clock)
 (add-hook 'secretary-after-load-vars-hook #'secretary-check-org-variables)
 
-;; (secretary--count-successes-today 'secretary-present-diary)
-;; (secretary--pending-p #'secretary-present-diary)
-;; (secretary-call-fn-check-dismissals #'secretary-present-diary)
-
-
 ;; HINT: you can even use the same object multiple times in the queue, you'll
 ;; just have to assign the output of (secretary-item-create) to an external
 ;; variable and refer to it.
 (setq secretary-items
       (list
        (secretary-item-create
-        :fn (secretary-defquery secretary-greet ()
+        :fn (secretary-defun secretary-greet ()
               (message (secretary-emit (secretary-greeting)))
               (sit-for secretary-sit-long))
         :min-hours-wait 1)
+
+       (secretary-item-create :fn #'secretary-query-mood
+                              :dataset "/home/kept/Self_data/mood.tsv"
+                              :min-hours-wait 1)
+
+       (secretary-item-create :fn #'secretary-query-activity
+                              :dataset "/home/kept/Self_data/activities.tsv"
+                              :min-hours-wait 1)
+
        (secretary-item-create :fn #'secretary-present-diary
                               :max-successes-per-day 1)
+
        (secretary-item-create :fn #'secretary-query-weight
                               :dataset "/home/kept/Self_data/weight.tsv"
                               :max-entries-per-day 1)
+
        (secretary-item-create :fn #'secretary-present-ledger-report)
-       (secretary-item-create :fn #'secretary-query-mood
-                              :dataset "/home/kept/Self_data/mood.tsv")
+
        (secretary-item-create :fn #'secretary-present-org-agenda)
+
        (secretary-item-create :fn #'secretary-query-sleep
                               :dataset "/home/kept/Self_data/sleep.tsv"
                               :min-hours-wait 5
                               :lookup-posted-time t)
+
        (secretary-item-create :fn #'secretary-query-ingredients
                               :dataset "/home/kept/Self_data/ingredients.tsv"
                               :min-hours-wait 5)
+
        (secretary-item-create :fn #'secretary-query-cold-shower
                               :dataset "/home/kept/Self_data/cold.tsv"
                               :max-entries-per-day 1)
-       (secretary-item-create :fn #'secretary-query-activity
-                              :dataset "/home/kept/Self_data/activities.tsv")
+
        (secretary-item-create
-        :fn (secretary-defquery my-koan ()
+        :fn (secretary-defun my-koan ()
               (message (secretary-emit (seq-random-elt secretary-aphorisms)))
               (sit-for secretary-sit-long))
         :min-hours-wait 16)
@@ -82,7 +89,7 @@
        ;;        (sit-for secretary-sit-long)))
        (secretary-item-create :fn #'secretary-present-ledger-file)
        (secretary-item-create
-        :fn (secretary-defquery-and-excursion my-bye ()
+        :fn (secretary-defun my-bye ()
               (message (secretary-emit "All done for now."))
               (bury-buffer (secretary-buffer-chat)))
         :min-hours-wait 0)
@@ -190,5 +197,9 @@
         "If it happens once it's a mistake. If it happens twice, it's a choice."))
 
 (provide 'secretary-config)
+
+;; Local Variables:
+;; nameless-current-name: "secretary"
+;; End:
 
 ;;; secretary-config.el ends here

@@ -22,6 +22,9 @@
 
 (require 'secretary)
 
+;; (require 'org-id)
+;; (org-id-update-id-locations '("/home/kept/Emacs/secretary/test.org"))
+
 (cl-defstruct (secretary-activity
                (:constructor secretary-activity-create)
                (:copier nil))
@@ -34,13 +37,18 @@
 (defvar secretary-activities)
 
 (defun secretary-activity-by-name (name)
+  "Get the first activity in `secretary-activities' matching NAME."
   (--find (equal name (secretary-activity-name it)) secretary-activities))
 
 (defun secretary-activities-names ()
+  "Get the :name of all members of `secretary-activities'."
   (-map #'secretary-activity-name secretary-activities))
 
+;; TODO: Get all informally named activities from the dataset.
 (secretary-defquery secretary-query-activity ()
-  (let* ((name (secretary-read "What are you up to? " (secretary-activities-names)))
+  "Ask user what they're up to."
+  (let* ((name (secretary-read "What are you up to? "
+                               (secretary-activities-names)))
          (name-corrected
           (--find (member it (secretary-activities-names))
                   (list name
@@ -54,8 +62,7 @@
       (ts-format secretary--date) ;; the time the activity happened
       name
       (when activity
-        (secretary-activity-id activity)))
-    (secretary-emit-same-line name)))
+        (secretary-activity-id activity)))))
 
 (provide 'secretary-activity)
 
