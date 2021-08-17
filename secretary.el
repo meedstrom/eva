@@ -1313,10 +1313,10 @@ instead of ts objects for legibility.")
 (defvar secretary--has-restored-variables nil)
 
 (defun secretary--read-lisp (s)
-  "Check that string S isn't abnormal, then `read' it."
+  "Check that string S isn't blank or nil, then `read' it.
+Otherwise, signal an error, which `read' doesn't normally do."
   (if (and (stringp s)
-           (not (s-blank? s))
-           (not (equal s "nil")))
+           (not (string-blank-p s)))
       (car (read-from-string s))
     (error "Input should be string containing valid lisp: %s" s)))
 
@@ -1791,10 +1791,12 @@ creating some context."
   "Wake up the secretary."
   :global t
   (if secretary-mode
+      (when secretary-debug
+        (secretary-emit "------ (debug message) Trying to turn on."))
       ;; Check to see whether it should even turn on.
       (when (and
              (cond
-              (secretary--idle-secs-fn  ;; if preset, use that.
+              ((symbol-value 'secretary--idle-secs-fn)  ; if preset, use that.
                t)
               ((eq system-type 'darwin)
                (autoload #'org-mac-idle-seconds "org-clock")
@@ -1821,6 +1823,9 @@ creating some context."
               (t
                (message secretary-ai-name ": Not able to detect idleness, "
                         "I'll be useless. Disabling secretary-mode.")
+               ;; BUG: when secretary-mode is called twice, we end up here.
+               ;; Even worse, the mode stays on...
+               (debug)
                (secretary-mode 0)
                nil))
              (if (secretary--another-secretary-running-p)
@@ -1856,13 +1861,11 @@ creating some context."
               (secretary--restore-variables-from-disk))
             (secretary--init-r)
             (secretary--check-for-time-anomalies)
-            (secretary--user-is-alive)
-            (secretary-emit "------ Mode turned on. ----------"))))
-    ;; BUG: seems to emit at startup. ???  (Or it runs when turning off emacs
-    ;;      but why would it print out date then?)
-    ;;
+            (secretary--user-is-present)
+            (when secretary-debug
+              (secretary-emit "------ (debug message) Mode turned on. ----------")))))
     ;; Turn off.
-    (secretary-emit "Mode turning off.")
+    (secretary-emit "Turning off.")
     (secretary--save-variables-to-disk)
     (setq secretary--idle-secs-fn nil)
     (ignore-errors
