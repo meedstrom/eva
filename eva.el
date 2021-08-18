@@ -175,12 +175,12 @@ own R project."
       (ess-execute "source(\"init.R\")" 'buffer))))
 
 (defun eva-dbg (&rest strings)
-  "Concat STRINGS and print them via `eva-debug-fn'.
+  "Concat STRINGS and print them via `eva-dbg-fn'.
 Do nothing if that is nil.  Note that we don't do the
 `format-message' business usual for `error' and its cousins.
 Use the real `error' for that."
   (when eva-dbg-fn
-    (funcall eva-debug-fn (s-join " " strings))))
+    (funcall eva-dbg-fn (s-join " " strings))))
 
 ;; TODO: Catch typos like 03 meaning 30 minutes, not 3 hours.
 (defun eva-parse-time-amount (input)
