@@ -1336,33 +1336,24 @@ Appropriate on init."
   (mkdir eva-cache-dir-path t)
   (f-touch eva-mem-history-path)
   (eva--mem-recover)
-  ;; TODO: just do some kind of (max ...) sexp and set all to that
-  (setq eva--last-online
-        (ts-fill
-         ;; TODO: error if there are older non-nil values and it's now nil
-         (or (map-elt eva-mem 'eva--last-online)
-             (make-ts :unix 0))))
-  (when (and eva-chat-log-path
-             (f-exists? eva-chat-log-path))
-    (let ((chatfile-modtime-unix
-           (time-convert (file-attribute-modification-time
-                          (file-attributes eva-chat-log-path))
-                         'integer))
-          (remembered (map-elt eva-mem 'eva--last-chatted)))
-      (setq eva--last-chatted
-            (ts-fill
-             (make-ts :unix (max chatfile-modtime-unix
-                                 (if eva--last-chatted
-                                     (ts-unix eva--last-chatted)
-                                   0)
-                                 (if remembered
-                                     (ts-unix remembered)
-                                   0)))))))
-  (when (and (ts-p eva--last-chatted)
-             (ts< eva--last-online eva--last-chatted))
-    (setq eva--last-online eva--last-chatted))
-  (setq eva--idle-beginning eva--last-online)
-  (setq eva--last-chatted eva--last-online)
+  ;; TODO: error if there are non-nil times in history and most current is nil
+  (let* ((online (map-elt eva-mem 'eva--last-online))
+         (chatted (map-elt eva-mem 'eva--last-chatted))
+         (modtime (and eva-chat-log-path
+                       (f-exists? eva-chat-log-path)
+                       (time-convert (file-attribute-modification-time
+                                      (file-attributes eva-chat-log-path))
+                                     'integer)))
+         (max
+          (ts-fill (make-ts :unix (max (if online (ts-unix online) 0)
+                                       (if chatted (ts-unix chatted) 0)
+                                       (or modtime 0)))))
+         (max-chatted
+          (ts-fill (make-ts :unix (max (if chatted (ts-unix chatted) 0)
+                                       (or modtime 0))))))
+    (setq eva--idle-beginning max)
+    (setq eva--last-online max)
+    (setq eva--last-chatted max-chatted))
   (eva--mem-restore-items-values)
   (run-hooks 'eva-after-load-vars-hook)
   (setq eva--has-restored-variables t)
