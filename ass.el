@@ -1365,7 +1365,8 @@ Appropriate on init."
   (setq ass--last-chatted ass--last-online)
   (ass--mem-restore-items-values)
   (run-hooks 'ass-after-load-vars-hook)
-  (setq ass--has-restored-variables t))
+  (setq ass--has-restored-variables t)
+  (add-hook 'kill-emacs-hook #'ass--save-vars-to-disk))
 
 (defun ass--save-vars-to-disk ()
   "Sync all relevant variables to disk."
@@ -1756,16 +1757,14 @@ Return the function on success, nil otherwise."
           ;; All OK, turn on.
           (mkdir "/tmp/ass" t)
           (f-write (number-to-string (emacs-pid)) 'utf-8 "/tmp/ass/pid")
-          (add-function :after after-focus-change-function
-                        #'ass--log-buffer)
+          (add-function :after after-focus-change-function #'ass--log-buffer)
           (add-hook 'window-buffer-change-functions #'ass--log-buffer)
           (add-hook 'window-selection-change-functions #'ass--log-buffer)
           (add-hook 'after-init-hook #'ass--init -90)
           (add-hook 'after-init-hook #'ass--emacs-init-message 1)
           (add-hook 'after-init-hook #'ass--check-for-time-anomalies 2)
           (add-hook 'after-init-hook #'ass--init-r 3)
-          (add-hook 'after-init-hook #'ass--start-next-timer 90)
-          (add-hook 'kill-emacs-hook #'ass--save-vars-to-disk)
+          (add-hook 'after-init-hook #'ass--user-is-present 90)
           (named-timer-run :ass-keepalive 300 300 #'ass--keepalive)
           (when after-init-time
             (progn
@@ -1790,6 +1789,7 @@ Return the function on success, nil otherwise."
     (remove-hook 'after-init-hook #'ass--check-for-time-anomalies)
     (remove-hook 'after-init-hook #'ass--init-r)
     (remove-hook 'after-init-hook #'ass--start-next-timer)
+    (remove-hook 'kill-emacs-hook #'ass--save-vars-to-disk)
     (named-timer-cancel :ass)
     (named-timer-cancel :ass-keepalive)))
 
