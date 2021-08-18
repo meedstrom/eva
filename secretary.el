@@ -882,6 +882,8 @@ In BODY, you have access to the extra temporary variable:
 (defun secretary--after-cancel-do-things ()
   "Actions after user cancels a secretary prompt."
   (advice-remove 'abort-recursive-edit #'secretary--after-cancel-do-things)
+  (when (null secretary--current-fn)
+    (error "Unexpectedly null: secretary--current-fn"))
   (cl-incf (secretary-item-dismissals
              (secretary-item-by-fn secretary--current-fn)))
   ;; Re-add the fn to the queue because it got removed (so I expect); after a
@@ -1339,31 +1341,34 @@ Assign them to the same names inside the alist
         (unless (member (car parsed-row) (map-keys secretary-mem))
           ;; Convert numbers back into ts objects.
           (when (member (car parsed-row) secretary--mem-timestamp-variables)
-            (setf (cadr parsed-row) (ts-fill (make-ts :unix (cadr parsed-row)))))
-          (setq secretary-mem (cons (cons  (car parsed-row) (cadr parsed-row))
+            (setf (cadr parsed-row)
+                  (ts-fill (make-ts :unix (cadr parsed-row)))))
+          (setq secretary-mem (cons (cons (car parsed-row) (cadr parsed-row))
                                        secretary-mem)))))))
 
 (defun secretary--mem-restore-items-values ()
   "Sync some values of current `secretary-items' members from disk.
 The values are :last-called and :dismissals, because they are of
 interest to persist across sessions."
-  (dolist (disk-item (map-elt secretary-mem 'secretary-items))
-    (unless (ignore-errors (let* ((fn-sym (secretary-item-fn disk-item))
-                                   (active-item (when (fboundp fn-sym)
-                                                  (secretary-item-by-fn fn-sym))))
-                             ;; if it reflects something we have defined currently
-                             (when (fboundp fn-sym)
-                               ;;  update the current one's :dismissals etc to match on-disk values.
-                               (setf (secretary-item-dismissals active-item)
-                                 (secretary-item-dismissals disk-item))
-                               (setf (secretary-item-last-called active-item)
-                                 (secretary-item-last-called disk-item)))
-                             t))
+  (dolist (mem-item (map-elt secretary-mem 'secretary-items))
+    ;; TODO: Don't use ignore-errors
+    (unless (ignore-errors
+              (let* ((fn-sym (secretary-item-fn mem-item))
+                     (active-item (secretary-item-by-fn fn-sym)))
+                ;; if reflects something we have defined currently
+                (when (and (fboundp fn-sym)
+                           (member active-item secretary-items))
+                  ;; Update the :dismissals etc to match values from history.
+                  (setf (secretary-item-dismissals active-item)
+                        (secretary-item-dismissals mem-item))
+                  (setf (secretary-item-last-called active-item)
+                        (secretary-item-last-called mem-item)))
+                t))
       (warn
-        (s-join "\n"
-          '("secretary--mem-restore-items-values failed. "
-             " Did you change the secretary-item defstruct?"
-             " Not critical so proceeding.  May self-correct next sync."))))))
+       (s-join "\n"
+               '("secretary--mem-restore-items-values failed. "
+                 " Did you change the secretary-item defstruct?"
+                 " Not critical so proceeding.  May self-correct next sync."))))))
 
 ;; TODO: Calc all reasonable defaults we can from known dataset contents (we
 ;;       already do it some but we can do more).
@@ -1403,21 +1408,23 @@ Appropriate on init."
 
 (defun secretary--save-vars-to-disk ()
   "Sync all relevant variables to disk."
-  (unless secretary--has-restored-variables
-    (error "Attempted to save variables to disk, but never fully \n%s\n%s\n%s"
-           "restored them from disk first, so the results would have been"
-           "built on blank data, which is not right.  Please post an issue:"
-           "https://github.com/meedstrom/secretary (even if you fix it)"))
-  (secretary-mem-pushnew 'secretary--last-online)
-  (secretary-mem-pushnew 'secretary-items)
-  (secretary-mem-pushnew 'secretary-disabled-fns)
-  (make-directory secretary-cache-dir-path t)
-  (when secretary-chat-log-path
-    (secretary-write-safely (with-current-buffer (secretary--buffer-chat)
-                              (buffer-string))
-                            secretary-chat-log-path))
-  (run-hooks 'secretary-before-save-vars-hook)
-  (secretary--mem-save-only-changed-vars))
+  (if (secretary--another-secretary-running-p)
+      (warn "Another secretary running, not saving variables.")
+    (unless secretary--has-restored-variables
+      (error "Attempted to save variables to disk, but never fully \n%s\n%s\n%s"
+             "restored them from disk first, so the results would have been"
+             "built on blank data, which is not right.  Please post an issue:"
+             "https://github.com/meedstrom/secretary even if you fix it"))
+    (secretary-mem-pushnew 'secretary--last-online)
+    (secretary-mem-pushnew 'secretary-items)
+    (secretary-mem-pushnew 'secretary-disabled-fns)
+    (make-directory secretary-cache-dir-path t)
+    (when secretary-chat-log-path
+      (secretary-write-safely (with-current-buffer (secretary--buffer-chat)
+                                (buffer-string))
+                              secretary-chat-log-path))
+    (run-hooks 'secretary-before-save-vars-hook)
+    (secretary--mem-save-only-changed-vars)))
 
 (defun secretary-mem-pushnew (var)
   "In `secretary-mem', store variable VAR's current value.
@@ -1562,31 +1569,37 @@ spawned by the functions will be skipped by
 `switch-to-next-buffer'."
   (interactive)
   (named-timer-cancel :secretary-excursion) ;; hygiene
-  (let ((bufpred-backup (frame-parameter nil 'buffer-predicate)))
-    (unwind-protect
-        (progn
-          (set-frame-parameter nil 'buffer-predicate nil)
-          (pop-to-buffer (secretary--buffer-chat))
-          (dolist (f (or queue secretary--queue))
-            (secretary-call-fn-check-dismissals f)))
-      ;; FIXME: Actually, this will executed at the first keyboard-quit, so we
-      ;; will never have a nil predicate. We need to preserve it during an
-      ;; excursion.
-      (set-frame-parameter nil 'buffer-predicate bufpred-backup))))
+  (if (minibufferp) ; user busy
+      (run-with-timer 20 nil #'secretary-execute)
+    (let ((bufpred-backup (frame-parameter nil 'buffer-predicate)))
+      (unwind-protect
+          (progn
+            (set-frame-parameter nil 'buffer-predicate nil)
+            (pop-to-buffer (secretary--buffer-chat))
+            (dolist (f (or queue secretary--queue))
+              (secretary-call-fn-check-dismissals f)))
+        ;; FIXME: Actually, this will executed at the first keyboard-quit, so
+        ;; we will never have a nil predicate. We need to preserve it during an
+        ;; excursion.
+        (set-frame-parameter nil 'buffer-predicate bufpred-backup)))))
 
 (defun secretary-butt-in-gently ()
   "Butt in if any queries are pending, with an introductory chime."
-  (setq secretary-date (ts-now))
-  (when-let ((fns (if secretary-debug-no-timid
-                      (secretary-enabled-fns)
-                    (-filter #'secretary--pending-p (secretary-enabled-fns)))))
-    (setq secretary--queue fns)
-    (unless (eq t (frame-focus-state))
-      (require 'notifications)
-      (notifications-notify :title secretary-ai-name :body (secretary-greeting)))
-    (secretary--chime-aural)
-    (secretary--chime-visual)
-    (run-with-timer 1 nil #'secretary-execute)))
+  ;; TODO: chcek if a session is in fact already ongoing
+  (if (minibufferp) ; user busy
+      ;; wait and try again
+      (run-with-timer 20 nil #'secretary-butt-in-gently)
+    (setq secretary-date (ts-now))
+    (when-let ((fns (if secretary-debug-no-timid
+                        (secretary-enabled-fns)
+                      (-filter #'secretary--pending-p (secretary-enabled-fns)))))
+      (setq secretary--queue fns)
+      (unless (eq t (frame-focus-state))
+        (require 'notifications)
+        (notifications-notify :title secretary-ai-name :body (secretary-greeting)))
+      (secretary--chime-aural)
+      (secretary--chime-visual)
+      (run-with-timer 1 nil #'secretary-execute))))
 
 (defun secretary-session-from-idle ()
   "Start a session if idle was long."
