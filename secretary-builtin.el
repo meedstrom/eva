@@ -288,28 +288,12 @@ add."
 
 
 ;;; Ledger & finances
+
 (defcustom secretary-main-ledger-path
   (convert-standard-filename "~/my.ledger")
   "File used by `secretary-present-ledger-report'."
   :group 'secretary
   :type 'file)
-
-(secretary-defun secretary-present-ledger-report ()
-  "Jump to `secretary-main-ledger-path' and run `ledger-report'.
-Uses the first command specified in `ledger-reports'."
-  (unless (f-exists-p secretary-main-ledger-path)
-    (error "Variable secretary-main-ledger-path refers to no existing file"))
-  (when (ignore-errors (find-library-name "ledger-mode"))
-    (require 'ledger-mode)
-    (message (secretary-emit "Here's your Ledger report, have fun."))
-    (if (get-buffer ledger-report-buffer-name)
-        (progn
-          (ledger-report-goto)
-          (push (current-buffer) secretary-excursion-buffers))
-      (with-current-buffer (find-file-noselect secretary-main-ledger-path)
-        (ledger-report (caar ledger-reports) nil)
-        (push (get-buffer ledger-report-buffer-name) secretary-excursion-buffers)))
-    (keyboard-quit)))
 
 (secretary-defun secretary-present-ledger-report ()
   "Jump to `secretary-main-ledger-path' and run `ledger-report'.
@@ -374,6 +358,8 @@ diary entries directly into.  Checked by `secretary-present-diary'."
   :group 'secretary
   :type 'file)
 
+(defvar secretary-past-sample-function #'secretary-past-sample-greedy)
+
 (defun secretary-past-sample-greedy (&optional ts)
   "Return a list of ts objects.
 They refer to yesterday, this weekday the last 4 weeks, this day
@@ -397,8 +383,6 @@ reference can be TS instead of today."
             (--iterate (ts-dec 'day 1 it) now 1)
             (--iterate (ts-dec 'month 1 it) now 6)
             (--iterate (ts-dec 'year 1 it) now 50)))))
-
-(defvar secretary-past-sample-function #'secretary-past-sample-greedy)
 
 ;; TODO: Allow a list of datetrees
 (defun secretary-make-indirect-datetree (buffer dates)
@@ -497,6 +481,7 @@ Note that org-journal is not needed."
 
 
 ;;; Org
+
 (add-hook 'secretary-before-save-vars-hook
           (defun secretary-save-org-variables ()
             "Sync certain org settings to mem."
