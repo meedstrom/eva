@@ -189,11 +189,11 @@ minutes and numbers below are hours."
   (let ((numeric-part (string-to-number input)))
     (cond ((= 0 numeric-part) ;; strings without any number result in 0
            nil) ;; save as a NA observation
-          ((and (string-match-p "h.*m" input) (> numeric-part 0))
+          ((and (s-matches? "h.*m" input) (> numeric-part 0))
            (warn "I'm not sophisticated enough to parse that"))
-          ((string-match-p "h" input)
+          ((s-matches? "h" input)
            (* 60 numeric-part))
-          ((string-match-p "m" input)
+          ((s-matches? "m" input)
            numeric-part)
           ((-> numeric-part (>= 20))
            numeric-part)
@@ -204,7 +204,7 @@ minutes and numbers below are hours."
   "Coerce from INPUT matching HH:MM, HH or H, to HH:MM (24-h).
 If \"am\" or \"pm\" present, assume input is in 12-hour clock."
   (declare (pure t) (side-effect-free t))
-  (unless (s-matches-p (rx num) input)
+  (unless (s-matches? (rx num) input)
     (error "%s" (concat "Invalid time: " input)))
   (let* ((hhmm (or (cdr (s-match (rx (group (= 2 num)) punct (group (= 2 num)))
                                  input))
@@ -216,12 +216,12 @@ If \"am\" or \"pm\" present, assume input is in 12-hour clock."
          (minute (string-to-number (or (cadr hhmm) "00"))))
     (when (or (> hour 24)
               (and (> hour 12)
-                   (s-matches-p (rx (or "pm" "am")) input)))
+                   (s-matches? (rx (or "pm" "am")) input)))
       (error "%s" (concat "Invalid time: " input)))
-    (when (and (s-contains-p "pm" input)
+    (when (and (s-contains? "pm" input)
                (/= 12 hour))
       (cl-incf hour 12))
-    (when (and (s-contains-p "am" input)
+    (when (and (s-contains? "am" input)
                (= 12 hour))
       (setq hour 0))
     (when (= 24 hour)
@@ -266,7 +266,7 @@ If \"am\" or \"pm\" present, assume input is in 12-hour clock."
           (buffer-disable-undo)
           (visual-line-mode)
           (and ass-chat-log-path
-               (file-exists-p ass-chat-log-path)
+               (f-exists? ass-chat-log-path)
                (insert-file-contents ass-chat-log-path))
           (setq-local buffer-read-only t))
         buf)))
@@ -499,7 +499,7 @@ of `ass-greeting'. Mutually exclusive with
   "Play a sound."
   (and ass-play-sounds
        (executable-find "aplay")
-       (file-exists-p ass-chime-sound-path)
+       (f-exists? ass-chime-sound-path)
        (pfuture-new "aplay" ass-chime-sound-path)))
 
 (defun ass--chime-visual ()
@@ -541,11 +541,11 @@ of `ass-greeting'. Mutually exclusive with
         (log (expand-file-name (concat "successes-" (symbol-name fn))
                                ass-cache-dir-path)))
     (if (and dataset
-             (f-exists-p dataset))
+             (f-exists? dataset))
         (length (ass-tsv-entries-by-date dataset))
       ;; FIXME: this has only unixstamps, get-entries scans for datestamps, so
       ;; this will always be zero
-      (if (f-exists-p log)
+      (if (f-exists? log)
           (length (ass-tsv-entries-by-date log))
         (message "No dataset or log file found for %s %s."
                  (symbol-name fn)
@@ -560,7 +560,7 @@ are unsaved changes."
     (and buf
          (buffer-modified-p buf)
          (error "Unsaved changes in open buffer: %s" (buffer-name buf)))
-    (unless (and (f-exists-p path)
+    (unless (and (f-exists? path)
                  (string= text (f-read path 'utf-8)))
       (f-write text 'utf-8 path)
       (and buf (with-current-buffer buf
@@ -588,7 +588,7 @@ changes and append to a file named PATH_errors."
 (defun ass-logged-today-p (path)
   "True if file at PATH contains any reference to today.
 Does this by searching for a YYYY-MM-DD datestamp."
-  (when (file-exists-p path)
+  (when (f-exists? path)
     ;; don't act like it's a new day if the time is <5am.
     (let ((day (if (> 5 (ts-hour (ts-now)))
                    (ts-dec 'day 1 (ts-now))
@@ -643,7 +643,7 @@ meant to get."
   "Return the contents of a .tsv at PATH as a Lisp list.
 Filters for rows containing a YYYY-MM-DD datestamp matching today
 or optional ts object TS."
-  (if (file-exists-p path)
+  (if (f-exists? path)
       (with-temp-buffer
         (insert-file-contents-literally path)
         (let (x)
@@ -670,7 +670,7 @@ or optional ts object TS."
 
 (defun ass-tsv-last-value (path)
   "In .tsv at PATH, get the value of last row, last field."
-  (when (file-exists-p path)
+  (when (f-exists? path)
     (with-temp-buffer
       (insert-file-contents-literally path)
       (goto-char (point-max))
@@ -695,7 +695,7 @@ ass-date)'.  The first field is not for that.  Optional
 key FLOAT-TIME, if non-nil, means to use a float instead of
 integer for the first field."
   (declare (indent defun))
-  (unless (file-exists-p path)
+  (unless (f-exists? path)
     (make-empty-file path t))
   (let* ((fields (-replace nil "" fields))
          (newline-maybe (if (s-ends-with-p "\n" (f-read-bytes path))
@@ -714,15 +714,15 @@ integer for the first field."
          (posted (if float-time
                      (ts-format "%s.%7N")
                    (ts-format "%s")))
-         (text (string-join fields "\t"))
+         (text (s-join "\t" fields))
          (new-text (concat newline-maybe-really posted "\t" text))
          (errors-path (concat path "_errors")))
     (cond
-     ((--any-p (s-contains-p "\t" it) fields)
+     ((--any-p (s-contains? "\t" it) fields)
       (warn "Entry had tabs inside fields, wrote to %s" errors-path)
       (f-append new-text 'utf-8 errors-path)
       nil)
-     ((s-contains-p "\n" text)
+     ((s-contains? "\n" text)
       (warn "Entry had newlines, wrote to %s" errors-path)
       (f-append new-text 'utf-8 errors-path)
       nil)
@@ -1156,7 +1156,7 @@ Referred to by their :fn value.")
                             (> (ts-hour last-called) 4)))
          (recently-logged
           (when (and (stringp dataset)
-                     (file-exists-p dataset))
+                     (f-exists? dataset))
             (> min-secs-wait
                (if lookup-posted-time
                    (- (ts-unix (ts-now))
@@ -1170,7 +1170,7 @@ Referred to by their :fn value.")
     (unless recently-logged
       (when (or (not called-today)
                 (not (and (stringp dataset)
-                          (file-exists-p dataset)))
+                          (f-exists? dataset)))
                 (null max-entries)
                 (> max-entries (length (ass-tsv-entries-by-date dataset))))
         (unless recently-called
@@ -1277,7 +1277,7 @@ instead of ts objects for legibility.")
   "Check that string S isn't blank, then `read' it.
 Otherwise, signal an error, which `read' doesn't normally do."
   (if (and (stringp s)
-           (not (string-blank-p s)))
+           (not (s-blank? s)))
       (car (read-from-string s))
     (error "Input should be string containing valid lisp: %s" s)))
 
@@ -1568,10 +1568,10 @@ Put this on `window-buffer-change-functions' and
           (push exist-record ass--known-buffers)
           (with-current-buffer ass--buffer-info-buffer
             (goto-char (point-max))
-            (insert "\n" (string-join (cdr exist-record) "\t"))))
+            (insert "\n" (s-join "\t" (cdr exist-record)))))
         (with-current-buffer ass--buffer-focus-log-buffer
           (goto-char (point-max))
-          (insert "\n" (string-join focus-record "\t")))))))
+          (insert "\n" (s-join "\t" focus-record)))))))
 
 
 ;;; Interactive sessions
@@ -1606,7 +1606,6 @@ spawned by the functions will be skipped by
   "Butt in if any queries are pending, with an introductory chime."
   ;; TODO: chcek if a session is in fact already ongoing
   (if (minibufferp) ; user busy
-      ;; wait and try again
       (run-with-timer 20 nil #'ass-butt-in-gently)
     (setq ass-date (ts-now))
     (when-let ((fns (if ass-debug-no-timid
@@ -1708,14 +1707,13 @@ Optional arg TS skips the prompt and sets date from that."
 Good to run after enabling `ass-mode' or changing
 `ass-items'."
   (let* ((datasets (--map (ass-item-dataset it) ass-items))
-         (logs (list ass-idle-log-path
-                     ass-buffer-focus-log-path))
+         (logs (list ass-idle-log-path ass-buffer-focus-log-path))
          (files (-non-nil (append datasets logs)))
          (anomalous-files nil))
     (dolist (f files)
-      (when (f-exists-p f)
+      (when (f-exists? f)
         (let ((stamps (->> (ass-tsv-all-entries f)
-                           (map-keys) ;; first elem of each row
+                           (map-keys)
                            (-map #'string-to-number))))
           (unless (<= stamps)
             (message (concat "Timestamps not strictly increasing in: " f)))
@@ -1743,7 +1741,7 @@ Indispensable while hacking on the package."
 Return nil if only the current Emacs instance or none has it on.
 If you've somehow forced it on in several Emacsen, the behavior
 is unspecified, but it shouldn't be possible to do."
-  (when (file-exists-p "/tmp/ass/pid")
+  (when (f-exists? "/tmp/ass/pid")
     (let ((pid (string-to-number (f-read-bytes "/tmp/ass/pid"))))
       (and (/= pid (emacs-pid))
            (member pid (list-system-processes))))))
@@ -1764,9 +1762,9 @@ Return the function on success, nil otherwise."
            (setq ass--idle-secs-fn #'org-mac-idle-seconds))
       ;; If under Mutter's Wayland compositor
       (and (getenv "DESKTOP_SESSION")
-           (s-matches-p (rx (or "gnome" "ubuntu"))
+           (s-matches? (rx (or "gnome" "ubuntu"))
                         (getenv "DESKTOP_SESSION"))
-           (not (s-contains-p "xorg"
+           (not (s-contains? "xorg"
                               (getenv "DESKTOP_SESSION")))
            (setq ass--idle-secs-fn #'ass--idle-secs-gnome))
       ;; NOTE: This condition is true under XWayland, so it must come
