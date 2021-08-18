@@ -761,12 +761,12 @@ In BODY, you have access to the extra temporary variables:
 - \"current-dataset\" which is \"(ass-item-dataset current-item)\"."
   (declare (indent defun) (doc-string 3))
   (let* ((parsed-body (macroexp-parse-body body))
-          (declarations (car parsed-body))
-          (new-body (cdr parsed-body)))
+         (declarations (car parsed-body))
+         (new-body (cdr parsed-body)))
     `(cl-defun ,name ,args
        ;; Ensure it's always interactive
        ,@(if (member 'interactive (-map #'car-safe declarations))
-           declarations
+             declarations
            (-snoc declarations '(interactive)))
        (setq ass-curr-fn #',name)
        (when (minibufferp)
@@ -799,7 +799,7 @@ In BODY, you have access to the extra temporary variables:
                ;; Save timestamp of this successful run, even if there's no user-specified dataset.
                (when (null current-dataset)
                  (ass-tsv-append
-                   (expand-file-name ,(concat "successes-" (symbol-name name)) ass-cache-dir-path)))
+                  (expand-file-name ,(concat "successes-" (symbol-name name)) ass-cache-dir-path)))
                ;; Clean up, because this wasn't an excursion.
                (named-timer-cancel :ass-excursion)
                (remove-hook 'kill-buffer-hook #'ass--check-return-from-excursion))
@@ -807,7 +807,7 @@ In BODY, you have access to the extra temporary variables:
            (advice-remove 'abort-recursive-edit #'ass--after-cancel-do-things)
            ;; maybe the reason the variable's always nil
            ;; (when (called-interactively-p 'any)
-             ;; (setq ass-excursion-buffers nil))
+           ;; (setq ass-excursion-buffers nil))
            )))))
 
 ;; TODO: how to (declare (debug ...))
@@ -820,7 +820,7 @@ In BODY, you have access to the extra temporary variables:
     `(defun ,name ()
        ;; Ensure it's always interactive
        ,@(if (member 'interactive (-map #'car-safe declarations))
-           declarations
+             declarations
            (-snoc declarations '(interactive)))
        (setq ass-curr-fn #',name)
        (ass--wrap ,@main-body))))
@@ -854,7 +854,7 @@ In BODY, you have access to the extra temporary variables:
           ;; Save timestamp of this successful run, even if there's no user-specified dataset.
           (when (null current-dataset)
             (ass-tsv-append
-              (expand-file-name (concat "successes-" (symbol-name ass-curr-fn)) ass-cache-dir-path)))
+             (expand-file-name (concat "successes-" (symbol-name ass-curr-fn)) ass-cache-dir-path)))
           ;; Clean up, because this wasn't an excursion.
           (named-timer-cancel :ass-excursion)
           (remove-hook 'kill-buffer-hook #'ass--check-return-from-excursion))
@@ -903,7 +903,7 @@ In BODY, you have access to the extra temporary variable:
                ;; Save timestamp of this successful run.
                (when (null current-dataset)
                  (ass-tsv-append
-                   (expand-file-name ,(concat "successes-" (symbol-name name)) ass-cache-dir-path))))
+                  (expand-file-name ,(concat "successes-" (symbol-name name)) ass-cache-dir-path))))
            (advice-remove 'abort-recursive-edit #'ass--after-cancel-do-things))))))
 
 (defun ass--check-return-from-excursion ()
@@ -916,9 +916,9 @@ In BODY, you have access to the extra temporary variable:
       (when (null (ass-item-dataset
                    (ass-item-by-fn ass-curr-fn)))
         (ass-tsv-append
-          (expand-file-name (concat "successes-"
-                                    (symbol-name ass-curr-fn))
-                            ass-cache-dir-path)))
+         (expand-file-name (concat "successes-"
+                                   (symbol-name ass-curr-fn))
+                           ass-cache-dir-path)))
       (setq ass--queue
             (cl-remove ass-curr-fn ass--queue :count 1))
       ;; HACK Because the current-buffer is still active, wait to be sure the
@@ -937,7 +937,7 @@ In BODY, you have access to the extra temporary variable:
   (when (null ass-curr-fn)
     (error "Unexpectedly null: ass-curr-fn"))
   (cl-incf (ass-item-dismissals
-             (ass-item-by-fn ass-curr-fn)))
+            (ass-item-by-fn ass-curr-fn)))
   ;; Re-add the fn to the queue because it got removed (so I expect); after a
   ;; cancel, we want it to remain queued up.
   (cl-pushnew ass-curr-fn ass--queue)
@@ -1046,10 +1046,10 @@ Digression: Should honestly be submitted to Emacs,
 (defun ass--log-idle ()
   "Log chunk of idle time to disk."
   (ass-tsv-append ass-idle-log-path
-    (ts-format)
-    (number-to-string (/ (round ass-length-of-last-idle) 60))))
+                  (ts-format)
+                  (number-to-string (/ (round ass-length-of-last-idle) 60))))
 
-;; It's big brain time for this trio of functions...
+;; This trio of functions handles lots of edge cases, they took work to make.
 (defun ass--start-next-timer (&optional assume-idle)
   "Start one or the other timer depending on idleness.
 If ASSUME-IDLE is non-nil, skip the idle check and associated
@@ -1099,8 +1099,7 @@ separate function from `ass--user-is-present'."
     (when decrement
       (ts-decf (ts-sec ass--idle-beginning)
                ass-idle-threshold-secs-short))
-    (setq ass-length-of-last-idle (ts-diff (ts-now)
-                                                 ass--idle-beginning))
+    (setq ass-length-of-last-idle (ts-diff (ts-now) ass--idle-beginning))
     (unwind-protect
         (run-hooks 'ass-return-from-idle-hook)
       (setq ass--idle-beginning (ts-fill (ts-now)))
@@ -1115,7 +1114,7 @@ separate function from `ass--user-is-present'."
 ;; Q: What's cl-defstruct?  A: https://nullprogram.com/blog/2018/02/14/
 
 ;; NOTE: If you change the order of keys, ass--mem-recover will set the
-;; wrong values henceforth! You'd better use `ass--mem-nuke-var' on
+;; wrong values henceforth!  You'd better use `ass--mem-nuke-var' on
 ;; `ass-items' then.
 (cl-defstruct (ass-item
                (:constructor ass-item-create)
@@ -1125,7 +1124,7 @@ separate function from `ass--user-is-present'."
   last-called ;; almost always filled-in
   fn ;; primary key (must be unique)
   max-calls-per-day
-  (max-successes-per-day nil :documentation "Alias of max-entries-per-day, more semantic where there is no dataset.")
+  (max-successes-per-day nil :documentation "Alias of :max-entries-per-day, more semantic where there is no dataset.")
   max-entries-per-day
   lookup-posted-time
   dataset
@@ -1209,8 +1208,8 @@ Referred to by their :fn value.")
   "Ask to disable item indicated by FN.
 Return non-nil on yes, and nil on no."
   (if (ass-ynp "You have been dismissing "
-                     (symbol-name fn)
-                     ", shall I stop tracking it for now?")
+               (symbol-name fn)
+               ", shall I stop tracking it for now?")
       (push fn ass-disabled-fns)
     (setf (ass-item-dismissals (ass-item-by-fn fn)) 0)
     nil))
@@ -1334,23 +1333,23 @@ Return a list looking like
                       (setq write? t)))
                   (when write?
                     (ass-tsv-append ass-mem-history-path
-                      (prin1-to-string (car cell))
-                      (if (ts-p (cdr cell))
-                          ;; Convert ts structs because they're clunky to read
-                          (ts-format "%s" (cdr cell))
-                        (prin1-to-string (cdr cell)))))))))
+                                    (prin1-to-string (car cell))
+                                    (if (ts-p (cdr cell))
+                                        ;; Convert ts structs because they're clunky to read
+                                        (ts-format "%s" (cdr cell))
+                                      (prin1-to-string (cdr cell)))))))))
 
 (defun ass--mem-last-value-of-variable (var)
   "Get the most recent stored value of VAR from disk."
-    (let* ((table (nreverse (ass-tsv-all-entries
-                             ass-mem-history-path)))
-           (ok t))
-      (cl-block nil
-        (while ok
-          (let ((row (pop table)))
-            (when (eq (ass--read-lisp (nth 1 row)) var)
-              (setq ok nil)
-              (cl-return (read (nth 2 row)))))))))
+  (let* ((table (nreverse (ass-tsv-all-entries
+                           ass-mem-history-path)))
+         (ok t))
+    (cl-block nil
+      (while ok
+        (let ((row (pop table)))
+          (when (eq (ass--read-lisp (nth 1 row)) var)
+            (setq ok nil)
+            (cl-return (read (nth 2 row)))))))))
 
 (defun ass--mem-recover ()
   "Read the newest values from file at `ass-mem-history-path'.
@@ -1367,7 +1366,7 @@ Assign them to the same names inside the alist
             (setf (cadr parsed-row)
                   (ts-fill (make-ts :unix (cadr parsed-row)))))
           (setq ass-mem (cons (cons (car parsed-row) (cadr parsed-row))
-                                    ass-mem)))))))
+                              ass-mem)))))))
 
 (defun ass--mem-restore-items-values ()
   "Sync some values of current `ass-items' members from disk.
@@ -1398,7 +1397,10 @@ interest to persist across sessions."
 (defun ass--init ()
   "Master function restoring all relevant variables.
 Appropriate on init."
+  (mkdir ass-cache-dir-path t)
+  (f-touch ass-mem-history-path)
   (ass--mem-recover)
+  ;; TODO: just do some kind of (max ...) sexp and set all to that
   (setq ass--last-online
         (ts-fill
          ;; TODO: error if there are older non-nil values and it's now nil
@@ -1420,11 +1422,11 @@ Appropriate on init."
                                  (if remembered
                                      (ts-unix remembered)
                                    0)))))))
-  (when (and (boundp 'ass--last-chatted)
-             (ts-p ass--last-chatted)
+  (when (and (ts-p ass--last-chatted)
              (ts< ass--last-online ass--last-chatted))
     (setq ass--last-online ass--last-chatted))
   (setq ass--idle-beginning ass--last-online)
+  (setq ass--last-chatted ass--last-online)
   (ass--mem-restore-items-values)
   (run-hooks 'ass-after-load-vars-hook)
   (setq ass--has-restored-variables t))
@@ -1444,8 +1446,8 @@ Appropriate on init."
     (make-directory ass-cache-dir-path t)
     (when ass-chat-log-path
       (ass-write-safely (with-current-buffer (ass--buffer-chat)
-                                (buffer-string))
-                              ass-chat-log-path))
+                          (buffer-string))
+                        ass-chat-log-path))
     (run-hooks 'ass-before-save-vars-hook)
     (ass--mem-save-only-changed-vars)))
 
@@ -1527,9 +1529,9 @@ You should quote VAR, like with `set', not `setq'."
 (defun ass--save-buffer-logs-to-disk ()
   "Append as-yet unwritten log lines to disk files."
   (ass--transact-buffer-onto-file ass--buffer-focus-log-buffer
-                                        ass-buffer-focus-log-path)
+                                  ass-buffer-focus-log-path)
   (ass--transact-buffer-onto-file ass--buffer-info-buffer
-                                        ass-buffer-info-path))
+                                  ass-buffer-info-path))
 
 ;; TODO: When buffer major mode changes, count it as a new buffer. Note that
 ;;       (assoc buf ass--known-buffers) will still work.
@@ -1794,7 +1796,7 @@ Return the function on success, nil otherwise."
 
 ;;;###autoload
 (define-minor-mode ass-mode
-  "Wake up the ass."
+  "Wake up the virtual assistant."
   :global t
   (if ass-mode
       (progn
@@ -1810,7 +1812,7 @@ Return the function on success, nil otherwise."
                          (ass-mode 0)))
                    (if (ass--another-ass-running-p)
                        (prog1 nil
-                         (message "Another ass active.")
+                         (message "Another ass virtual assistant active.")
                          (ass-mode 0))
                      t))
           ;; All OK, turn on.

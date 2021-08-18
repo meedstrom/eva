@@ -17,14 +17,11 @@
 
 ;;; Commentary:
 
-;; Things related to activity tracking.  Still experimental.
+;; Things related to tracking doings.  Still experimental.
 
 ;;; Code:
 
 (require 'ass)
-
-;; (require 'org-id)
-;; (org-id-update-id-locations '("/home/kept/Emacs/ass/test.org"))
 
 (cl-defstruct (ass-doing
                (:constructor ass-doing-create)
@@ -47,23 +44,23 @@
 
 ;; TODO: Get all informally named doings from the dataset.
 (ass-defn ass-query-doing ()
-  "Ask user what they're up to."
-  (let* ((name (ass-read "What are you up to? "
-                               (ass-doings-names)))
-         (name-corrected
-          (--find (member it (ass-doings-names))
-                  (list name
-                        (capitalize name)
-                        (downcase name))))
-         (name (if name-corrected
-                   name-corrected
-                 name))
-         (doing (ass-doing-by-name name)))
-    (ass-tsv-append current-dataset
-      (ts-format ass-date) ;; the time the doing happened
-      name
-      (when doing
-        (ass-doing-id doing)))))
+          "Ask user what they're up to."
+          (let* ((name (ass-read "What are you up to? "
+                                 (ass-doings-names)))
+                 (name-corrected
+                  (--find (member it (ass-doings-names))
+                          (list name
+                                (capitalize name)
+                                (downcase name))))
+                 (name (if name-corrected
+                           name-corrected
+                         name))
+                 (doing (ass-doing-by-name name)))
+            (ass-tsv-append current-dataset
+                            (ts-format ass-date) ;; the time the doing happened
+                            name
+                            (when doing
+                              (ass-doing-id doing)))))
 
 (provide 'ass-doing)
 

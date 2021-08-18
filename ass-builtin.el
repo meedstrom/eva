@@ -52,48 +52,52 @@
 ;; Improvements to the core library should mean we can simplify the more
 ;; complex definitions and move them to this section.
 
+(ass-defun ass-greet ()
+           (message (ass-emit (ass-greeting)))
+           (sit-for ass-sit-long))
+
 (ass-defquery ass-query-meditation ()
-  "Ask user whether they meditated and how long."
-  (when (ass-ynp "Did you meditate today?")
-    (let* ((mins (ass-read-string "Do you know how long (in minutes)? "))
-           (cleaned-mins (number-to-string (string-to-number mins)))) ; HACK
-      (ass-tsv-append current-dataset
-        (ts-format)
-        "TRUE"
-        (unless (string= "0" cleaned-mins) cleaned-mins)))))
+              "Ask user whether they meditated and how long."
+              (when (ass-ynp "Did you meditate today?")
+                (let* ((mins (ass-read-string "Do you know how long (in minutes)? "))
+                       (cleaned-mins (number-to-string (string-to-number mins)))) ; HACK
+                  (ass-tsv-append current-dataset
+                                  (ts-format)
+                                  "TRUE"
+                                  (unless (string= "0" cleaned-mins) cleaned-mins)))))
 
 (ass-defquery ass-query-cold-shower ()
-  "Ask user to rate their cold exposure today."
-  (let ((rating (ass-read-string "Cold rating? ")))
-    (ass-tsv-append current-dataset
-      (ts-format ass-date)
-      rating)))
+              "Ask user to rate their cold exposure today."
+              (let ((rating (ass-read-string "Cold rating? ")))
+                (ass-tsv-append current-dataset
+                                (ts-format ass-date)
+                                rating)))
 
 (ass-defun ass-query-ingredients ()
-  "Ask user for a description of what they ate."
-  (let* ((response (ass-read-string
-                    "What ingredients did you eat recently? ")))
-    (ass-tsv-append current-dataset
-      (ts-format ass-date)
-      response)
-    (ass-emit "Ingredients recorded today: "
-                    (->> (ass-tsv-entries-by-date current-dataset)
-                         (nreverse)
-                         (-map #'-last-item)
-                         (s-join ", ")
-                         (s-replace ",," ",")))))
+           "Ask user for a description of what they ate."
+           (let* ((response (ass-read-string
+                             "What ingredients did you eat recently? ")))
+             (ass-tsv-append current-dataset
+                             (ts-format ass-date)
+                             response)
+             (ass-emit "Ingredients recorded today: "
+                       (->> (ass-tsv-entries-by-date current-dataset)
+                            (nreverse)
+                            (-map #'-last-item)
+                            (s-join ", ")
+                            (s-replace ",," ",")))))
 
 (ass-defun ass-present-org-agenda ()
-  "Send the user to an Org agenda log with archives enabled.
+           "Send the user to an Org agenda log with archives enabled.
 Near equivalent to typing l v A after entering `org-agenda-list'."
-  (require 'org-agenda)
-  (message (ass-emit "Sending you to the Org agenda log + archive."))
-  (sit-for ass-sit-medium)
-  (org-agenda-list)
-  (org-agenda-log-mode t)
-  (org-agenda-archives-mode t)
-  (push (current-buffer) ass-excursion-buffers)
-  (keyboard-quit))
+           (require 'org-agenda)
+           (message (ass-emit "Sending you to the Org agenda log + archive."))
+           (sit-for ass-sit-medium)
+           (org-agenda-list)
+           (org-agenda-log-mode t)
+           (org-agenda-archives-mode t)
+           (push (current-buffer) ass-excursion-buffers)
+           (keyboard-quit))
 
 
 ;;; Mood
@@ -104,50 +108,50 @@ Merely a convenience for auto-completion. The variable populates
 itself through use.")
 
 (ass-defquery ass-query-mood ()
-  "Ask user about their mood."
-  (let* ((first-response (ass-read
-                          "Your mood: "
-                          (--sort (> 0 (random))
-                                  (map-keys ass-mood-alist))))
-         (old-score (cdr (assoc first-response ass-mood-alist)))
-         (prompt-for-score
-          (concat "Score from 1 to 10"
-                  (when old-score " (default " old-score ")")
-                  ": "))
-         (second-response
-          (if (s-numeric? first-response)
-              (ass-read "Mood description (optional): ")
-            (ass-read-string prompt-for-score nil nil old-score)))
-         (mood-desc (if (s-numeric? first-response)
-                        second-response
-                      first-response))
-         (score (if (s-numeric? first-response)
-                    first-response
-                  second-response))
-         (score-num (string-to-number score)))
-    (ass-tsv-append current-dataset
-      (ts-format)
-      (s-replace "," "." score)
-      mood-desc)
-    (when ass-debug
-      (ass-emit "------ (debug message) Recorded mood: "
-                      (s-join " " (cdr (ass-tsv-last-row
-                                        current-dataset)))))
-    ;; Update ass-mood-alist.
-    (if (assoc mood-desc ass-mood-alist)
-        (setq ass-mood-alist
-              (--replace-where (string= (car it) mood-desc)
-                               (cons (car it) score)
-                               ass-mood-alist))
-      (push (cons mood-desc score) ass-mood-alist))
-    (when (and (<= score-num 1)
-               (ass-ynp "Do you want to talk?")
-               (ass-ynp "I can direct you to my colleague ELIZA, though"
-                              " she's not too bright.  Will that do?"))
-      (doctor)
-      (ass-stop-watching-excursion)
-      (keyboard-quit))
-    score-num))
+              "Ask user about their mood."
+              (let* ((first-response (ass-read
+                                      "Your mood: "
+                                      (--sort (> 0 (random))
+                                              (map-keys ass-mood-alist))))
+                     (old-score (cdr (assoc first-response ass-mood-alist)))
+                     (prompt-for-score
+                      (concat "Score from 1 to 10"
+                              (when old-score " (default " old-score ")")
+                              ": "))
+                     (second-response
+                      (if (s-numeric? first-response)
+                          (ass-read "Mood description (optional): ")
+                        (ass-read-string prompt-for-score nil nil old-score)))
+                     (mood-desc (if (s-numeric? first-response)
+                                    second-response
+                                  first-response))
+                     (score (if (s-numeric? first-response)
+                                first-response
+                              second-response))
+                     (score-num (string-to-number score)))
+                (ass-tsv-append current-dataset
+                                (ts-format)
+                                (s-replace "," "." score)
+                                mood-desc)
+                (when ass-debug
+                  (ass-emit "------ (debug message) Recorded mood: "
+                            (s-join " " (cdr (ass-tsv-last-row
+                                              current-dataset)))))
+                ;; Update ass-mood-alist.
+                (if (assoc mood-desc ass-mood-alist)
+                    (setq ass-mood-alist
+                          (--replace-where (string= (car it) mood-desc)
+                                           (cons (car it) score)
+                                           ass-mood-alist))
+                  (push (cons mood-desc score) ass-mood-alist))
+                (when (and (<= score-num 1)
+                           (ass-ynp "Do you want to talk?")
+                           (ass-ynp "I can direct you to my colleague ELIZA, though"
+                                    " she's not too bright.  Will that do?"))
+                  (doctor)
+                  (ass-stop-watching-excursion)
+                  (keyboard-quit))
+                score-num))
 
 (add-hook 'ass-after-load-vars-hook
           (defun ass-mood-load ()
@@ -164,21 +168,21 @@ itself through use.")
 ;;; Weight
 
 (ass-defquery ass-query-weight ()
-  "Ask user about their weight."
-  (let* ((last-wt (ass-tsv-last-value current-dataset))
-         (wt (ass-read "What do you weigh today? "
-                             `(,last-wt
-                               "I don't know")
-                             last-wt)))
-    (if (= 0 (string-to-number wt))
-        ;; user typed only non-numeric characters
-        (ass-emit "Ok, I'll ask you again later.")
-      (ass-tsv-append current-dataset
-        (ts-format ass-date)
-        (s-replace "," "." wt))
-      (ass-emit "Weight today: "
-                      (ass-tsv-last-value current-dataset)
-                      " kg"))))
+              "Ask user about their weight."
+              (let* ((last-wt (ass-tsv-last-value current-dataset))
+                     (wt (ass-read "What do you weigh today? "
+                                   `(,last-wt
+                                     "I don't know")
+                                   last-wt)))
+                (if (= 0 (string-to-number wt))
+                    ;; user typed only non-numeric characters
+                    (ass-emit "Ok, I'll ask you again later.")
+                  (ass-tsv-append current-dataset
+                                  (ts-format ass-date)
+                                  (s-replace "," "." wt))
+                  (ass-emit "Weight today: "
+                            (ass-tsv-last-value current-dataset)
+                            " kg"))))
 
 ;; TODO: Pass start-date (today minus 3mo) and projection incline, letting
 ;;       user change the incline
@@ -228,63 +232,63 @@ itself through use.")
 ;;       yesterday.
 ;; TODO: Generally react when it's 00-04 or so.
 (ass-defun ass-query-sleep ()
-  "Query you for wake-up time and sleep quantity for one sleep block today.
+           "Query you for wake-up time and sleep quantity for one sleep block today.
 You are free to decline either query, but you should not later
 register sleep quantity from this same block in order to \"get
 the totals correct\" -- the database will interpret it as a
 different sleep block and continue to count the original one as
 having a censored (nonzero!) quantity of sleep on top of what you
 add."
-  (let* ((today-rows (ass-tsv-entries-by-date
-                      current-dataset
-                      (ts-dec 'day 1 ass-date)))
-         (total-yesterday (-sum (--map (string-to-number (nth 3 it))
-                                       today-rows))))
-    ;; Totalling less than 4 hours is unusual, so a possible anomaly in data.
-    (if (> (* 60 4) total-yesterday)
-        (if (ass-ynp "Yesterday, you slept "
-                           (number-to-string (round (/ total-yesterday 60.0)))
-                           " hours, is this about right?")
-            nil
-          (when (ass-ynp "Edit \"" current-dataset "\"?")
-            (find-file current-dataset)
-            (push (current-buffer) ass-excursion-buffers)
-            ;; prevent counting this run as a success
-            (ass-stop-watching-excursion)
-            (keyboard-quit)))))
-  (let* ((recently-hhmm (ts-format "%H:%M" (ts-dec 'minute 10 ass-date)))
-         (recently-response (concat "Recently (" recently-hhmm ")"))
-         (wakeup-time
-          (let* ((reply (ass-read
-                         (concat "I assume you have slept today ("
-                                 (ts-format "%A" ass-date)
-                                 "). When did you wake? ")
-                         (list "I don't know"
-                               recently-response))))
-            (cond ((equal reply recently-response)
-                   recently-hhmm)
-                  ((s-match (rx num) reply)
-                   (ass-coerce-to-hh-mm reply))
-                  (t nil))))
-         (sleep-minutes
-          (ass-parse-time-amount
-           (ass-read "How long did you sleep? "
-                           `("I don't know"
-                             ,(number-to-string
-                               (/ ass-length-of-last-idle 60 60)))))))
-    (ass-emit (when wakeup-time
-                      (concat "You woke at " wakeup-time ". "))
-                    (when sleep-minutes
-                      (concat "You slept " (number-to-string sleep-minutes)
-                              " minutes (" (number-to-string
-                                            (/ sleep-minutes 60.0))
-                              " hours)."))
-                    (when (-all-p #'null '(wakeup-time sleep-minutes))
-                      (concat "One sleep block recorded without metrics.")))
-    (ass-tsv-append current-dataset
-      (ts-format "%F" ass-date) ;; date (no time component)
-      wakeup-time ;; time (optional)
-      (when sleep-minutes (number-to-string sleep-minutes)))))
+           (let* ((today-rows (ass-tsv-entries-by-date
+                               current-dataset
+                               (ts-dec 'day 1 ass-date)))
+                  (total-yesterday (-sum (--map (string-to-number (nth 3 it))
+                                                today-rows))))
+             ;; Totalling less than 4 hours is unusual, so a possible anomaly in data.
+             (if (> (* 60 4) total-yesterday)
+                 (if (ass-ynp "Yesterday, you slept "
+                              (number-to-string (round (/ total-yesterday 60.0)))
+                              " hours, is this about right?")
+                     nil
+                   (when (ass-ynp "Edit \"" current-dataset "\"?")
+                     (find-file current-dataset)
+                     (push (current-buffer) ass-excursion-buffers)
+                     ;; prevent counting this run as a success
+                     (ass-stop-watching-excursion)
+                     (keyboard-quit)))))
+           (let* ((recently-hhmm (ts-format "%H:%M" (ts-dec 'minute 10 ass-date)))
+                  (recently-response (concat "Recently (" recently-hhmm ")"))
+                  (wakeup-time
+                   (let* ((reply (ass-read
+                                  (concat "I assume you have slept today ("
+                                          (ts-format "%A" ass-date)
+                                          "). When did you wake? ")
+                                  (list "I don't know"
+                                        recently-response))))
+                     (cond ((equal reply recently-response)
+                            recently-hhmm)
+                           ((s-match (rx num) reply)
+                            (ass-coerce-to-hh-mm reply))
+                           (t nil))))
+                  (sleep-minutes
+                   (ass-parse-time-amount
+                    (ass-read "How long did you sleep? "
+                              `("I don't know"
+                                ,(number-to-string
+                                  (/ ass-length-of-last-idle 60 60)))))))
+             (ass-emit (when wakeup-time
+                         (concat "You woke at " wakeup-time ". "))
+                       (when sleep-minutes
+                         (concat "You slept " (number-to-string sleep-minutes)
+                                 " minutes (" (number-to-string
+                                               (/ sleep-minutes 60.0))
+                                 " hours)."))
+                       (when (-all-p #'null '(wakeup-time sleep-minutes))
+                         (concat "One sleep block recorded without metrics.")))
+             (ass-tsv-append current-dataset
+                             (ts-format "%F" ass-date) ;; date (no time component)
+                             wakeup-time ;; time (optional)
+                             (when sleep-minutes (number-to-string sleep-minutes)))))
 
 
 ;;; Ledger & finances
@@ -296,34 +300,34 @@ add."
   :type 'file)
 
 (ass-defun ass-present-ledger-report ()
-  "Jump to `ass-main-ledger-path' and run `ledger-report'.
+           "Jump to `ass-main-ledger-path' and run `ledger-report'.
 Uses the first command specified in `ledger-reports'."
-  (cond ((not (f-exists-p ass-main-ledger-path))
-         (message (ass-emit
-                   "ass-main-ledger-path does not refer to existing"
-                   " file, skipping Ledger report.")))
-         ((not (require 'ledger-mode nil t))
-          (message (ass-emit
-                    "Ledger-mode failed to load, skipping Ledger report.")))
-         (t
-          (message (ass-emit "Here's your Ledger report, have fun."))
-          (if (get-buffer ledger-report-buffer-name)
-              (ledger-report-goto)
-            (with-current-buffer (find-file-noselect ass-main-ledger-path)
-              (ledger-report (caar ledger-reports) nil)))
-          (push (get-buffer ledger-report-buffer-name)
-                ass-excursion-buffers)
-          (keyboard-quit))))
+           (cond ((not (f-exists-p ass-main-ledger-path))
+                  (message (ass-emit
+                            "ass-main-ledger-path does not refer to existing"
+                            " file, skipping Ledger report.")))
+                 ((not (require 'ledger-mode nil t))
+                  (message (ass-emit
+                            "Ledger-mode failed to load, skipping Ledger report.")))
+                 (t
+                  (message (ass-emit "Here's your Ledger report, have fun."))
+                  (if (get-buffer ledger-report-buffer-name)
+                      (ledger-report-goto)
+                    (with-current-buffer (find-file-noselect ass-main-ledger-path)
+                      (ledger-report (caar ledger-reports) nil)))
+                  (push (get-buffer ledger-report-buffer-name)
+                        ass-excursion-buffers)
+                  (keyboard-quit))))
 
 (ass-defun ass-present-ledger-file ()
-  (unless (f-exists-p ass-main-ledger-path)
-    (warn "not found: ass-main-ledger-path"))
-  (message (ass-emit "Here's your ledger.  Please, edit."))
-  (sit-for ass-sit-medium)
-  (view-file-other-window ass-main-ledger-path)
-  (push (current-buffer) ass-excursion-buffers)
-  (goto-char (point-max))
-  (keyboard-quit))
+           (unless (f-exists-p ass-main-ledger-path)
+             (warn "not found: ass-main-ledger-path"))
+           (message (ass-emit "Here's your ledger.  Please, edit."))
+           (sit-for ass-sit-medium)
+           (view-file-other-window ass-main-ledger-path)
+           (push (current-buffer) ass-excursion-buffers)
+           (goto-char (point-max))
+           (keyboard-quit))
 
 (defun ass-make-ods-for-finance ()
   "Make and open an ODS spreadsheet from Ledger data.
@@ -452,32 +456,32 @@ Note that org-journal is not needed."
 ;; TODO: (Feature) Try creating a sparse tree, so user can edit in-place
 ;; TODO: (Feature) Maybe show the agenda log taken from each date?
 (ass-defun ass-present-diary ()
-  "Show user a selection of past diary entries."
-  (let* ((dates-to-check (funcall ass-past-sample-function ass-date))
-         (discrete-files-found (--keep (ass-existing-diary it) dates-to-check))
-         (buffer (get-buffer-create (concat "*" ass-ai-name ": Selected diary entries*")))
-         (datetree-found-count (ass-make-indirect-datetree buffer dates-to-check))
-         (total-found-count (+ (length discrete-files-found) datetree-found-count)))
-    (if (= 0 total-found-count)
-        (message (ass-emit "No diary entries relevant to this date."))
-      (when (or (when ass-presumptive
-                  (ass-emit "Opening " (int-to-string total-found-count) " diary entries.")
-                  t)
-                (ass-ynp "Found " (int-to-string total-found-count) " past diary "
-                               (if (= 1 total-found-count) "entry" "entries")
-                               " relevant to this date. Want me to open "
-                               (if (= 1 total-found-count) "it" "them")
-                               "?"))
-        (if (= 0 datetree-found-count)
-            (kill-buffer buffer)
-          ;; TODO: pressing q should kill it!
-          (view-buffer buffer #'kill-buffer-if-not-modified)
-          (push (current-buffer) ass-excursion-buffers))
-        (when (-non-nil discrete-files-found)
-          (dolist (x discrete-files-found)
-            (view-file x)
-            (push (current-buffer) ass-excursion-buffers)))
-        (keyboard-quit)))))
+           "Show user a selection of past diary entries."
+           (let* ((dates-to-check (funcall ass-past-sample-function ass-date))
+                  (discrete-files-found (--keep (ass-existing-diary it) dates-to-check))
+                  (buffer (get-buffer-create (concat "*" ass-ai-name ": Selected diary entries*")))
+                  (datetree-found-count (ass-make-indirect-datetree buffer dates-to-check))
+                  (total-found-count (+ (length discrete-files-found) datetree-found-count)))
+             (if (= 0 total-found-count)
+                 (message (ass-emit "No diary entries relevant to this date."))
+               (when (or (when ass-presumptive
+                           (ass-emit "Opening " (int-to-string total-found-count) " diary entries.")
+                           t)
+                         (ass-ynp "Found " (int-to-string total-found-count) " past diary "
+                                  (if (= 1 total-found-count) "entry" "entries")
+                                  " relevant to this date. Want me to open "
+                                  (if (= 1 total-found-count) "it" "them")
+                                  "?"))
+                 (if (= 0 datetree-found-count)
+                     (kill-buffer buffer)
+                   ;; TODO: pressing q should kill it!
+                   (view-buffer buffer #'kill-buffer-if-not-modified)
+                   (push (current-buffer) ass-excursion-buffers))
+                 (when (-non-nil discrete-files-found)
+                   (dolist (x discrete-files-found)
+                     (view-file x)
+                     (push (current-buffer) ass-excursion-buffers)))
+                 (keyboard-quit)))))
 
 
 ;;; Org
@@ -499,7 +503,6 @@ Note that org-journal is not needed."
                                              template))))
                 (ass-mem-pushnew-alt transformed-org-templates)))))
 
-;; UNTESTED
 (defun ass-check-org-variables ()
   "Alert user if certain Org settings have changed.
 Suitable on `ass-after-load-vars-hook'."
