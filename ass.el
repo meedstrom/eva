@@ -603,7 +603,7 @@ Does this by searching for a YYYY-MM-DD datestamp."
 Does this by searching for a YYYY-MM-DD datestamp matching today
 or a ts object TS."
   (with-temp-buffer
-    (insert-file-contents path)
+    (insert-file-contents-literally path)
     (search-forward (ts-format "%F" ts))
     (buffer-substring (line-beginning-position) (line-end-position))))
 
@@ -630,7 +630,7 @@ meant to get."
 (defun ass-tsv-last-timestamp* (path)
   "In .tsv at PATH, get the second field of last row."
   (with-temp-buffer
-    (insert-file-contents path)
+    (insert-file-contents-literally path)
     (goto-char (point-max))
     (when (looking-back "^" nil) ;; if trailing newline
       (forward-line -1))
@@ -812,7 +812,7 @@ In BODY, you have access to the extra temporary variables:
 
 ;; TODO: how to (declare (debug ...))
 (defmacro ass-defn (name &rest body)
-  "NAME ARGS BODY."
+  "NAME BODY."
   (declare (indent defun) (doc-string 3))
   (let* ((parsed-body (macroexp-parse-body body))
          (declarations (car parsed-body))
@@ -907,7 +907,6 @@ In BODY, you have access to the extra temporary variable:
     (when (-none-p #'buffer-live-p others)
       (remove-hook 'kill-buffer-hook #'ass--check-return-from-excursion)
       (named-timer-cancel :ass-excursion)
-      (setq ass-excursion-buffers nil) ;; hygiene
       (when (null (ass-item-dataset
                    (ass-item-by-fn ass-curr-fn)))
         (ass-tsv-append
@@ -935,8 +934,7 @@ In BODY, you have access to the extra temporary variable:
             (ass-item-by-fn ass-curr-fn)))
   ;; Re-add the fn to the queue because it got removed (so I expect); after a
   ;; cancel, we want it to remain queued up.
-  (cl-pushnew ass-curr-fn ass--queue)
-  (setq ass-curr-fn nil)) ;; hygiene
+  (cl-pushnew ass-curr-fn ass--queue))
 
 
 ;;; Handle idle & reboots & crashes

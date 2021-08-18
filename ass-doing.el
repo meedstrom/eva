@@ -56,7 +56,7 @@
                            name-corrected
                          name))
                  (doing (ass-doing-by-name name)))
-            (ass-tsv-append current-dataset
+            (ass-tsv-append ass-curr-dataset
                             (ts-format ass-date) ;; the time the doing happened
                             name
                             (when doing
