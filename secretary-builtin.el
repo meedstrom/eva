@@ -130,7 +130,7 @@ itself through use.")
       (s-replace "," "." score)
       mood-desc)
     (when secretary-debug
-      (secretary-emit "Recorded mood: "
+      (secretary-emit "------ (debug message) Recorded mood: "
                       (s-join " " (cdr (secretary-tsv-last-row
                                         current-dataset)))))
     ;; Update secretary-mood-alist.

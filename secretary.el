@@ -247,9 +247,7 @@ If \"am\" or \"pm\" present, assume input is in 12-hour clock."
 
 (defvar secretary--just-typed-k nil)
 
-;; TODO: test nil initvalue
-(defvar secretary--last-chatted
-  (make-ts :unix 0)
+(defvar secretary--last-chatted nil
   "Timestamp updated whenever the chat is written to.")
 
 (defun secretary--buffer-chat ()
@@ -625,7 +623,7 @@ meant to get."
     (let ((rows (s-split "\n" (buffer-string) t)))
       (--map (s-split "\t" it) rows))))
 
-;; HACK: strong assumption
+;; HACK: too strong assumption
 (defun secretary-tsv-last-timestamp* (path)
   "In .tsv at PATH, get the second field of last row."
   (with-temp-buffer
@@ -1291,7 +1289,7 @@ Return a list looking like
   "Check that the mem history is sane."
   (unless (--all-p (= 3 (length it))
                    (secretary-tsv-all-entries secretary-mem-history-path))
-    (error "Memory looks corrupt: not all lines have 3 fields")))
+    (error "Memory history looks corrupt: not all lines have 3 fields")))
 
 (defun secretary--mem-save-only-changed-vars ()
   "Save new or changed `secretary-mem' values to disk."
@@ -1513,7 +1511,6 @@ You should quote VAR, like with `set', not `setq'."
 ;; TODO: When eww url changes, count it as a new buffer
 ;; TODO: When counting it as a new buffer, record a field for "previous uuid"
 ;;       just in case the data analyst wants to merge these observations
-;; TODO: Optimize?
 (defun secretary--log-buffer (&optional _arg)
   "Log the buffer just switched to.
 Put this on `window-buffer-change-functions' and
@@ -1529,8 +1526,8 @@ Put this on `window-buffer-change-functions' and
            (eww-url (when (eq major-mode 'eww-mode)
                       (eww-current-url)))
            (exist-record (unless (and known
-                                      ;; TODO: make a new exist-record when mode changes
-                                      (equal mode (nth 4 known))) ;; doesnt do it
+                                      ;; TODO: new exist-record if mode changed
+                                      (equal mode (nth 4 known))) ; doesnt do it
                            (list buf
                                  (secretary--new-uuid)
                                  (buffer-name)
