@@ -1752,7 +1752,7 @@ Return the function on success, nil otherwise."
   (with-demoted-errors nil
     (unload-feature 'secretary-tests)
     (unload-feature 'secretary-config)
-    (unload-feature 'secretary-activity)
+    (unload-feature 'secretary-doing)
     (unload-feature 'secretary-builtin))
   ;; Continue standard unloading.
   nil)
@@ -1764,7 +1764,7 @@ Return the function on success, nil otherwise."
   (if secretary-mode
       (progn
         (when secretary-debug
-          (secretary-emit "------ (debug message) Trying to turn on. ------"))
+          (message "------ (debug message) Trying to turn on. ------"))
         ;; Check to see whether it's ok to turn on.
         (when (and (or (secretary--idle-set-fn)
                        (prog1 nil
@@ -1790,6 +1790,7 @@ Return the function on success, nil otherwise."
           (add-hook 'after-init-hook #'secretary--check-for-time-anomalies 2)
           (add-hook 'after-init-hook #'secretary--init-r 3)
           (add-hook 'after-init-hook #'secretary--start-next-timer 90)
+          (add-hook 'kill-emacs-hook #'secretary--save-vars-to-disk)
           (named-timer-run :secretary-keepalive 300 300 #'secretary--keepalive)
           (when after-init-time
             (progn
