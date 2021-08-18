@@ -43,7 +43,7 @@
   (-map #'ass-doing-name ass-doings))
 
 ;; TODO: Get all informally named doings from the dataset.
-(ass-defn ass-query-doing ()
+(ass-wrap ass-query-doing ()
           "Ask user what they're up to."
           (let* ((name (ass-read "What are you up to? "
                                  (ass-doings-names)))

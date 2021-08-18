@@ -78,8 +78,8 @@
                         :max-entries-per-day 1)
 
        (ass-item-create
-        :fn (ass-defun my-koan ()
-                       (message (ass-emit (seq-random-elt ass-aphorisms)))
+        :fn (ass-wrap my-koan ()
+                      (message (ass-emit (seq-random-elt ass-aphorisms)))
                        (sit-for ass-sit-long))
         :min-hours-wait 16)
        ;; (ass-item-create
@@ -88,7 +88,7 @@
        ;;        (sit-for ass-sit-long)))
        (ass-item-create :fn #'ass-present-ledger-file)
        (ass-item-create
-        :fn (ass-defun my-bye ()
+        :fn (ass-wrap my-bye ()
                        (message (ass-emit "All done for now."))
                        (bury-buffer (ass-buffer-chat)))
         :min-hours-wait 0)

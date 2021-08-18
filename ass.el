@@ -731,212 +731,6 @@ integer for the first field."
       t))))
 
 
-;;; The big boilerplate
-
-(defvar ass-excursion-buffers nil
-  "Buffers included in the current or last excursion.")
-
-;; Ok, here's the shenanigans.  Observe that keyboard-quit and
-;; abort-recursive-edit are distinct.  When the user cancels a "query" by
-;; typing C-g, they were in the minibuffer, so it calls abort-recursive-edit.
-;; You can define an "excursion" by putting a keyboard-quit in BODY.  With
-;; this, we ensure different behavior for queries and excursions.  How?  We
-;; advise abort-recursive-edit to do things that we only want when a query is
-;; cancelled.  In this macro, pay attention to the placement of NEW-BODY, since
-;; it may contain a keyboard-quit.  Thus, everything coming after NEW-BODY will
-;; never be called for excursions, unless of course you use unwind-protect.
-(defmacro ass-defun (name args &rest body)
-  "Boilerplate wrapper for `cl-defun'.
-NAME, ARGS and BODY are as in `cl-defun'.
-To see what it expands to, try `emacs-lisp-macroexpand'.
-
-Manages the external variables `ass-curr-fn' and
-`ass--queue', zeroes `-item-dismissals' on success, advises
-`abort-recursive-edit' (\\<selectrum-minibuffer-map> \\[abort-recursive-edit]) while in a prompt
-spawned within BODY, and so on. If you use a simple `defun' in
-lieu of this wrapper, you must replicate these features!
-
-In BODY, you have access to the extra temporary variables:
-- \"current-item\" which is \"(ass-item-by-fn ass-curr-fn)\"
-- \"current-dataset\" which is \"(ass-item-dataset current-item)\"."
-  (declare (indent defun) (doc-string 3))
-  (let* ((parsed-body (macroexp-parse-body body))
-         (declarations (car parsed-body))
-         (new-body (cdr parsed-body)))
-    `(cl-defun ,name ,args
-       ;; Ensure it's always interactive
-       ,@(if (member 'interactive (-map #'car-safe declarations))
-             declarations
-           (-snoc declarations '(interactive)))
-       (setq ass-curr-fn #',name)
-       (when (minibufferp)
-         (warn "Was in minibuffer when %s called, not proceeding."
-               (symbol-name ass-curr-fn))
-         (keyboard-quit))
-       (unless (get-buffer-window (ass--buffer-chat))
-         (pop-to-buffer (ass--buffer-chat)))
-       (unless (ass-item-by-fn ass-curr-fn)
-         (error "%s not listed in ass-items" (symbol-name ass-curr-fn)))
-       ;; Set up watchers in case any "excursion" happens.
-       ;; (unless (called-interactively-p 'any) ;; allow manual use via M-x without triggering shenanigans
-       (add-hook 'kill-buffer-hook #'ass--check-return-from-excursion 96)
-       (named-timer-run :ass-excursion (* 5 60) nil #'ass-stop-watching-excursion)
-       ;; Set up watcher for cancelled prompt.
-       (advice-add 'abort-recursive-edit :before #'ass--after-cancel-do-things)
-       (let* ((current-item (ass-item-by-fn ass-curr-fn))
-              (current-dataset (ass-item-dataset current-item)))
-         (unwind-protect
-             (prog1 (progn
-                      ;; I suppose we could infer from last-called afterwards
-                      ;; whether the excursion was a failure?
-                      (setf (ass-item-last-called current-item)
-                            (time-convert (current-time) 'integer))
-                      ,@new-body)
-               ;; All below this line will only happen for pure queries, and only after success.
-               (setq ass--queue
-                     (cl-remove ass-curr-fn ass--queue :count 1))
-               (setf (ass-item-dismissals current-item) 0)
-               ;; Save timestamp of this successful run, even if there's no user-specified dataset.
-               (when (null current-dataset)
-                 (ass-tsv-append
-                  (expand-file-name ,(concat "successes-" (symbol-name name)) ass-cache-dir-path)))
-               ;; Clean up, because this wasn't an excursion.
-               (named-timer-cancel :ass-excursion)
-               (remove-hook 'kill-buffer-hook #'ass--check-return-from-excursion))
-           ;; All below this line will happen for both queries and excursions, success or no.
-           (advice-remove 'abort-recursive-edit #'ass--after-cancel-do-things)
-           ;; maybe the reason the variable's always nil
-           ;; (when (called-interactively-p 'any)
-           ;; (setq ass-excursion-buffers nil))
-           )))))
-
-;; TODO: how to (declare (debug ...))
-(defmacro ass-defn (name &rest body)
-  "NAME BODY."
-  (declare (indent defun) (doc-string 3))
-  (let* ((parsed-body (macroexp-parse-body body))
-         (declarations (car parsed-body))
-         (main-body (cdr parsed-body)))
-    `(defun ,name ()
-       ;; Ensure it's always interactive
-       ,@(if (member 'interactive (-map #'car-safe declarations))
-             declarations
-           (-snoc declarations '(interactive)))
-       (setq ass-curr-fn #',name)
-       (ass--wrap ,@main-body))))
-
-;; WIP
-(defun ass--wrap (&rest body)
-  "BODY."
-  (setq ass-curr-item (ass-item-by-fn ass-curr-fn))
-  (setq ass-curr-dataset (ass-item-dataset ass-curr-item))
-  (setq ass-excursion-buffers nil)
-  (unless (ass-item-by-fn ass-curr-fn)
-    (error "%s not listed in ass-items" (symbol-name ass-curr-fn)))
-  ;; Set up watchers in case any "excursion" happens.
-  (add-hook 'kill-buffer-hook #'ass--check-return-from-excursion 96)
-  (named-timer-run :ass-excursion (* 5 60) nil #'ass-stop-watching-excursion)
-  ;; Set up watcher for cancelled prompt.
-  (advice-add 'abort-recursive-edit :before #'ass--after-cancel-do-things)
-  (unwind-protect
-      (prog1 (progn
-               (setf (ass-item-last-called ass-curr-item)
-                     (time-convert (current-time) 'integer))
-               (apply #'progn body))
-        ;; All below this line will only happen for pure queries, and only after success.
-        (setq ass--queue (cl-remove ass-curr-fn ass--queue :count 1))
-        (setf (ass-item-dismissals ass-curr-item) 0)
-        ;; Save timestamp of this successful run.
-        (ass-tsv-append
-         (expand-file-name (concat "successes-" (symbol-name ass-curr-fn))
-                           ass-cache-dir-path))
-        ;; Clean up, because this wasn't an excursion.
-        (named-timer-cancel :ass-excursion)
-        (remove-hook 'kill-buffer-hook #'ass--check-return-from-excursion))
-    ;; All below this line will happen for both queries and excursions, success or no.
-    (advice-remove 'abort-recursive-edit #'ass--after-cancel-do-things)))
-
-(defmacro ass-defquery (name args &rest body)
-  "Boilerplate wrapper for `cl-defun'.
-To see what it expands to, visit ass-tests.el and read the
-tests of this macro.
-
-Manages the external variables `ass-curr-fn' and
-`ass--queue', zeroes `-item-dismissals' on success, and
-advises `abort-recursive-edit' (in common parlance C-g). If you
-use a simple `defun' in lieu of this wrapper, you must replicate
-these features!
-
-In BODY, you have access to the extra temporary variable:
-- \"current-dataset\" which is a reference to (ass-item-dataset (ass-item-by-fn ass-curr-fn))."
-  (declare (indent defun) (doc-string 3))
-  (let* ((parsed-body (macroexp-parse-body body))
-         (declarations (car parsed-body))
-         (new-body (cdr parsed-body)))
-    `(cl-defun ,name ,args
-       ;; Ensure it's always interactive
-       ,@(if (member 'interactive (-map #'car-safe declarations))
-             declarations
-           (-snoc declarations '(interactive)))
-       (setq ass-curr-fn #',name)
-       (unless (ass-item-by-fn ass-curr-fn)
-         (error "%s not listed in ass-items" (symbol-name ass-curr-fn)))
-       (advice-add 'abort-recursive-edit :before #'ass--after-cancel-do-things)
-       (let ((current-dataset (ass-item-dataset
-                               (ass-item-by-fn ass-curr-fn))))
-         (unwind-protect
-             (prog1 (progn
-                      ,@new-body)
-               (setq ass--queue
-                     (cl-remove ass-curr-fn ass--queue :count 1))
-               (setf (ass-item-dismissals
-                      (ass-item-by-fn ass-curr-fn))
-                     0)
-               ;; TODO: actually, just increment a lisp variable, later synced
-               ;;       to disk. Let's get around to having a big list instead of a
-               ;;       separate var for each thing.
-               ;; Save timestamp of this successful run.
-               (when (null current-dataset)
-                 (ass-tsv-append
-                  (expand-file-name ,(concat "successes-" (symbol-name name)) ass-cache-dir-path))))
-           (advice-remove 'abort-recursive-edit #'ass--after-cancel-do-things))))))
-
-(defun ass--check-return-from-excursion ()
-  "If the current excursion appears done, do things."
-  (let ((others (remove (current-buffer) ass-excursion-buffers)))
-    (when (-none-p #'buffer-live-p others)
-      (remove-hook 'kill-buffer-hook #'ass--check-return-from-excursion)
-      (named-timer-cancel :ass-excursion)
-      (when (null (ass-item-dataset
-                   (ass-item-by-fn ass-curr-fn)))
-        (ass-tsv-append
-         (expand-file-name (concat "successes-"
-                                   (symbol-name ass-curr-fn))
-                           ass-cache-dir-path)))
-      (setq ass--queue
-            (cl-remove ass-curr-fn ass--queue :count 1))
-      ;; HACK Because the current-buffer is still active, wait to be sure the
-      ;; kill-buffer completes.  I would like an after-kill-buffer-hook so I
-      ;; don't need this timer.
-      (run-with-timer .2 nil #'ass-resume))))
-
-(defun ass-stop-watching-excursion ()
-  "Called after some time on an excursion."
-  (named-timer-cancel :ass-excursion)
-  (remove-hook 'kill-buffer-hook #'ass--check-return-from-excursion))
-
-(defun ass--after-cancel-do-things ()
-  "Actions after user cancels a ass prompt."
-  (advice-remove 'abort-recursive-edit #'ass--after-cancel-do-things)
-  (when (null ass-curr-fn)
-    (error "Unexpectedly null: ass-curr-fn"))
-  (cl-incf (ass-item-dismissals
-            (ass-item-by-fn ass-curr-fn)))
-  ;; Re-add the fn to the queue because it got removed (so I expect); after a
-  ;; cancel, we want it to remain queued up.
-  (cl-pushnew ass-curr-fn ass--queue))
-
-
 ;;; Handle idle & reboots & crashes
 
 (defcustom ass-idle-log-path
@@ -1215,6 +1009,139 @@ Return non-nil on yes, and nil on no."
   (unless (and (<= 3 (ass-item-dismissals (ass-item-by-fn fn)))
                (ass-ask-disable fn))
     (funcall fn)))
+
+
+;;; The big boilerplate
+
+(defvar ass-excursion-buffers nil
+  "Buffers included in the current or last excursion.")
+
+;; "Success"
+(defun ass--check-return-from-excursion ()
+  "If the current excursion appears done, do things."
+  (ass-dbg "Running ass--check-return-from-excursion")
+  (let ((others (remove (current-buffer) ass-excursion-buffers)))
+    (when (-none-p #'buffer-live-p others)
+      (remove-hook 'kill-buffer-hook #'ass--check-return-from-excursion)
+      (named-timer-cancel :ass-excursion)
+      (when (null (ass-item-dataset
+                   (ass-item-by-fn ass-curr-fn)))
+        (ass-tsv-append
+         (expand-file-name (concat "successes-"
+                                   (symbol-name ass-curr-fn))
+                           ass-cache-dir-path)))
+      (setq ass--queue
+            (cl-remove ass-curr-fn ass--queue :count 1))
+      ;; HACK Because the current-buffer is still active, wait to be sure the
+      ;; kill-buffer completes.  I would like an after-kill-buffer-hook so I
+      ;; don't need this timer.
+      (run-with-timer .2 nil #'ass-resume))))
+
+;; "Fail"
+(defun ass-stop-watching-excursion ()
+  "Called after some time on an excursion."
+  (ass-dbg "Running ass-stop-watching-excursion")
+  (named-timer-cancel :ass-excursion)
+  (remove-hook 'kill-buffer-hook #'ass--check-return-from-excursion))
+
+;; "Fail" query
+(defun ass--after-cancel-do-things ()
+  (ass-dbg "Running ass--after-cancel-do-things")
+  "Actions after user cancels a ass prompt."
+  (advice-remove 'abort-recursive-edit #'ass--after-cancel-do-things)
+  (when (null ass-curr-fn)
+    (error "Unexpectedly null: ass-curr-fn"))
+  (cl-incf (ass-item-dismissals
+            (ass-item-by-fn ass-curr-fn)))
+  ;; Re-add the fn to the queue because it got removed (so I expect); after a
+  ;; cancel, we want it to remain queued up.
+  (cl-pushnew ass-curr-fn ass--queue))
+
+;; TODO! WIP
+(defun ass--tag-buffer-viewed (&rest _)
+  (ass-dbg "Running ass--tag-buffer-viewed")
+  ;; don't bother to track views if it's just 1 buffer
+  (unless (< 1 (length secretary--excursion-buffers))
+    ;; Ensure that every item is a list
+    (setq secretary--excursion-buffers
+          (--map-when (not (listp it)) (list it) secretary--excursion-buffers))
+    (and (member (current-buffer) (map-keys secretary--excursion-buffers))
+         (map-put! secretary--excursion-buffers (current-buffer) t))
+    (if (apply #'and (map-values secretary--excursion-buffers))
+        ;; now all of them have been visited, mark a successful excursion when the user leaves this buffer
+        )))
+
+;;(add-hook 'window-buffer-change-functions #'ass--tag-buffer-viewed)
+
+;; Ok, here's the shenanigans.  Observe that keyboard-quit and
+;; abort-recursive-edit are distinct.  When the user cancels a "query" by
+;; typing C-g, they were in the minibuffer, so it calls abort-recursive-edit.
+;; You can define an "excursion" by putting a keyboard-quit in BODY.  With
+;; this, we ensure different behavior for queries and excursions.  How?  We
+;; advise abort-recursive-edit to do things that we only want when a query is
+;; cancelled.  In this macro, pay attention to the placement of NEW-BODY, since
+;; it may contain a keyboard-quit.  Thus, everything coming after NEW-BODY will
+;; never be called for excursions, unless of course you use unwind-protect.
+(defmacro ass-wrap (name args &rest body)
+  "Boilerplate wrapper for `cl-defun'.
+NAME, ARGS and BODY are as in `cl-defun'.
+To see what it expands to, try `emacs-lisp-macroexpand'.
+
+Manages the external variables `ass-curr-fn' and
+`ass--queue', zeroes `-item-dismissals' on success, advises
+`abort-recursive-edit' (\\<selectrum-minibuffer-map> \\[abort-recursive-edit]) while in a prompt
+spawned within BODY, and so on. If you use a simple `defun' in
+lieu of this wrapper, you must replicate these features!
+
+In BODY, you have access to the extra temporary variables:
+- \"current-item\" which is \"(ass-item-by-fn ass-curr-fn)\"
+- \"current-dataset\" which is \"(ass-item-dataset current-item)\"."
+  (declare (indent defun) (doc-string 3))
+  (let* ((parsed-body (macroexp-parse-body body))
+         (declarations (car parsed-body))
+         (main-body (cdr parsed-body)))
+    `(cl-defun ,name ,args
+       ;; Ensure it's always interactive
+       ,@(if (member 'interactive (-map #'car-safe declarations))
+             declarations
+           (-snoc declarations '(interactive)))
+       (setq ass-curr-fn #',name)
+       ;; ---- everything below here could be a defun for a lisp master
+       (setq ass-curr-item (ass-item-by-fn ass-curr-fn))
+       (setq ass-curr-dataset (ass-item-dataset ass-curr-item))
+       (setq ass-excursion-buffers nil)
+       (when (minibufferp)
+         (message "Was in minibuffer when %s called, not proceeding."
+                  (symbol-name ass-curr-fn))
+         (keyboard-quit))
+       (unless (get-buffer-window (ass--buffer-chat))
+         (pop-to-buffer (ass--buffer-chat)))
+       (unless ass-curr-item
+         (error "%s not listed in ass-items" (symbol-name ass-curr-fn)))
+       ;; Set up watchers in case any "excursion" happens.
+       ;; (add-hook 'kill-buffer-hook #'ass--check-return-from-excursion 96)
+       (named-timer-run :ass-excursion (* 5 60) ()
+                        #'ass-stop-watching-excursion)
+       ;; Set up watcher for cancelled prompt.
+       (advice-add 'abort-recursive-edit :before #'ass--after-cancel-do-things)
+       (unwind-protect
+           (prog1 (progn
+                    (setf (ass-item-last-called ass-curr-item)
+                          (time-convert (current-time) 'integer))
+                    ,@main-body)
+             ;; All below only happens for pure queries, and only after success.
+             (setq ass--queue
+                   (cl-remove ass-curr-fn ass--queue :count 1))
+             (setf (ass-item-dismissals ass-curr-item) 0)
+             ;; Save timestamp of this successful run.
+             (ass-tsv-append
+               (expand-file-name ,(concat "successes-" (symbol-name name))
+                                 ass-cache-dir-path))
+             ;; Clean up, because this wasn't an excursion.
+             (named-timer-cancel :ass-excursion)
+             (remove-hook 'kill-buffer-hook #'ass--check-return-from-excursion))
+         ;; All below this line will always happen.
+         (advice-remove 'abort-recursive-edit #'ass--after-cancel-do-things)))))
 
 
 ;;; Persistent variables memory
