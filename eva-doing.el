@@ -17,7 +17,7 @@
 
 ;;; Commentary:
 
-;; Things related to tracking doings.  Still experimental.
+;; Things related to tracking your doings.  Still experimental.
 
 ;;; Code:
 

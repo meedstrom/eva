@@ -46,12 +46,13 @@
     (should-not (eva--another-eva-running-p))))
 
 (ert-deftest eva-test-minibuffer-cancel-fn ()
-  (run-with-timer .3 nil (lambda () (should (eq 'abort-recursive-edit (key-binding (kbd "C-g"))))))
+  (run-with-timer .3 nil (lambda () (should (eq 'abort-recursive-edit
+                                           (key-binding (kbd "C-g"))))))
   (eva-query-weight))
 
 (ert-deftest eva-test-idle1 ()
   (eva-mode 0)
-  (setq eva--idle-seconds-fn #'eva--emacs-idle-seconds)
+  (setq eva--idle-secs-fn #'eva--idle-secs-emacs)
   (eva--start-next-timer t)
   (sit-for .05)
   (should (eq (seq-elt (named-timer-get :eva) 5)
@@ -62,7 +63,7 @@
 
 (ert-deftest eva-test-keepalive ()
   (eva-mode 0)
-  (setq eva--idle-seconds-fn #'eva--emacs-idle-seconds)
+  (setq eva--idle-secs-fn #'eva--idle-secs-emacs)
   (eva--keepalive)
   (should (named-timer-get :eva))
   ;; Takedown

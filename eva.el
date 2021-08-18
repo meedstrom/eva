@@ -63,7 +63,7 @@
 
 ;;; Some user options
 
-(defgroup eva nil "The Emacs in-house eva."
+(defgroup eva nil "The Emacs virtual assistant."
   :prefix "eva-"
   :group 'convenience)
 
@@ -1518,7 +1518,7 @@ Put this on `window-buffer-change-functions' and
 
 ;;; Interactive sessions
 
-(defvar eva-debug-no-timid nil)
+(defvar eva-dbg-no-gentle nil)
 
 (defalias 'eva-resume #'eva-run-queue)
 
@@ -1545,15 +1545,15 @@ spawned by the functions will be skipped by
           ;; an excursion.
           (set-frame-parameter nil 'buffer-predicate bufpred-backup))))))
 
-(defun eva-butt-in-gently ()
+(defun eva-session-butt-in-gently ()
   "Butt in if any queries are pending, with an introductory chime."
   ;; If a session is already active, don't start a new one.
-  (eva-dbg "Running eva-butt-in-gently")
+  (eva-dbg "Running eva-session-butt-in-gently")
   (unless (named-timer-get :eva-excursion)
     (if (minibufferp) ; user busy
-        (run-with-timer 20 nil #'eva-butt-in-gently)
+        (run-with-timer 20 nil #'eva-session-butt-in-gently)
       (setq eva-date (ts-now))
-      (when-let ((fns (if eva-debug-no-timid
+      (when-let ((fns (if eva-dbg-no-gentle
                           (eva-enabled-fns)
                         (-filter #'eva--pending-p (eva-enabled-fns)))))
         (setq eva--queue fns)
@@ -1568,21 +1568,21 @@ spawned by the functions will be skipped by
   "Start a session if idle was long."
   (eva-dbg "Running eva-session-from-idle")
   (unless (< eva-length-of-last-idle eva-idle-threshold-secs-long)
-    (eva-butt-in-gently)))
+    (eva-session-butt-in-gently)))
 
-(defun eva-new-session ()
+(defun eva-session-new ()
   "Recalculate what items are pending and run them."
   (interactive)
-  (eva-dbg "Running eva-new-session")
+  (eva-dbg "Running eva-session-new")
   (unless (named-timer-get :eva-excursion)
     (setq eva-date (ts-now))
     (setq eva--queue (-filter #'eva--pending-p (eva-enabled-fns)))
     (eva-run-queue)))
 
-(defun eva-new-session-force-all ()
+(defun eva-session-new-force-all ()
   "Run through all enabled items."
   (interactive)
-  (eva-dbg "Running eva-new-session-force-all")
+  (eva-dbg "Running eva-session-new-force-all")
   (setq eva-date (ts-now))
   (setq eva--queue (eva-enabled-fns))
   (eva-run-queue))
