@@ -546,10 +546,10 @@ of `eva-greeting'. Mutually exclusive with
 ;;; Library for files
 
 (defun eva--transact-buffer-onto-file (buffer path)
-  "Append contents of BUFFER to file at PATH, emptying BUFFER."
+  "Append contents of BUFFER to file at PATH, emptying BUFFER.
+Before doing so, also flush any blank lines in BUFFER."
   (mkdir (f-dirname path) t)
   (with-current-buffer buffer
-    (whitespace-cleanup) ;; TODO dont use this (user may have customized)
     (eva-append-safely (buffer-string) path)
     (delete-region (point-min) (point-max))))
 
@@ -930,7 +930,6 @@ separate function from `eva--user-is-present'."
   fn ;; primary key (must be unique)
   max-calls-per-day
   max-successes-per-day
-  ;; (max-successes-per-day nil :documentation "Alias of :max-entries-per-day, more semantic where there is no dataset.")
   max-entries-per-day
   lookup-posted-time
   dataset
@@ -1084,7 +1083,8 @@ Return non-nil on yes, and nil on no."
     (and (member (current-buffer) (map-keys secretary--excursion-buffers))
          (map-put! secretary--excursion-buffers (current-buffer) t))
     (if (apply #'and (map-values secretary--excursion-buffers))
-        ;; now all of them have been visited, mark a successful excursion when the user leaves this buffer
+        ;; now all of them have been visited, mark a successful excursion when
+        ;; the user leaves this buffer
         )))
 
 ;;(add-hook 'window-buffer-change-functions #'eva--tag-buffer-viewed)

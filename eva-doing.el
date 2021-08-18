@@ -44,23 +44,20 @@
 
 ;; TODO: Get all informally named doings from the dataset.
 (eva-wrap eva-query-doing ()
-          "Ask user what they're up to."
-          (let* ((name (eva-read "What are you up to? "
-                                 (eva-doings-names)))
-                 (name-corrected
-                  (--find (member it (eva-doings-names))
-                          (list name
-                                (capitalize name)
-                                (downcase name))))
-                 (name (if name-corrected
-                           name-corrected
-                         name))
-                 (doing (eva-doing-by-name name)))
-            (eva-tsv-append eva-curr-dataset
-                            (ts-format eva-date) ;; the time the doing happened
-                            name
-                            (when doing
-                              (eva-doing-id doing)))))
+  "Ask user what they're up to."
+  (let* ((name (eva-read "What are you up to? " (eva-doings-names)))
+         (name-corrected
+          (--find (member it (eva-doings-names))
+                  (list name (capitalize name) (downcase name))))
+         (name (if name-corrected
+                   name-corrected
+                 name))
+         (doing (eva-doing-by-name name)))
+    (eva-tsv-append eva-curr-dataset
+      (ts-format eva-date) ;; the time the doing happened
+      name
+      (when doing
+        (eva-doing-id doing)))))
 
 (provide 'eva-doing)
 

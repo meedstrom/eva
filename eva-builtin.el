@@ -93,7 +93,7 @@ Near equivalent to typing l v A after entering `org-agenda-list'."
   (require 'org-agenda)
   (message (eva-emit "Here's the agenda archive as of now."))
   ;; (message (eva-emit "Sending you to the Org agenda log + archive."))
-  (sit-for eva-sit-medium)
+  (sit-for eva-sit-short)
   (org-agenda-list)
   (org-agenda-log-mode t)
   (org-agenda-archives-mode t)
@@ -303,20 +303,18 @@ add."
   "Jump to `eva-main-ledger-path' and run `ledger-report'.
 Uses the first command specified in `ledger-reports'."
   (cond ((not (f-exists-p eva-main-ledger-path))
-         (message (eva-emit
-                   "eva-main-ledger-path does not refer to existing"
-                   " file, skipping Ledger report.")))
+         (message (eva-emit "eva-main-ledger-path does not refer to existing"
+                            " file, skipping Ledger report.")))
         ((not (require 'ledger-mode nil t))
-         (message (eva-emit
-                   "Ledger-mode failed to load, skipping Ledger report.")))
+         (message (eva-emit "Ledger-mode failed to load, skipping report.")))
         (t
          (message (eva-emit "Here's your Ledger report, have fun."))
+         (sit-for eva-sit-short)
          (if (get-buffer ledger-report-buffer-name)
              (ledger-report-goto)
            (with-current-buffer (find-file-noselect eva-main-ledger-path)
              (ledger-report (caar ledger-reports) nil)))
-         (push (get-buffer ledger-report-buffer-name)
-               eva-excursion-buffers)
+         (push (get-buffer ledger-report-buffer-name) eva-excursion-buffers)
          (keyboard-quit))))
 
 (eva-wrap eva-present-ledger-file ()
@@ -326,7 +324,8 @@ Uses the first command specified in `ledger-reports'."
   (sit-for eva-sit-medium)
   (view-file-other-window eva-main-ledger-path)
   (push (current-buffer) eva-excursion-buffers)
-  (goto-char (point-max))
+  (unless save-place-mode
+    (goto-char (point-max)))
   (keyboard-quit))
 
 (defun eva-make-ods-for-finance ()
