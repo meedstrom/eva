@@ -2,32 +2,32 @@
 .POSIX:
 .SUFFIXES: .el .elc
 EMACS	= emacs
-EL   	= ass.el ass-config.el ass-builtin.el ass-doing.el
+EL   	= eva.el eva-config.el eva-builtin.el eva-doing.el
 ELC  	= $(EL:.el=.elc)
 # external dependencies
 LDFLAGS = -L deps/ts -L deps/dash -L deps/s -L deps/ess/lisp -L deps/f -L deps/named-timer -L deps/pfuture -L deps/transient/lisp
 
 # default make action to run frequently during devel
 compile-and-clean: clean $(ELC) test
-	rm -f $(ELC) ass-test.elc
+	rm -f $(ELC) eva-test.elc
 
 # $ELC expands to .elc versions of all files listed in $EL.
 compile: $(ELC)
 
-check: ass-test.elc
-	$(EMACS) -Q -L . $(LDFLAGS) --batch -l ass-test.elc -f ert-run-tests-batch
+check: eva-test.elc
+	$(EMACS) -Q -L . $(LDFLAGS) --batch -l eva-test.elc -f ert-run-tests-batch
 
 # alias
 test: check
 
 clean:
-	rm -f $(ELC) ass-test.elc
+	rm -f $(ELC) eva-test.elc
 
 # Dependencies
-ass-test.elc:  $(ELC)
-ass-config.elc: ass.elc ass-builtin.elc ass-doing.elc
-ass-activity.elc: ass.elc ass-builtin.elc
-ass-builtin.elc: ass.elc
+eva-test.elc:  $(ELC)
+eva-config.elc: eva.elc eva-builtin.elc eva-doing.elc
+eva-activity.elc: eva.elc eva-builtin.elc
+eva-builtin.elc: eva.elc
 
 # Tell make how to compile an .el into an .elc.
 .el.elc:
