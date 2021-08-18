@@ -28,14 +28,14 @@ if (!"mood_dataset" %in% ls()) {
 # Projected daily weight loss. Sobering to see how slow the result...
 daily_change <- -0.1
 
-if (!dir.exists("/tmp/ass"))
-  dir.create("/tmp/ass")
+if (!dir.exists("/tmp/eva"))
+  dir.create("/tmp/eva")
 
 wt <- read_tsv(weight_dataset,
                col_names = c("posted", "weighed", "weight_kg")) %>%
   mutate(weighed = as_date(weighed)) %>%
   select(-posted) %>%
-  write_delim("/tmp/ass/weight.dat", col_names = FALSE)
+  write_delim("/tmp/eva/weight.dat", col_names = FALSE)
 
 projected_wt <-
   tibble(weight_kg = seq(from = tail(wt$weight_kg, 1),
@@ -43,7 +43,7 @@ projected_wt <-
                          by = daily_change)) %>%
   mutate(weighed = today() + days(row_number())) %>%
   select(weighed, weight_kg) %>%
-  write_delim("/tmp/ass/weight_projected.dat", col_names = FALSE)
+  write_delim("/tmp/eva/weight_projected.dat", col_names = FALSE)
 
 # --------------
 
@@ -52,7 +52,7 @@ mood <- read_tsv(mood_dataset,
   mutate(time = as_datetime(time)) %>%
   drop_na(mood_score) %>%
   select(-posted) %>%
-  write_delim("/tmp/ass/mood.dat", col_names = FALSE)
+  write_delim("/tmp/eva/mood.dat", col_names = FALSE)
 
 mood$mood_desc %>%
-  write_lines("/tmp/ass/mood_desc.txt")
+  write_lines("/tmp/eva/mood_desc.txt")

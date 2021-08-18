@@ -1,9 +1,9 @@
-;;; ass.el --- Virtual assistant toolbox -*- lexical-binding: t; -*-
+;;; eva.el --- Emacs virtual assistant -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2020-2021 Martin Edström
 
 ;; Author: Martin Edström <meedstrom@teknik.io>
-;; URL: https://github.com/meedstrom/ass
+;; URL: https://github.com/meedstrom/eva
 ;; Version: 0.1.0
 ;; Created: 2020-12-03
 ;; Keywords: convenience
@@ -26,8 +26,8 @@
 
 ;;; Commentary:
 
-;; See README.org, info node (ass) or website:
-;; https://github.com/meedstrom/ass
+;; See README.org, info node (eva) or website:
+;; https://github.com/meedstrom/eva
 
 ;;; Code:
 
@@ -63,127 +63,127 @@
 
 ;;; Some user options
 
-(defgroup ass nil "The Emacs in-house ass."
-  :prefix "ass-"
+(defgroup eva nil "The Emacs in-house eva."
+  :prefix "eva-"
   :group 'convenience)
 
-(defcustom ass-ai-name "Alfred"
-  "Your ass's name."
-  :group 'ass
+(defcustom eva-ai-name "Alfred"
+  "Your eva's name."
+  :group 'eva
   :type 'string
   :risky t)
 
-(defcustom ass-user-birthday nil
+(defcustom eva-user-birthday nil
   "Your birthday, an YYYY-MM-DD string."
-  :group 'ass
+  :group 'eva
   :type 'string
   :safe t)
 
-(defcustom ass-user-name
+(defcustom eva-user-name
   (if (s-blank? user-full-name)
       "Mr. Bond"
     (-first-item (s-split " " user-full-name)))
-  "Name by which you prefer the ass to address you."
-  :group 'ass
+  "Name by which you prefer the eva to address you."
+  :group 'eva
   :type 'string
   :safe t)
 
-(defcustom ass-user-short-title "master"
+(defcustom eva-user-short-title "master"
   "A short title for you that works on its own, in lowercase."
-  :group 'ass
+  :group 'eva
   :type 'string
   :safe t)
 
-(defcustom ass-sit-long 1
+(defcustom eva-sit-long 1
   "Duration in seconds to pause for effect.
-See also `ass-sit-medium' and `ass-sit-short'."
-  :group 'ass
+See also `eva-sit-medium' and `eva-sit-short'."
+  :group 'eva
   :type 'float
   :safe t)
 
-(defcustom ass-sit-medium .8
+(defcustom eva-sit-medium .8
   "Duration in seconds to pause for effect.
-See also `ass-sit-long' and `ass-sit-short'."
-  :group 'ass
+See also `eva-sit-long' and `eva-sit-short'."
+  :group 'eva
   :type 'float
   :safe t)
 
-(defcustom ass-sit-short .5
+(defcustom eva-sit-short .5
   "Duration in seconds to pause for effect.
-See also `ass-sit-long' and `ass-sit-medium'."
-  :group 'ass
+See also `eva-sit-long' and `eva-sit-medium'."
+  :group 'eva
   :type 'float
   :safe t)
 
-(defcustom ass-presumptive nil
+(defcustom eva-presumptive nil
   "Whether to skip some prompts and assume yes."
-  :group 'ass
+  :group 'eva
   :type 'boolean)
 
-(defcustom ass-cache-dir-path
-  (expand-file-name "ass" user-emacs-directory)
+(defcustom eva-cache-dir-path
+  (expand-file-name "eva" user-emacs-directory)
   "Directory for persistent files (not user datasets)."
-  :group 'ass
+  :group 'eva
   :type 'directory
   :risky t)
 
 
 ;;; Library
 
-(defcustom ass-debug init-file-debug
+(defcustom eva-debug init-file-debug
   "Whether to do debug stuff."
-  :group 'ass
+  :group 'eva
   :type 'boolean)
 
-(defcustom ass-dbg-fn (when ass-debug #'message)
-  "Control the behavior of `ass-dbg'.
+(defcustom eva-dbg-fn (when eva-debug #'message)
+  "Control the behavior of `eva-dbg'.
 Recommended options are nil, `message', `warn' and `error'."
-  :group 'ass
+  :group 'eva
   :type 'function
   :safe t)
 
-(defvar ass--buffer-r nil)
+(defvar eva--buffer-r nil)
 
-(defvar ass--queue nil)
+(defvar eva--queue nil)
 
-(defvar ass-curr-fn nil)
+(defvar eva-curr-fn nil)
 
-(defvar ass-curr-dataset nil)
+(defvar eva-curr-dataset nil)
 
-(defvar ass-curr-item nil)
+(defvar eva-curr-item nil)
 
-(defvar ass-date (ts-now)
+(defvar eva-date (ts-now)
   "Date to which to apply the current fn.
 Can be set anytime during a welcome to override the date to which
 some queries apply, for example to log something for yesterday.
 This may not apply, check the source for the welcomer you are
 using.")
 
-(defun ass--init-r ()
+(defun eva--init-r ()
   "Spin up an R process and load needed R libraries.
 Uses `run-ess-r' which is full of sanity checks (e.g. for cygwin
 and text encoding), but creates an interactive R buffer which
 unfortunately may surprise the user when they go to work on their
 own R project."
-  (let ((default-directory (f-dirname (find-library-name "ass"))))
+  (let ((default-directory (f-dirname (find-library-name "eva"))))
     (save-window-excursion
-      (setq ass--buffer-r (run-ess-r)))
+      (setq eva--buffer-r (run-ess-r)))
     ;; gotcha: only use `ess-with-current-buffer' for temp output buffers, not
     ;; for the process buffer
-    (with-current-buffer ass--buffer-r
+    (with-current-buffer eva--buffer-r
       ;; TODO: How to check if the script errors out?
       (ess-execute "source(\"init.R\")" 'buffer))))
 
-(defun ass-dbg (&rest strings)
-  "Concat STRINGS and print them via `ass-debug-fn'.
+(defun eva-dbg (&rest strings)
+  "Concat STRINGS and print them via `eva-debug-fn'.
 Do nothing if that is nil.  Note that we don't do the
 `format-message' business usual for `error' and its cousins.
 Use the real `error' for that."
-  (when ass-dbg-fn
-    (funcall ass-debug-fn (s-join " " strings))))
+  (when eva-dbg-fn
+    (funcall eva-debug-fn (s-join " " strings))))
 
 ;; TODO: Catch typos like 03 meaning 30 minutes, not 3 hours.
-(defun ass-parse-time-amount (input)
+(defun eva-parse-time-amount (input)
   "Translate INPUT from hours or minutes into minutes.
 If INPUT contains no \"h\" or \"m\", assume numbers above 20 are
 minutes and numbers below are hours."
@@ -202,7 +202,7 @@ minutes and numbers below are hours."
           (t
            (* 60 numeric-part)))))
 
-(defun ass-coerce-to-hh-mm (input)
+(defun eva-coerce-to-hh-mm (input)
   "Coerce from INPUT matching HH:MM, HH or H, to HH:MM (24-h).
 If \"am\" or \"pm\" present, assume input is in 12-hour clock."
   (declare (pure t) (side-effect-free t))
@@ -234,7 +234,7 @@ If \"am\" or \"pm\" present, assume input is in 12-hour clock."
             (when (< minute 10) "0")
             (number-to-string minute))))
 
-(defmacro ass--process-output-to-string (program &rest args)
+(defmacro eva--process-output-to-string (program &rest args)
   "Like `shell-command-to-string' without the shell intermediary.
 You don't need a /bin/sh.  PROGRAM and ARGS are passed on to
 `call-process'."
@@ -243,61 +243,61 @@ You don't need a /bin/sh.  PROGRAM and ARGS are passed on to
      (call-process ,program nil (current-buffer) nil ,@args)
      (buffer-string)))
 
-(defmacro ass--process-output-to-number (program &rest args)
+(defmacro eva--process-output-to-number (program &rest args)
   "Like `shell-command-to-string' without the shell intermediary.
 Also converts the result to number. PROGRAM and ARGS are passed
 on to `call-process'."
   (declare (debug (&rest form)))
-  `(string-to-number (ass--process-output-to-string ,program ,@args)))
+  `(string-to-number (eva--process-output-to-string ,program ,@args)))
 
 
 ;;; Library for interactivity
 
-(defcustom ass-chat-log-path
+(defcustom eva-chat-log-path
   (convert-standard-filename
-   (expand-file-name "chat.log" ass-cache-dir-path))
+   (expand-file-name "chat.log" eva-cache-dir-path))
   "Where to save chat log across sessions. Can be nil."
-  :group 'ass
+  :group 'eva
   :type 'file
   :safe t)
 
-(defvar ass--midprompt-keymap
+(defvar eva--midprompt-keymap
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C--") #'ass-decrement-date)
-    (define-key map (kbd "C-+") #'ass-increment-date)
-    (define-key map (kbd "C-0") #'ass-set-date-today)))
+    (define-key map (kbd "C--") #'eva-decrement-date)
+    (define-key map (kbd "C-+") #'eva-increment-date)
+    (define-key map (kbd "C-0") #'eva-set-date-today)))
 
-(defvar ass--just-typed-k nil)
+(defvar eva--just-typed-k nil)
 
-(defvar ass--last-chatted nil
+(defvar eva--last-chatted nil
   "Timestamp updated whenever the chat is written to.")
 
-(defun ass--buffer-chat ()
-  "Buffer where the ass sends its messages."
-  (or (get-buffer (concat "*" ass-ai-name ": chat log*"))
+(defun eva--buffer-chat ()
+  "Buffer where the eva sends its messages."
+  (or (get-buffer (concat "*" eva-ai-name ": chat log*"))
       (let ((buf (get-buffer-create
-                  (concat "*" ass-ai-name ": chat log*"))))
+                  (concat "*" eva-ai-name ": chat log*"))))
         (with-current-buffer buf
-          (ass-chat-mode)
+          (eva-chat-mode)
           (setq-local auto-save-visited-mode nil)
           (setq-local require-final-newline nil)
           (buffer-disable-undo)
           (visual-line-mode)
-          (and ass-chat-log-path
-               (f-exists? ass-chat-log-path)
-               (insert-file-contents ass-chat-log-path))
+          (and eva-chat-log-path
+               (f-exists? eva-chat-log-path)
+               (insert-file-contents eva-chat-log-path))
           (setq-local buffer-read-only t))
         buf)))
 
-(defun ass--y-or-n-p-insert-k ()
+(defun eva--y-or-n-p-insert-k ()
   "Mostly like `y-or-n-p-insert-y'."
   (interactive nil minibuffer-mode)
   (delete-minibuffer-contents)
   (insert "y")
-  (setq ass--just-typed-k t)
+  (setq eva--just-typed-k t)
   (exit-minibuffer))
 
-(defun ass-ynp (&rest strings)
+(defun eva-ynp (&rest strings)
   "Wrapper around `y-or-n-p'.
 Concatenates STRINGS into one prompt, prints it to the chat
 buffer, binds certain hotkeys."
@@ -305,58 +305,58 @@ buffer, binds certain hotkeys."
          ;; (default-cmd (lookup-key y-or-n-p-map (kbd "k")))
          ;; TODO: Also show which log file we're applying to
          (background-info (concat "[Applying to date: "
-                                  (ts-format "%Y %b %d" ass-date)
+                                  (ts-format "%Y %b %d" eva-date)
                                   "]\n"))
          (prompt (string-join strings)))
     (unwind-protect
         (progn
-          (pop-to-buffer (ass--buffer-chat))
-          (ass-emit prompt)
-          (define-key y-or-n-p-map (kbd "h") #'ass-dispatch)
-          (define-key y-or-n-p-map (kbd "<SPC>") #'ass-dispatch)
-          (define-key y-or-n-p-map (kbd "k") #'ass--y-or-n-p-insert-k)
+          (pop-to-buffer (eva--buffer-chat))
+          (eva-emit prompt)
+          (define-key y-or-n-p-map (kbd "h") #'eva-dispatch)
+          (define-key y-or-n-p-map (kbd "<SPC>") #'eva-dispatch)
+          (define-key y-or-n-p-map (kbd "k") #'eva--y-or-n-p-insert-k)
           (setq-local buffer-read-only nil)
           (let ((result (y-or-n-p (concat background-info prompt))))
             (with-silent-modifications
-              (if ass--just-typed-k
+              (if eva--just-typed-k
                   (progn
-                    (setq ass--just-typed-k nil)
-                    (ass-emit-same-line " Okay..."))
+                    (setq eva--just-typed-k nil)
+                    (eva-emit-same-line " Okay..."))
                 (if result
-                    (ass-emit-same-line " Yes.")
-                  (ass-emit-same-line " No."))))
+                    (eva-emit-same-line " Yes.")
+                  (eva-emit-same-line " No."))))
             result))
       (setq-local buffer-read-only t)
       (dolist (x '("o" "i" "k" "<SPC>"))
         (define-key y-or-n-p-map (kbd x) #'y-or-n-p-insert-other)))))
 
-(defun ass-check-special-input (input)
+(defun eva-check-special-input (input)
   "Check INPUT for keywords like \"/skip\" and react specially."
   (cond ((string-match-p "/skip" input)
-         (if (and (< 1 (length ass--queue))
-                  (member ass-curr-fn ass--queue))
+         (if (and (< 1 (length eva--queue))
+                  (member eva-curr-fn eva--queue))
              ;; Try to proceed to next item
              (progn
-               (setq ass--queue
-                     (cl-remove ass-curr-fn ass--queue
+               (setq eva--queue
+                     (cl-remove eva-curr-fn eva--queue
                                 :count 1))
-               (ass-resume))
+               (eva-resume))
            ;; Just cancel the session
            (abort-recursive-edit)))
         ((string-match-p "help" input)
-         (ass-dispatch) ;; TODO: develop a midprompt-dispatch
+         (eva-dispatch) ;; TODO: develop a midprompt-dispatch
          (abort-recursive-edit))))
 
-(defun ass-read (prompt &optional collection default)
+(defun eva-read (prompt &optional collection default)
   "Wrapper for `completing-read'.
 PROMPT, COLLECTION and DEFAULT are as in that function.
 
 Echo both prompts and responses to the chat buffer, prepend
 metadata to PROMPT, check for special keyword input, etc."
-  (ass-emit prompt)
-  (set-transient-map ass--midprompt-keymap #'minibufferp)
+  (eva-emit prompt)
+  (set-transient-map eva--midprompt-keymap #'minibufferp)
   (let* ((background-info (concat "[Applying to date: "
-                                  (ts-format "%Y %b %d" ass-date)
+                                  (ts-format "%Y %b %d" eva-date)
                                   "]\n"))
          (extra-collection '("/skip" "/help"))
          (input (completing-read
@@ -369,18 +369,18 @@ metadata to PROMPT, check for special keyword input, etc."
                  nil nil nil nil
                  (when (stringp default)
                    default))))
-    (ass-emit-same-line input)
-    (ass-check-special-input input)
+    (eva-emit-same-line input)
+    (eva-check-special-input input)
     input))
 
-(defun ass-read-string
+(defun eva-read-string
     (prompt &optional initial-input history default-value)
-  "Like `ass-read' but call `read-string' internally.
+  "Like `eva-read' but call `read-string' internally.
 All of PROMPT, INITIAL-INPUT, HISTORY, DEFAULT-VALUE are passed
 to that function, though PROMPT is prepended with extra info."
-  (ass-emit prompt)
+  (eva-emit prompt)
   (let* ((background-info (concat "[Applying to date: "
-                                  (ts-format "%Y %b %d" ass-date) "]\n"))
+                                  (ts-format "%Y %b %d" eva-date) "]\n"))
          (input (read-string
                  (concat background-info
                          (ts-format "<%H:%M> ")
@@ -388,48 +388,48 @@ to that function, though PROMPT is prepended with extra info."
                  initial-input
                  history
                  default-value)))
-    (ass-emit-same-line input)
-    (ass-check-special-input input)
+    (eva-emit-same-line input)
+    (eva-check-special-input input)
     input))
 
-(defun ass-emit (&rest strings)
+(defun eva-emit (&rest strings)
   "Write a line to the chat buffer, made from STRINGS.
 Returns the completed string so you can pass it to `message', for
 example."
   (let ((new-date-maybe (if (/= (ts-day (ts-now))
-                                (ts-day ass--last-chatted))
+                                (ts-day eva--last-chatted))
                             (concat "\n\n"
                                     (ts-format "%A, %d %B %Y")
-                                    (ass--holiday-maybe)
+                                    (eva--holiday-maybe)
                                     "\n")
                           ""))
         (msg (concat "\n<" (ts-format "%H:%M") "> " (string-join strings))))
-    (with-current-buffer (ass--buffer-chat)
+    (with-current-buffer (eva--buffer-chat)
       (goto-char (point-max))
       (with-silent-modifications
         (delete-blank-lines)
         (insert new-date-maybe)
         (insert msg))))
-  (setq ass--last-chatted (ts-now))
+  (setq eva--last-chatted (ts-now))
   (string-join strings))
 
-(defun ass-emit-same-line (&rest strings)
+(defun eva-emit-same-line (&rest strings)
   "Print STRINGS to the chat buffer without newline."
   (let ((msg (string-join strings)))
-    (with-current-buffer (ass--buffer-chat)
+    (with-current-buffer (eva--buffer-chat)
       (goto-char (point-max))
       (with-silent-modifications
         (insert msg)))
-    (setq ass--last-chatted (ts-now))
+    (setq eva--last-chatted (ts-now))
     msg))
 
 
 ;;; Library for greeting messages
 
-(defvar ass-greetings
+(defvar eva-greetings
   '((concat "Welcome back, Master.")
-    (concat "Nice to see you again, " ass-user-name ".")
-    (concat "Greetings, " ass-user-name "."))
+    (concat "Nice to see you again, " eva-user-name ".")
+    (concat "Greetings, " eva-user-name "."))
   "Greeting phrases which can initiate a conversation.")
 
 ;; NOTE: I considered making external variables for morning, day and evening
@@ -437,13 +437,13 @@ example."
 ;;       even add new boundaries. Too many possibilities, this is a case where
 ;;       it's ok to make the user override the defun as a primary means of
 ;;       customization.
-(defun ass-daytime-appropriate-greetings ()
+(defun eva-daytime-appropriate-greetings ()
   "Return different greeting strings appropriate to daytime."
   (cond ((> 5 (ts-hour (ts-now)))
          (list "You're up late, Master."
                "Burning the midnight oil?"))
         ((> 10 (ts-hour (ts-now)))
-         (list (concat "Good morning, " ass-user-name ".")
+         (list (concat "Good morning, " eva-user-name ".")
                "Good morning!"
                "The stars shone upon us last night."))
         ((> 16 (ts-hour (ts-now)))
@@ -452,7 +452,7 @@ example."
          (list "Good evening!"
                "Pleasant evening to you!"))))
 
-(defun ass--holiday-maybe ()
+(defun eva--holiday-maybe ()
   "If today's a holiday, format a suitable string."
   (declare (side-effect-free t))
   (require 'calendar)
@@ -461,66 +461,66 @@ example."
       (concat " -- " (s-join " " foo))
     ""))
 
-(defun ass-greeting-curt ()
+(defun eva-greeting-curt ()
   "Return a greeting appropriate in the midst of a workday.
 Because if you've already exchanged good mornings, it's weird to
 do so again."
   (seq-random-elt `("Hello" "Hi" "Hey")))
 
-(defun ass-greeting ()
+(defun eva-greeting ()
   "Return a greeting string."
-  (let ((bday (ts-parse ass-user-birthday)))
+  (let ((bday (ts-parse eva-user-birthday)))
     (cond ((equal (ts-format "%F" bday) (ts-format "%F" (ts-now)))
-           (concat "Happy birthday, " ass-user-name "."))
+           (concat "Happy birthday, " eva-user-name "."))
           ;; If it's morning, always use a variant of "good morning"
           ((> 10 (ts-hour (ts-now)) 5)
-           (eval (seq-random-elt (ass-daytime-appropriate-greetings))
+           (eval (seq-random-elt (eva-daytime-appropriate-greetings))
                  t))
           (t
            (eval (seq-random-elt
-                  (append ass-greetings
-                          (-list (ass-daytime-appropriate-greetings))))
+                  (append eva-greetings
+                          (-list (eva-daytime-appropriate-greetings))))
                  t)))))
 
-(defun ass-greeting-standalone ()
+(defun eva-greeting-standalone ()
   "Return a greeting that expects to be followed by nothing.
 No prompts, no debug message, no info. Suitable for
 `notifications-notify' or `startup-echo-area-message'. A superset
-of `ass-greeting'. Mutually exclusive with
-`ass-greeting-curt'."
+of `eva-greeting'. Mutually exclusive with
+`eva-greeting-curt'."
   (eval (seq-random-elt
-         (append ass-greetings
-                 (-list (ass-daytime-appropriate-greetings))
+         (append eva-greetings
+                 (-list (eva-daytime-appropriate-greetings))
                  '("How may I help?")))))
 
 
 ;;; Library for chimes
 
-(defcustom ass-chime-sound-path
+(defcustom eva-chime-sound-path
   (convert-standard-filename
    (expand-file-name
     ;; From https://freesound.org/people/josepharaoh99/sounds/380482/
     "assets/Chime Notification-380482.wav"
     ;; From https://bigsoundbank.com/detail-0319-knock-on-a-glass-door-1.html
     ;; "assets/DOORKnck_Knock on a glass door 1 (ID 0319)_BSB.wav"
-    (f-dirname (find-library-name "ass"))))
+    (f-dirname (find-library-name "eva"))))
   "Sound to play when a welcomer is triggered unannounced."
-  :group 'ass
+  :group 'eva
   :type 'file)
 
-(defcustom ass-play-sounds nil
+(defcustom eva-play-sounds nil
   "Whether to play sounds."
-  :group 'ass
+  :group 'eva
   :type 'boolean)
 
-(defun ass--chime-aural ()
+(defun eva--chime-aural ()
   "Play a sound."
-  (and ass-play-sounds
+  (and eva-play-sounds
        (executable-find "aplay")
-       (f-exists? ass-chime-sound-path)
-       (pfuture-new "aplay" ass-chime-sound-path)))
+       (f-exists? eva-chime-sound-path)
+       (pfuture-new "aplay" eva-chime-sound-path)))
 
-(defun ass--chime-visual ()
+(defun eva--chime-visual ()
   "Give the fringes a flash of color and fade out."
   (let ((colors '((.1 . "green")
                   (.2 . "#aca")
@@ -545,32 +545,32 @@ of `ass-greeting'. Mutually exclusive with
 
 ;;; Library for files
 
-(defun ass--transact-buffer-onto-file (buffer path)
+(defun eva--transact-buffer-onto-file (buffer path)
   "Append contents of BUFFER to file at PATH, emptying BUFFER."
   (mkdir (f-dirname path) t)
   (with-current-buffer buffer
     (whitespace-cleanup) ;; TODO dont use this (user may have customized)
-    (ass-append-safely (buffer-string) path)
+    (eva-append-safely (buffer-string) path)
     (delete-region (point-min) (point-max))))
 
-(defun ass--count-successes-today (fn)
+(defun eva--count-successes-today (fn)
   "Add up occurrences of timestamps for FN in related log files."
-  (let ((dataset (ass-item-dataset (ass-item-by-fn fn)))
+  (let ((dataset (eva-item-dataset (eva-item-by-fn fn)))
         (log (expand-file-name (concat "successes-" (symbol-name fn))
-                               ass-cache-dir-path)))
+                               eva-cache-dir-path)))
     (if (and dataset
              (f-exists? dataset))
-        (length (ass-tsv-entries-by-date dataset))
+        (length (eva-tsv-entries-by-date dataset))
       ;; FIXME: this has only unixstamps, get-entries scans for datestamps, so
       ;; this will always be zero
       (if (f-exists? log)
-          (length (ass-tsv-entries-by-date log))
+          (length (eva-tsv-entries-by-date log))
         (message "No dataset or log file found for %s %s."
                  (symbol-name fn)
                  "(may simply not exist yet)")
         0))))
 
-(defun ass-write-safely (text path)
+(defun eva-write-safely (text path)
   "Write TEXT to file at PATH if the content differs.
 Also revert any buffer visiting it, or signal an error if there
 are unsaved changes."
@@ -584,7 +584,7 @@ are unsaved changes."
       (and buf (with-current-buffer buf
                  (revert-buffer))))))
 
-(defun ass-append-safely (text path)
+(defun eva-append-safely (text path)
   "Append TEXT to file at PATH.
 Also revert any buffer visiting it, or warn if there are unsaved
 changes and append to a file named PATH_errors."
@@ -603,7 +603,7 @@ changes and append to a file named PATH_errors."
 ;; NOTE: Actually unused in this package, but may be useful.
 ;; WONTFIX: check for recent activity (user awake thru the night) and keep
 ;;          returning t
-(defun ass-logged-today-p (path)
+(defun eva-logged-today-p (path)
   "True if file at PATH contains any reference to today.
 Does this by searching for a YYYY-MM-DD datestamp."
   (when (f-exists? path)
@@ -616,7 +616,7 @@ Does this by searching for a YYYY-MM-DD datestamp."
         (when (search-forward (ts-format "%F" day) nil t)
           t)))))
 
-(defun ass-first-today-line-in-file (path &optional ts)
+(defun eva-first-today-line-in-file (path &optional ts)
   "In file at PATH, get the first line that refers to today.
 Does this by searching for a YYYY-MM-DD datestamp matching today
 or a ts object TS."
@@ -625,7 +625,7 @@ or a ts object TS."
     (search-forward (ts-format "%F" ts))
     (buffer-substring (line-beginning-position) (line-end-position))))
 
-(defun ass-last-datestamp-in-file (path)
+(defun eva-last-datestamp-in-file (path)
   "Get the last match of YYYY-MM-DD in PATH.
 Beware that if PATH has instances of such where you don't expect
 it (in additional columns), you might not get the datestamp you
@@ -636,7 +636,7 @@ meant to get."
     (re-search-backward (rx (= 4 digit) "-" (= 2 digit) "-" (= 2 digit)))
     (buffer-substring (point) (+ 10 (point)))))
 
-(defun ass-tsv-all-entries (path)
+(defun eva-tsv-all-entries (path)
   "Return the contents of a .tsv at PATH as a Lisp list."
   (with-temp-buffer
     (insert-file-contents-literally path)
@@ -645,7 +645,7 @@ meant to get."
       (--map (s-split "\t" it) rows))))
 
 ;; HACK: too strong assumption
-(defun ass-tsv-last-timestamp* (path)
+(defun eva-tsv-last-timestamp* (path)
   "In .tsv at PATH, get the second field of last row."
   (with-temp-buffer
     (insert-file-contents-literally path)
@@ -657,7 +657,7 @@ meant to get."
     (buffer-substring (point) (- (search-forward "\t") 1))))
 
 ;; TODO: Search for unix-stamps too.
-(defun ass-tsv-entries-by-date (path &optional ts)
+(defun eva-tsv-entries-by-date (path &optional ts)
   "Return the contents of a .tsv at PATH as a Lisp list.
 Filters for rows containing a YYYY-MM-DD datestamp matching today
 or optional ts object TS."
@@ -675,7 +675,7 @@ or optional ts object TS."
     (warn "File doesn't exist: %s" path)
     nil))
 
-(defun ass-tsv-last-row (path)
+(defun eva-tsv-last-row (path)
   "In .tsv at PATH, get last row as a Lisp list."
   (with-temp-buffer
     (insert-file-contents-literally path)
@@ -686,7 +686,7 @@ or optional ts object TS."
                                     (line-end-position))
                   "\t")))
 
-(defun ass-tsv-last-value (path)
+(defun eva-tsv-last-value (path)
   "In .tsv at PATH, get the value of last row, last field."
   (when (f-exists? path)
     (with-temp-buffer
@@ -696,7 +696,7 @@ or optional ts object TS."
       (forward-char)
       (buffer-substring (point) (line-end-position)))))
 
-(cl-defun ass-tsv-append
+(cl-defun eva-tsv-append
     (path &rest fields &key float-time &allow-other-keys)
   "Append a line to the file located at PATH.
 Create the file and its parent directories if it doesn't exist,
@@ -709,7 +709,7 @@ prepended with a field for the Unix timestamp representing
 \"posted time\" i.e. right now, the time the row was added.  If
 time is also an actual variable you want to track, add a separate
 field containing something like the output of `(ts-format
-ass-date)'.  The first field is not for that.  Optional
+eva-date)'.  The first field is not for that.  Optional
 key FLOAT-TIME, if non-nil, means to use a float instead of
 integer for the first field."
   (declare (indent defun))
@@ -745,19 +745,19 @@ integer for the first field."
       (f-append new-text 'utf-8 errors-path)
       nil)
      (t
-      (ass-append-safely new-text path)
+      (eva-append-safely new-text path)
       t))))
 
 
 ;;; Handle idle & reboots & crashes
 
-(defcustom ass-idle-log-path
+(defcustom eva-idle-log-path
   (convert-standard-filename "~/self-data/idle.tsv")
   "Location of the idleness log."
-  :group 'ass
+  :group 'eva
   :type 'file)
 
-(defcustom ass-fallback-to-emacs-idle nil
+(defcustom eva-fallback-to-emacs-idle nil
   "Track Emacs idle rather than turn off under unknown OS/DE.
 Not recommended, as the idleness log will be meaningless unless
 you never use a graphical program. You'll end up with the
@@ -766,66 +766,66 @@ triggers the return-from-idle-hook.
 
 Even EXWM will not update `current-idle-time' while an X window
 is in focus."
-  :group 'ass
+  :group 'eva
   :type 'boolean)
 
-(defcustom ass-idle-threshold-secs-short (* 10 60)
+(defcustom eva-idle-threshold-secs-short (* 10 60)
   "Duration in seconds, above which the user is considered idle."
-  :group 'ass
+  :group 'eva
   :type 'integer)
 
-(defcustom ass-idle-threshold-secs-long (* 90 60)
+(defcustom eva-idle-threshold-secs-long (* 90 60)
   "Be idle at least this many seconds to be greeted upon return."
-  :group 'ass
+  :group 'eva
   :type 'integer)
 
-(defcustom ass-return-from-idle-hook
-  '(ass--log-idle
-    ass-session-from-idle)
+(defcustom eva-return-from-idle-hook
+  '(eva--log-idle
+    eva-session-from-idle)
   "Hook run when user returns from a period of idleness.
 Note: An Emacs startup also counts as a return from idleness.
 You'll probably want your hook to be conditional on some value of
-`ass-length-of-last-idle', which at startup is calculated
+`eva-length-of-last-idle', which at startup is calculated
 from the last Emacs shutdown or crash (technically, last time
 the mode was enabled)."
-  :group 'ass
-  :type '(hook :options (ass--log-idle
-                         ass-session-from-idle)))
+  :group 'eva
+  :type '(hook :options (eva--log-idle
+                         eva-session-from-idle)))
 
-(defcustom ass-periodic-present-hook
-  '(ass--save-vars-to-disk
-    ass--save-buffer-logs-to-disk)
+(defcustom eva-periodic-present-hook
+  '(eva--save-vars-to-disk
+    eva--save-buffer-logs-to-disk)
   "Hook run periodically as long as the user is not idle.
 Many things do not need to be done while the user is idle, so
 think about whether your function does.  If not, put them here."
-  :group 'ass
-  :type '(hook :options (ass--save-vars-to-disk
-                         ass--save-buffer-logs-to-disk)))
+  :group 'eva
+  :type '(hook :options (eva--save-vars-to-disk
+                         eva--save-buffer-logs-to-disk)))
 
-(defvar ass--x11idle-program-name nil)
+(defvar eva--x11idle-program-name nil)
 
-(defvar ass--idle-secs-fn nil)
+(defvar eva--idle-secs-fn nil)
 
-(defvar ass--last-online nil)
+(defvar eva--last-online nil)
 
-(defvar ass--idle-beginning nil)
+(defvar eva--idle-beginning nil)
 
-(defvar ass-length-of-last-idle 0
+(defvar eva-length-of-last-idle 0
   "Length of the last idle/offline period, in seconds.
 Becomes set after that period ends and should be available at the
-time `ass-return-from-idle-hook' is run.")
+time `eva-return-from-idle-hook' is run.")
 
-(defun ass--idle-secs ()
+(defun eva--idle-secs ()
   "Number of seconds user has now been idle, as told by the system.
-Not to be confused with `ass-length-of-last-idle'."
-  (funcall ass--idle-secs-fn))
+Not to be confused with `eva-length-of-last-idle'."
+  (funcall eva--idle-secs-fn))
 
-(defun ass--idle-secs-x11 ()
+(defun eva--idle-secs-x11 ()
   "Like `org-x11-idle-seconds' without /bin/sh or org."
-  (/ (ass--process-output-to-number ass--x11idle-program-name)
+  (/ (eva--process-output-to-number eva--x11idle-program-name)
      1000))
 
-(defun ass--idle-secs-emacs ()
+(defun eva--idle-secs-emacs ()
   "Same as `org-emacs-idle-seconds'.
 Digression: Should honestly be submitted to Emacs,
 `current-idle-time' is... not normal."
@@ -834,13 +834,13 @@ Digression: Should honestly be submitted to Emacs,
 	(float-time idle-time)
       0)))
 
-(defun ass--idle-secs-gnome ()
+(defun eva--idle-secs-gnome ()
   "Check Mutter's idea of idle time, even on Wayland."
   ;; https://unix.stackexchange.com/questions/396911/how-can-i-tell-if-a-user-is-idle-in-wayland
   (let ((idle-ms
          (string-to-number
           (car (s-match (rx space (* digit) eol)
-                        (ass--process-output-to-string
+                        (eva--process-output-to-string
                          "dbus-send"
                          "--print-reply"
                          "--dest=org.gnome.Mutter.IdleMonitor"
@@ -848,81 +848,81 @@ Digression: Should honestly be submitted to Emacs,
                          "org.gnome.Mutter.IdleMonitor.GetIdletime"))))))
     (/ idle-ms 1000)))
 
-(defun ass--log-idle ()
+(defun eva--log-idle ()
   "Log chunk of idle time to disk."
-  (ass-tsv-append ass-idle-log-path
+  (eva-tsv-append eva-idle-log-path
                   (ts-format)
-                  (number-to-string (/ (round ass-length-of-last-idle) 60))))
+                  (number-to-string (/ (round eva-length-of-last-idle) 60))))
 
 ;; This trio of functions handles lots of edge cases, they took work to make.
-(defun ass--start-next-timer (&optional assume-idle)
+(defun eva--start-next-timer (&optional assume-idle)
   "Start one or the other timer depending on idleness.
 If ASSUME-IDLE is non-nil, skip the idle check and associated
 overhead."
-  (if (or assume-idle (ass-idle-p))
-      (named-timer-run :ass 2 nil #'ass--user-is-idle t)
-    (named-timer-run :ass 111 nil #'ass--user-is-present)))
+  (if (or assume-idle (eva-idle-p))
+      (named-timer-run :eva 2 nil #'eva--user-is-idle t)
+    (named-timer-run :eva 111 nil #'eva--user-is-present)))
 
-(defun ass--user-is-present ()
+(defun eva--user-is-present ()
   "Do stuff assuming the user is active (not idle).
-This function is called by `ass--start-next-timer'
+This function is called by `eva--start-next-timer'
 repeatedly for as long as the user is active (not idle).
 
-Runs `ass-periodic-present-hook'."
+Runs `eva-periodic-present-hook'."
   ;; Guard the case where the user puts the computer to sleep manually, which
   ;; means this function will still be queued to run when the computer wakes.
   ;; If the time difference is suddenly big, hand off to the other function.
-  (if (> (ts-diff (ts-now) ass--last-online)
-         ass-idle-threshold-secs-short)
-      (ass--user-is-idle)
-    (setq ass--last-online (ts-fill (ts-now)))
-    (setq ass--idle-beginning (ts-fill (ts-now)))
-    (ass--start-next-timer)
+  (if (> (ts-diff (ts-now) eva--last-online)
+         eva-idle-threshold-secs-short)
+      (eva--user-is-idle)
+    (setq eva--last-online (ts-fill (ts-now)))
+    (setq eva--idle-beginning (ts-fill (ts-now)))
+    (eva--start-next-timer)
     ;; Run hooks last, in case they contain bugs.
-    (run-hooks 'ass-periodic-present-hook)))
+    (run-hooks 'eva-periodic-present-hook)))
 
 ;; NOTE: This runs rapidly, so it should be relatively efficient
-(defun ass--user-is-idle (&optional decrement)
+(defun eva--user-is-idle (&optional decrement)
   "Do stuff assuming the user is idle.
-This function is called by `ass--start-next-timer'
+This function is called by `eva--start-next-timer'
 repeatedly for as long as the user is idle.
 
-When DECREMENT is non-nil, decrement `ass--idle-beginning'
+When DECREMENT is non-nil, decrement `eva--idle-beginning'
 to correct for the time it took to reach idle status.
 
 When the user comes back, this function will be called one last
 time, at which point the idleness condition will fail and it sets
-`ass-length-of-last-idle' and runs
-`ass-return-from-idle-hook'.  That it has to run exactly
+`eva-length-of-last-idle' and runs
+`eva-return-from-idle-hook'.  That it has to run exactly
 once with a failing condition that normally succeeds, as opposed
 to running never or forever, is the reason it has to be a
-separate function from `ass--user-is-present'."
-  (setq ass--last-online (ts-now))
-  (if (ass-idle-p)
-      (ass--start-next-timer 'assume-idle)
+separate function from `eva--user-is-present'."
+  (setq eva--last-online (ts-now))
+  (if (eva-idle-p)
+      (eva--start-next-timer 'assume-idle)
     ;; Take the idle threshold into account and correct the idle begin point.
     (when decrement
-      (ts-decf (ts-sec ass--idle-beginning)
-               ass-idle-threshold-secs-short))
-    (setq ass-length-of-last-idle (ts-diff (ts-now) ass--idle-beginning))
+      (ts-decf (ts-sec eva--idle-beginning)
+               eva-idle-threshold-secs-short))
+    (setq eva-length-of-last-idle (ts-diff (ts-now) eva--idle-beginning))
     (unwind-protect
-        (run-hooks 'ass-return-from-idle-hook)
-      (setq ass--idle-beginning (ts-fill (ts-now)))
-      (ass--start-next-timer))))
+        (run-hooks 'eva-return-from-idle-hook)
+      (setq eva--idle-beginning (ts-fill (ts-now)))
+      (eva--start-next-timer))))
 
-(defun ass-idle-p ()
-  "Idled longer than `ass-idle-threshold-secs-short'?"
-  (> (ass--idle-secs) ass-idle-threshold-secs-short))
+(defun eva-idle-p ()
+  "Idled longer than `eva-idle-threshold-secs-short'?"
+  (> (eva--idle-secs) eva-idle-threshold-secs-short))
 
 
 ;;; Items
 ;; Q: What's cl-defstruct?  A: https://nullprogram.com/blog/2018/02/14/
 
-;; NOTE: If you change the order of keys, ass--mem-recover will set the
-;; wrong values henceforth!  You'd better use `ass--mem-nuke-var' on
-;; `ass-items' then.
-(cl-defstruct (ass-item
-               (:constructor ass-item-create)
+;; NOTE: If you change the order of keys, eva--mem-recover will set the
+;; wrong values henceforth!  You'd better use `eva--mem-nuke-var' on
+;; `eva-items' then.
+(cl-defstruct (eva-item
+               (:constructor eva-item-create)
                (:copier nil))
   (dismissals 0)
   (min-hours-wait 3)
@@ -937,28 +937,28 @@ separate function from `ass--user-is-present'."
   ;; name ;; truly-unique key (if reusing fn in two objects for some reason)
   )
 
-(defvar ass-items)
+(defvar eva-items)
 
-(defvar ass-disabled-fns nil
-  "Which members of `ass-items' to avoid processing.
+(defvar eva-disabled-fns nil
+  "Which members of `eva-items' to avoid processing.
 Referred to by their :fn value.")
 
-(defun ass--pending-p (fn)
+(defun eva--pending-p (fn)
   "Return t if FN is due to be called."
-  (let* ((i (ass-item-by-fn fn))
-         (dataset (ass-item-dataset i))
-         (max-entries (ass-item-max-entries-per-day i))
-         (max-successes (ass-item-max-successes-per-day i))
-         (lookup-posted-time (ass-item-lookup-posted-time i))
-         (dismissals (ass-item-dismissals i))
-         (min-hrs-wait (ass-item-min-hours-wait i))
+  (let* ((i (eva-item-by-fn fn))
+         (dataset (eva-item-dataset i))
+         (max-entries (eva-item-max-entries-per-day i))
+         (max-successes (eva-item-max-successes-per-day i))
+         (lookup-posted-time (eva-item-lookup-posted-time i))
+         (dismissals (eva-item-dismissals i))
+         (min-hrs-wait (eva-item-min-hours-wait i))
          (min-secs-wait (* 60 60 min-hrs-wait))
-         (successes-today (ass--count-successes-today fn))
+         (successes-today (eva--count-successes-today fn))
          (successes-specified-and-exceeded
           (and successes-today
                max-successes
                (>= successes-today max-successes)))
-         (last-called (make-ts :unix (or (ass-item-last-called i) 0)))
+         (last-called (make-ts :unix (or (eva-item-last-called i) 0)))
          (called-today (and (= (ts-day last-called) (ts-day (ts-now)))
                             (> (ts-hour last-called) 4)))
          (recently-logged
@@ -967,9 +967,9 @@ Referred to by their :fn value.")
             (> min-secs-wait
                (if lookup-posted-time
                    (- (ts-unix (ts-now))
-                      (string-to-number (car (ass-tsv-last-row dataset))))
+                      (string-to-number (car (eva-tsv-last-row dataset))))
                  (ts-diff (ts-now)
-                          (ts-parse (ass-tsv-last-timestamp* dataset)))))))
+                          (ts-parse (eva-tsv-last-timestamp* dataset)))))))
          ;; Even if we didn't log yet, we don't want to be that persistent.
          (recently-called (< (ts-diff (ts-now) last-called)
                              ;; hours multiplied by n dismissals
@@ -979,103 +979,103 @@ Referred to by their :fn value.")
                 (not (and (stringp dataset)
                           (f-exists? dataset)))
                 (null max-entries)
-                (> max-entries (length (ass-tsv-entries-by-date dataset))))
+                (> max-entries (length (eva-tsv-entries-by-date dataset))))
         (unless recently-called
           (unless successes-specified-and-exceeded
             t))))))
 
-(defun ass-item-by-fn (fn)
+(defun eva-item-by-fn (fn)
   "Get the item associated with the query function FN."
-  (--find (equal fn (ass-item-fn it)) ass-items))
+  (--find (equal fn (eva-item-fn it)) eva-items))
 
-(defun ass-dataset-by-fn (fn)
+(defun eva-dataset-by-fn (fn)
   "Get the dataset associated with the query function FN."
-  (ass-item-dataset (ass-item-by-fn fn)))
+  (eva-item-dataset (eva-item-by-fn fn)))
 
-(defun ass-enabled-fns ()
+(defun eva-enabled-fns ()
   "Subset of `secretary-items' not known as disabled.
 Referred to by their :fn value."
-  (-difference (-map #'ass-item-fn ass-items) ass-disabled-fns))
+  (-difference (-map #'eva-item-fn eva-items) eva-disabled-fns))
 
-(defun ass-reenable-fn ()
+(defun eva-reenable-fn ()
   "Prompt to reenable one of the disabled items."
   (interactive)
-  (if (< 0 (length ass-disabled-fns))
+  (if (< 0 (length eva-disabled-fns))
       (let ((response
              (completing-read "Re-enable: "
-                              (-map #'symbol-name ass-disabled-fns))))
-        (setq ass-disabled-fns (remove response ass-disabled-fns)))
+                              (-map #'symbol-name eva-disabled-fns))))
+        (setq eva-disabled-fns (remove response eva-disabled-fns)))
     (message "There are no disabled items")))
 
-(defun ass-ask-disable (fn)
+(defun eva-ask-disable (fn)
   "Ask to disable item indicated by FN.
 Return non-nil on yes, and nil on no."
-  (if (ass-ynp "You have been dismissing "
+  (if (eva-ynp "You have been dismissing "
                (symbol-name fn)
                ", shall I stop tracking it for now?")
-      (push fn ass-disabled-fns)
-    (setf (ass-item-dismissals (ass-item-by-fn fn)) 0)
+      (push fn eva-disabled-fns)
+    (setf (eva-item-dismissals (eva-item-by-fn fn)) 0)
     nil))
 
-;; NOTE: Do not move the check to ass--pending-p, that is passive and
+;; NOTE: Do not move the check to eva--pending-p, that is passive and
 ;; this needs interactivity.
-(defun ass-call-fn-check-dismissals (fn)
+(defun eva-call-fn-check-dismissals (fn)
   "Call FN, but ask to disable if it's been dismissed many times."
   (interactive "CCommand: ")
-  (unless (and (<= 3 (ass-item-dismissals (ass-item-by-fn fn)))
-               (ass-ask-disable fn))
+  (unless (and (<= 3 (eva-item-dismissals (eva-item-by-fn fn)))
+               (eva-ask-disable fn))
     (funcall fn)))
 
 
 ;;; The big boilerplate
 
-(defvar ass-excursion-buffers nil
+(defvar eva-excursion-buffers nil
   "Buffers included in the current or last excursion.")
 
 ;; "Success"
-(defun ass--check-return-from-excursion ()
+(defun eva--check-return-from-excursion ()
   "If the current excursion appears done, do things."
-  (ass-dbg "Running ass--check-return-from-excursion")
-  (let ((others (remove (current-buffer) ass-excursion-buffers)))
+  (eva-dbg "Running eva--check-return-from-excursion")
+  (let ((others (remove (current-buffer) eva-excursion-buffers)))
     (when (-none-p #'buffer-live-p others)
-      (remove-hook 'kill-buffer-hook #'ass--check-return-from-excursion)
-      (named-timer-cancel :ass-excursion)
-      (when (null (ass-item-dataset
-                   (ass-item-by-fn ass-curr-fn)))
-        (ass-tsv-append
+      (remove-hook 'kill-buffer-hook #'eva--check-return-from-excursion)
+      (named-timer-cancel :eva-excursion)
+      (when (null (eva-item-dataset
+                   (eva-item-by-fn eva-curr-fn)))
+        (eva-tsv-append
          (expand-file-name (concat "successes-"
-                                   (symbol-name ass-curr-fn))
-                           ass-cache-dir-path)))
-      (setq ass--queue
-            (cl-remove ass-curr-fn ass--queue :count 1))
+                                   (symbol-name eva-curr-fn))
+                           eva-cache-dir-path)))
+      (setq eva--queue
+            (cl-remove eva-curr-fn eva--queue :count 1))
       ;; HACK Because the current-buffer is still active, wait to be sure the
       ;; kill-buffer completes.  I would like an after-kill-buffer-hook so I
       ;; don't need this timer.
-      (run-with-timer .2 nil #'ass-resume))))
+      (run-with-timer .2 nil #'eva-resume))))
 
 ;; "Fail"
-(defun ass-stop-watching-excursion ()
+(defun eva-stop-watching-excursion ()
   "Called after some time on an excursion."
-  (ass-dbg "Running ass-stop-watching-excursion")
-  (named-timer-cancel :ass-excursion)
-  (remove-hook 'kill-buffer-hook #'ass--check-return-from-excursion))
+  (eva-dbg "Running eva-stop-watching-excursion")
+  (named-timer-cancel :eva-excursion)
+  (remove-hook 'kill-buffer-hook #'eva--check-return-from-excursion))
 
 ;; "Fail" query
-(defun ass--after-cancel-do-things ()
-  (ass-dbg "Running ass--after-cancel-do-things")
-  "Actions after user cancels a ass prompt."
-  (advice-remove 'abort-recursive-edit #'ass--after-cancel-do-things)
-  (when (null ass-curr-fn)
-    (error "Unexpectedly null: ass-curr-fn"))
-  (cl-incf (ass-item-dismissals
-            (ass-item-by-fn ass-curr-fn)))
+(defun eva--after-cancel-do-things ()
+  (eva-dbg "Running eva--after-cancel-do-things")
+  "Actions after user cancels a eva prompt."
+  (advice-remove 'abort-recursive-edit #'eva--after-cancel-do-things)
+  (when (null eva-curr-fn)
+    (error "Unexpectedly null: eva-curr-fn"))
+  (cl-incf (eva-item-dismissals
+            (eva-item-by-fn eva-curr-fn)))
   ;; Re-add the fn to the queue because it got removed (so I expect); after a
   ;; cancel, we want it to remain queued up.
-  (cl-pushnew ass-curr-fn ass--queue))
+  (cl-pushnew eva-curr-fn eva--queue))
 
 ;; TODO! WIP
-(defun ass--tag-buffer-viewed (&rest _)
-  (ass-dbg "Running ass--tag-buffer-viewed")
+(defun eva--tag-buffer-viewed (&rest _)
+  (eva-dbg "Running eva--tag-buffer-viewed")
   ;; don't bother to track views if it's just 1 buffer
   (unless (< 1 (length secretary--excursion-buffers))
     ;; Ensure that every item is a list
@@ -1087,7 +1087,7 @@ Return non-nil on yes, and nil on no."
         ;; now all of them have been visited, mark a successful excursion when the user leaves this buffer
         )))
 
-;;(add-hook 'window-buffer-change-functions #'ass--tag-buffer-viewed)
+;;(add-hook 'window-buffer-change-functions #'eva--tag-buffer-viewed)
 
 ;; Ok, here's the shenanigans.  Observe that keyboard-quit and
 ;; abort-recursive-edit are distinct.  When the user cancels a "query" by
@@ -1098,20 +1098,20 @@ Return non-nil on yes, and nil on no."
 ;; cancelled.  In this macro, pay attention to the placement of NEW-BODY, since
 ;; it may contain a keyboard-quit.  Thus, everything coming after NEW-BODY will
 ;; never be called for excursions, unless of course you use unwind-protect.
-(defmacro ass-wrap (name args &rest body)
+(defmacro eva-wrap (name args &rest body)
   "Boilerplate wrapper for `cl-defun'.
 NAME, ARGS and BODY are as in `cl-defun'.
 To see what it expands to, try `emacs-lisp-macroexpand'.
 
-Manages the external variables `ass-curr-fn' and
-`ass--queue', zeroes `-item-dismissals' on success, advises
+Manages the external variables `eva-curr-fn' and
+`eva--queue', zeroes `-item-dismissals' on success, advises
 `abort-recursive-edit' (\\<selectrum-minibuffer-map> \\[abort-recursive-edit]) while in a prompt
 spawned within BODY, and so on. If you use a simple `defun' in
 lieu of this wrapper, you must replicate these features!
 
 In BODY, you have access to the extra temporary variables:
-- \"current-item\" which is \"(ass-item-by-fn ass-curr-fn)\"
-- \"current-dataset\" which is \"(ass-item-dataset current-item)\"."
+- \"current-item\" which is \"(eva-item-by-fn eva-curr-fn)\"
+- \"current-dataset\" which is \"(eva-item-dataset current-item)\"."
   (declare (indent defun) (doc-string 3))
   (let* ((parsed-body (macroexp-parse-body body))
          (declarations (car parsed-body))
@@ -1121,100 +1121,100 @@ In BODY, you have access to the extra temporary variables:
        ,@(if (member 'interactive (-map #'car-safe declarations))
              declarations
            (-snoc declarations '(interactive)))
-       (setq ass-curr-fn #',name)
+       (setq eva-curr-fn #',name)
        ;; ---- everything below here could be a defun for a lisp master
-       (setq ass-curr-item (ass-item-by-fn ass-curr-fn))
-       (setq ass-curr-dataset (ass-item-dataset ass-curr-item))
-       (setq ass-excursion-buffers nil)
+       (setq eva-curr-item (eva-item-by-fn eva-curr-fn))
+       (setq eva-curr-dataset (eva-item-dataset eva-curr-item))
+       (setq eva-excursion-buffers nil)
        (when (minibufferp)
          (message "Was in minibuffer when %s called, not proceeding."
-                  (symbol-name ass-curr-fn))
+                  (symbol-name eva-curr-fn))
          (keyboard-quit))
-       (unless (get-buffer-window (ass--buffer-chat))
-         (pop-to-buffer (ass--buffer-chat)))
-       (unless ass-curr-item
-         (error "%s not listed in ass-items" (symbol-name ass-curr-fn)))
+       (unless (get-buffer-window (eva--buffer-chat))
+         (pop-to-buffer (eva--buffer-chat)))
+       (unless eva-curr-item
+         (error "%s not listed in eva-items" (symbol-name eva-curr-fn)))
        ;; Set up watchers in case any "excursion" happens.
-       ;; (add-hook 'kill-buffer-hook #'ass--check-return-from-excursion 96)
-       (named-timer-run :ass-excursion (* 5 60) ()
-                        #'ass-stop-watching-excursion)
+       ;; (add-hook 'kill-buffer-hook #'eva--check-return-from-excursion 96)
+       (named-timer-run :eva-excursion (* 5 60) ()
+                        #'eva-stop-watching-excursion)
        ;; Set up watcher for cancelled prompt.
-       (advice-add 'abort-recursive-edit :before #'ass--after-cancel-do-things)
+       (advice-add 'abort-recursive-edit :before #'eva--after-cancel-do-things)
        (unwind-protect
            (prog1 (progn
-                    (setf (ass-item-last-called ass-curr-item)
+                    (setf (eva-item-last-called eva-curr-item)
                           (time-convert (current-time) 'integer))
                     ,@main-body)
              ;; All below only happens for pure queries, and only after success.
-             (setq ass--queue
-                   (cl-remove ass-curr-fn ass--queue :count 1))
-             (setf (ass-item-dismissals ass-curr-item) 0)
+             (setq eva--queue
+                   (cl-remove eva-curr-fn eva--queue :count 1))
+             (setf (eva-item-dismissals eva-curr-item) 0)
              ;; Save timestamp of this successful run.
-             (ass-tsv-append
+             (eva-tsv-append
                (expand-file-name ,(concat "successes-" (symbol-name name))
-                                 ass-cache-dir-path))
+                                 eva-cache-dir-path))
              ;; Clean up, because this wasn't an excursion.
-             (named-timer-cancel :ass-excursion)
-             (remove-hook 'kill-buffer-hook #'ass--check-return-from-excursion))
+             (named-timer-cancel :eva-excursion)
+             (remove-hook 'kill-buffer-hook #'eva--check-return-from-excursion))
          ;; All below this line will always happen.
-         (advice-remove 'abort-recursive-edit #'ass--after-cancel-do-things)))))
+         (advice-remove 'abort-recursive-edit #'eva--after-cancel-do-things)))))
 
 
 ;;; Persistent variables memory
 
-(defcustom ass-mem-history-path
+(defcustom eva-mem-history-path
   (convert-standard-filename
-   (expand-file-name "memory.tsv" ass-cache-dir-path))
+   (expand-file-name "memory.tsv" eva-cache-dir-path))
   nil
-  :group 'ass
+  :group 'eva
   :type 'file
   :risky t)
 ;; TODO: Test this
 ;; :set (lambda (sym val)
-;;        (ass--save-buffer-logs-to-disk)
-;;        (ass--save-vars-to-disk)
+;;        (eva--save-buffer-logs-to-disk)
+;;        (eva--save-vars-to-disk)
 ;;        (set-default sym val)))
 
-(defcustom ass-after-load-vars-hook nil
-  "Invoked right after populating `ass-mem' from disk.
+(defcustom eva-after-load-vars-hook nil
+  "Invoked right after populating `eva-mem' from disk.
 The most recent values are therefore available.  If you've
 previously saved data in that list (typically via
-`ass-before-save-vars-hook'), it should now be back even if Emacs
+`eva-before-save-vars-hook'), it should now be back even if Emacs
 has restarted, so you can run something like the following.
 
-    (setq my-var (map-elt ass-mem 'my-var))"
-  :group 'ass
+    (setq my-var (map-elt eva-mem 'my-var))"
+  :group 'eva
   :type 'hook)
 
-(defcustom ass-before-save-vars-hook nil
-  "Invoked right before saving `ass-mem' to disk.
+(defcustom eva-before-save-vars-hook nil
+  "Invoked right before saving `eva-mem' to disk.
 You should add to that list anything you want to persist across
 reboots, using the following.
 
-    (ass-mem-pushnew 'my-var)
+    (eva-mem-pushnew 'my-var)
 or
-    (ass-mem-pushnew-alt my-var)
+    (eva-mem-pushnew-alt my-var)
 
 Of course, you can do that at any time, this hook isn't needed
 unless you do things with 'my-var at indeterminate times and you
 want to be sure what goes in before it gets written to disk."
-  :group 'ass
+  :group 'eva
   :type 'hook)
 
-(defvar ass-mem  nil
+(defvar eva-mem  nil
   "Alist of all relevant variable values.
-We log these values to disk at `ass-mem-history-path', so we can
+We log these values to disk at `eva-mem-history-path', so we can
 recover older values as needed.")
 
 ;; REVIEW: We may not need this
-(defvar ass--mem-timestamp-variables '(ass--last-online)
+(defvar eva--mem-timestamp-variables '(eva--last-online)
   "List of Lisp variables that contain ts objects.
-Members will be saved to `ass-mem-history-path' as plain numbers
+Members will be saved to `eva-mem-history-path' as plain numbers
 instead of ts objects for legibility.")
 
-(defvar ass--has-restored-variables nil)
+(defvar eva--has-restored-variables nil)
 
-(defun ass--read-lisp (s)
+(defun eva--read-lisp (s)
   "Check that string S isn't blank, then `read' it.
 Otherwise, signal an error, which `read' doesn't normally do."
   (if (and (stringp s)
@@ -1222,41 +1222,41 @@ Otherwise, signal an error, which `read' doesn't normally do."
       (car (read-from-string s))
     (error "Input should be string containing valid lisp: %s" s)))
 
-(defun ass--mem-nuke-var (var)
-  "Remove all instances of VAR from file at `ass-mem-history-path'.
+(defun eva--mem-nuke-var (var)
+  "Remove all instances of VAR from file at `eva-mem-history-path'.
 Use with care.  Mainly for development use.
 
 It uses `flush-lines', which is prone to mistakes (perhaps you
 have multiline values, like org-capture-templates...) and may
 flush other variables that merely refer to the variable name in
 their value."
-  (f-copy ass-mem-history-path "/tmp/ass-mem.backup")
+  (f-copy eva-mem-history-path "/tmp/eva-mem.backup")
   (with-temp-buffer
-    (insert-file-contents-literally ass-mem-history-path)
+    (insert-file-contents-literally eva-mem-history-path)
     (flush-lines (symbol-name var))
-    (write-file ass-mem-history-path)))
+    (write-file eva-mem-history-path)))
 
-(defun ass--mem-filter-for-variable (var)
-  "Get all occurrences of VAR from `ass-mem-history-path'.
+(defun eva--mem-filter-for-variable (var)
+  "Get all occurrences of VAR from `eva-mem-history-path'.
 Return a list looking like
 \((TIMESTAMP KEY VALUE) (TIMESTAMP KEY VALUE) ...)."
-  (let* ((table (ass-tsv-all-entries ass-mem-history-path))
-         (table-subset (--filter (eq var (ass--read-lisp (cadr it)))
+  (let* ((table (eva-tsv-all-entries eva-mem-history-path))
+         (table-subset (--filter (eq var (eva--read-lisp (cadr it)))
                                  table)))
     table-subset))
 
-(defun ass--mem-check-history-sanity ()
+(defun eva--mem-check-history-sanity ()
   "Check that the mem history is sane."
   (unless (--all-p (= 3 (length it))
-                   (ass-tsv-all-entries ass-mem-history-path))
+                   (eva-tsv-all-entries eva-mem-history-path))
     (error "Memory history looks corrupt: not all lines have 3 fields")))
 
-(defun ass--mem-save-only-changed-vars ()
-  "Save new or changed `ass-mem' values to disk."
-  (ass--mem-check-history-sanity)
-  (cl-loop for cell in ass-mem
+(defun eva--mem-save-only-changed-vars ()
+  "Save new or changed `eva-mem' values to disk."
+  (eva--mem-check-history-sanity)
+  (cl-loop for cell in eva-mem
            do (progn
-                (let ((foo (ass--mem-filter-for-variable (car cell)))
+                (let ((foo (eva--mem-filter-for-variable (car cell)))
                       (write? nil)
                       ;; Configure `prin1-to-string'.
                       (print-level nil)
@@ -1264,144 +1264,144 @@ Return a list looking like
                   (if (null foo)
                       (setq write? t)
                     (unless (equal (cdr cell)
-                                   (ass--read-lisp
+                                   (eva--read-lisp
                                     (nth 2 (-last-item foo))))
                       (setq write? t)))
                   (when write?
-                    (ass-tsv-append ass-mem-history-path
+                    (eva-tsv-append eva-mem-history-path
                                     (prin1-to-string (car cell))
                                     (if (ts-p (cdr cell))
                                         ;; Convert ts structs because they're clunky to read
                                         (ts-format "%s" (cdr cell))
                                       (prin1-to-string (cdr cell)))))))))
 
-(defun ass--mem-last-value-of-variable (var)
+(defun eva--mem-last-value-of-variable (var)
   "Get the most recent stored value of VAR from disk."
-  (let* ((table (nreverse (ass-tsv-all-entries
-                           ass-mem-history-path)))
+  (let* ((table (nreverse (eva-tsv-all-entries
+                           eva-mem-history-path)))
          (ok t))
     (cl-block nil
       (while ok
         (let ((row (pop table)))
-          (when (eq (ass--read-lisp (nth 1 row)) var)
+          (when (eq (eva--read-lisp (nth 1 row)) var)
             (setq ok nil)
             (cl-return (read (nth 2 row)))))))))
 
-(defun ass--mem-recover ()
-  "Read the newest values from file at `ass-mem-history-path'.
+(defun eva--mem-recover ()
+  "Read the newest values from file at `eva-mem-history-path'.
 Assign them to the same names inside the alist
-`ass-mem'."
-  (let* ((table (-map #'cdr (nreverse (ass-tsv-all-entries
-                                       ass-mem-history-path)))))
+`eva-mem'."
+  (let* ((table (-map #'cdr (nreverse (eva-tsv-all-entries
+                                       eva-mem-history-path)))))
     (while (/= 0 (length table))
       (let* ((row (pop table))
-             (parsed-row (-map #'ass--read-lisp row)))
-        (unless (member (car parsed-row) (map-keys ass-mem))
+             (parsed-row (-map #'eva--read-lisp row)))
+        (unless (member (car parsed-row) (map-keys eva-mem))
           ;; Convert numbers back into ts objects.
-          (when (member (car parsed-row) ass--mem-timestamp-variables)
+          (when (member (car parsed-row) eva--mem-timestamp-variables)
             (setf (cadr parsed-row)
                   (ts-fill (make-ts :unix (cadr parsed-row)))))
-          (setq ass-mem (cons (cons (car parsed-row) (cadr parsed-row))
-                              ass-mem)))))))
+          (setq eva-mem (cons (cons (car parsed-row) (cadr parsed-row))
+                              eva-mem)))))))
 
-(defun ass--mem-restore-items-values ()
-  "Sync some values of current `ass-items' members from disk.
+(defun eva--mem-restore-items-values ()
+  "Sync some values of current `eva-items' members from disk.
 The values are :last-called and :dismissals, because they are of
 interest to persist across sessions."
-  (dolist (mem-item (map-elt ass-mem 'ass-items))
+  (dolist (mem-item (map-elt eva-mem 'eva-items))
     ;; TODO: Don't use ignore-errors
     (unless (ignore-errors
-              (let* ((fn-sym (ass-item-fn mem-item))
-                     (active-item (ass-item-by-fn fn-sym)))
+              (let* ((fn-sym (eva-item-fn mem-item))
+                     (active-item (eva-item-by-fn fn-sym)))
                 ;; if reflects something we have defined currently
                 (when (and (fboundp fn-sym)
-                           (member active-item ass-items))
+                           (member active-item eva-items))
                   ;; Update the :dismissals etc to match values from history.
-                  (setf (ass-item-dismissals active-item)
-                        (ass-item-dismissals mem-item))
-                  (setf (ass-item-last-called active-item)
-                        (ass-item-last-called mem-item)))
+                  (setf (eva-item-dismissals active-item)
+                        (eva-item-dismissals mem-item))
+                  (setf (eva-item-last-called active-item)
+                        (eva-item-last-called mem-item)))
                 t))
       (warn
        (s-join "\n"
-               '("ass--mem-restore-items-values failed. "
-                 " Did you change the ass-item defstruct?"
+               '("eva--mem-restore-items-values failed. "
+                 " Did you change the eva-item defstruct?"
                  " Not critical so proceeding.  May self-correct next sync."))))))
 
 ;; TODO: Calc all reasonable defaults we can from known dataset contents (we
 ;;       already do it some but we can do more).
-(defun ass--init ()
+(defun eva--init ()
   "Master function restoring all relevant variables.
 Appropriate on init."
-  (mkdir ass-cache-dir-path t)
-  (f-touch ass-mem-history-path)
-  (ass--mem-recover)
+  (mkdir eva-cache-dir-path t)
+  (f-touch eva-mem-history-path)
+  (eva--mem-recover)
   ;; TODO: just do some kind of (max ...) sexp and set all to that
-  (setq ass--last-online
+  (setq eva--last-online
         (ts-fill
          ;; TODO: error if there are older non-nil values and it's now nil
-         (or (map-elt ass-mem 'ass--last-online)
+         (or (map-elt eva-mem 'eva--last-online)
              (make-ts :unix 0))))
-  (when (and ass-chat-log-path
-             (f-exists? ass-chat-log-path))
+  (when (and eva-chat-log-path
+             (f-exists? eva-chat-log-path))
     (let ((chatfile-modtime-unix
            (time-convert (file-attribute-modification-time
-                          (file-attributes ass-chat-log-path))
+                          (file-attributes eva-chat-log-path))
                          'integer))
-          (remembered (map-elt ass-mem 'ass--last-chatted)))
-      (setq ass--last-chatted
+          (remembered (map-elt eva-mem 'eva--last-chatted)))
+      (setq eva--last-chatted
             (ts-fill
              (make-ts :unix (max chatfile-modtime-unix
-                                 (if ass--last-chatted
-                                     (ts-unix ass--last-chatted)
+                                 (if eva--last-chatted
+                                     (ts-unix eva--last-chatted)
                                    0)
                                  (if remembered
                                      (ts-unix remembered)
                                    0)))))))
-  (when (and (ts-p ass--last-chatted)
-             (ts< ass--last-online ass--last-chatted))
-    (setq ass--last-online ass--last-chatted))
-  (setq ass--idle-beginning ass--last-online)
-  (setq ass--last-chatted ass--last-online)
-  (ass--mem-restore-items-values)
-  (run-hooks 'ass-after-load-vars-hook)
-  (setq ass--has-restored-variables t)
-  (add-hook 'kill-emacs-hook #'ass--save-vars-to-disk))
+  (when (and (ts-p eva--last-chatted)
+             (ts< eva--last-online eva--last-chatted))
+    (setq eva--last-online eva--last-chatted))
+  (setq eva--idle-beginning eva--last-online)
+  (setq eva--last-chatted eva--last-online)
+  (eva--mem-restore-items-values)
+  (run-hooks 'eva-after-load-vars-hook)
+  (setq eva--has-restored-variables t)
+  (add-hook 'kill-emacs-hook #'eva--save-vars-to-disk))
 
-(defun ass--save-vars-to-disk ()
+(defun eva--save-vars-to-disk ()
   "Sync all relevant variables to disk."
-  (if (ass--another-ass-running-p)
-      (warn "Another ass running, not saving variables.")
-    (unless ass--has-restored-variables
+  (if (eva--another-eva-running-p)
+      (warn "Another eva running, not saving variables.")
+    (unless eva--has-restored-variables
       (error "Attempted to save variables to disk, but never fully \n%s\n%s\n%s"
              "restored them from disk first, so the results would have been"
              "built on blank data, which is not right.  Please post an issue:"
-             "https://github.com/meedstrom/ass even if you fix it"))
-    (ass-mem-pushnew 'ass--last-online)
-    (ass-mem-pushnew 'ass-items)
-    (ass-mem-pushnew 'ass-disabled-fns)
-    (make-directory ass-cache-dir-path t)
-    (when ass-chat-log-path
-      (ass-write-safely (with-current-buffer (ass--buffer-chat)
+             "https://github.com/meedstrom/eva even if you fix it"))
+    (eva-mem-pushnew 'eva--last-online)
+    (eva-mem-pushnew 'eva-items)
+    (eva-mem-pushnew 'eva-disabled-fns)
+    (make-directory eva-cache-dir-path t)
+    (when eva-chat-log-path
+      (eva-write-safely (with-current-buffer (eva--buffer-chat)
                           (buffer-string))
-                        ass-chat-log-path))
-    (run-hooks 'ass-before-save-vars-hook)
-    (ass--mem-save-only-changed-vars)))
+                        eva-chat-log-path))
+    (run-hooks 'eva-before-save-vars-hook)
+    (eva--mem-save-only-changed-vars)))
 
-(defun ass-mem-pushnew (var)
-  "In `ass-mem', store variable VAR's current value.
+(defun eva-mem-pushnew (var)
+  "In `eva-mem', store variable VAR's current value.
 You should quote VAR, like with `set', not `setq'."
-  (if (assoc var ass-mem)
-      (map-put! ass-mem var (symbol-value var))
-    (setq ass-mem
-          (map-insert ass-mem var (symbol-value var)))))
+  (if (assoc var eva-mem)
+      (map-put! eva-mem var (symbol-value var))
+    (setq eva-mem
+          (map-insert eva-mem var (symbol-value var)))))
 
-(defmacro ass-mem-pushnew-alt (var)
-  "In `ass-mem', store variable VAR's current value."
-  `(if (assoc ',var ass-mem)
-       (map-put! ass-mem ',var ,var)
-     (setq ass-mem
-           (map-insert ass-mem ',var ,var))))
+(defmacro eva-mem-pushnew-alt (var)
+  "In `eva-mem', store variable VAR's current value."
+  `(if (assoc ',var eva-mem)
+       (map-put! eva-mem ',var ,var)
+     (setq eva-mem
+           (map-insert eva-mem ',var ,var))))
 
 
 ;;; Buffer logger
@@ -1409,36 +1409,36 @@ You should quote VAR, like with `set', not `setq'."
 ;; logger produces constant reams of new data, so we write them temporarily to
 ;; a buffer, bundling up what would otherwise be many disk write ops.
 
-(defcustom ass-buffer-focus-log-path
+(defcustom eva-buffer-focus-log-path
   (convert-standard-filename "~/self-data/buffer-focus.tsv")
   "Where to save the log of buffer focus changes."
-  :group 'ass
+  :group 'eva
   :type 'file)
 
-(defcustom ass-buffer-info-path
+(defcustom eva-buffer-info-path
   (convert-standard-filename "~/self-data/buffer-info.tsv")
   "Where to save the log of buffer metadata."
-  :group 'ass
+  :group 'eva
   :type 'file)
 
-(defvar ass--last-buffer nil)
+(defvar eva--last-buffer nil)
 
-(defvar ass--known-buffers nil
+(defvar eva--known-buffers nil
   "Buffers the user has entered this Emacs session.")
 
-(defvar ass--buffer-focus-log-buffer
+(defvar eva--buffer-focus-log-buffer
   (get-buffer-create
-   (concat (unless ass-debug " ") "*Ass: Buffer focus log*")
-   (not ass-debug))
+   (concat (unless eva-debug " ") "*Eva: Buffer focus log*")
+   (not eva-debug))
   "Buffer for not-yet-saved log lines.")
 
-(defvar ass--buffer-info-buffer
+(defvar eva--buffer-info-buffer
   (get-buffer-create
-   (concat (unless ass-debug " ") "*Ass: Buffer info*")
-   (not ass-debug))
+   (concat (unless eva-debug " ") "*Eva: Buffer info*")
+   (not eva-debug))
   "Buffer for not-yet-saved log lines.")
 
-(defun ass--new-uuid ()
+(defun eva--new-uuid ()
   "Same as `org-id-uuid', but avoid relying on Org."
   (declare (side-effect-free t))
   (let ((rnd (md5 (format "%s%s%s%s%s%s%s"
@@ -1463,26 +1463,26 @@ You should quote VAR, like with `set', not `setq'."
             (substring rnd 18 20)
             (substring rnd 20 32))))
 
-(defun ass--save-buffer-logs-to-disk ()
+(defun eva--save-buffer-logs-to-disk ()
   "Append as-yet unwritten log lines to disk files."
-  (ass--transact-buffer-onto-file ass--buffer-focus-log-buffer
-                                  ass-buffer-focus-log-path)
-  (ass--transact-buffer-onto-file ass--buffer-info-buffer
-                                  ass-buffer-info-path))
+  (eva--transact-buffer-onto-file eva--buffer-focus-log-buffer
+                                  eva-buffer-focus-log-path)
+  (eva--transact-buffer-onto-file eva--buffer-info-buffer
+                                  eva-buffer-info-path))
 
 ;; TODO: When buffer major mode changes, count it as a new buffer. Note that
-;;       (assoc buf ass--known-buffers) will still work.
+;;       (assoc buf eva--known-buffers) will still work.
 ;; TODO: When eww url changes, count it as a new buffer
 ;; TODO: When counting it as a new buffer, record a field for "previous uuid"
 ;;       just in case the data analyst wants to merge these observations
-(defun ass--log-buffer (&optional _arg)
+(defun eva--log-buffer (&optional _arg)
   "Log the buffer just switched to.
 Put this on `window-buffer-change-functions' and
 `window-selection-change-functions'."
   (unless (minibufferp)
     (let* ((buf (current-buffer))
            (mode (symbol-name major-mode))
-           (known (assoc buf ass--known-buffers))
+           (known (assoc buf eva--known-buffers))
            (timestamp (ts-format "%s.%N"))
            (visiting (if (eq major-mode 'dired-mode)
                          default-directory
@@ -1493,7 +1493,7 @@ Put this on `window-buffer-change-functions' and
                                       ;; TODO: new exist-record if mode changed
                                       (equal mode (nth 4 known))) ; doesnt do it
                            (list buf
-                                 (ass--new-uuid)
+                                 (eva--new-uuid)
                                  (buffer-name)
                                  visiting
                                  mode
@@ -1504,163 +1504,163 @@ Put this on `window-buffer-change-functions' and
            (focus-record (list timestamp ;; time the buffer was switched to
                                ;; the buffer's uuid
                                (if known (cadr known) (cadr exist-record)))))
-      (unless (eq ass--last-buffer buf) ; only entered/left minibuffer
-        (setq ass--last-buffer buf)
+      (unless (eq eva--last-buffer buf) ; only entered/left minibuffer
+        (setq eva--last-buffer buf)
         (unless known
-          (push exist-record ass--known-buffers)
-          (with-current-buffer ass--buffer-info-buffer
+          (push exist-record eva--known-buffers)
+          (with-current-buffer eva--buffer-info-buffer
             (goto-char (point-max))
             (insert "\n" (s-join "\t" (cdr exist-record)))))
-        (with-current-buffer ass--buffer-focus-log-buffer
+        (with-current-buffer eva--buffer-focus-log-buffer
           (goto-char (point-max))
           (insert "\n" (s-join "\t" focus-record)))))))
 
 
 ;;; Interactive sessions
 
-(defvar ass-debug-no-timid nil)
+(defvar eva-debug-no-timid nil)
 
-(defalias 'ass-resume #'ass-run-queue)
+(defalias 'eva-resume #'eva-run-queue)
 
-(defun ass-run-queue (&optional queue)
-  "Call every function from QUEUE, default `ass--queue'.
+(defun eva-run-queue (&optional queue)
+  "Call every function from QUEUE, default `eva--queue'.
 Does some checks and sets up a good environment, in particular
 nulling the 'buffer-predicate frame parameter so that no buffers
 spawned by the functions will be skipped by
 `switch-to-next-buffer'."
   (interactive)
-  (ass-dbg "Running ass-run-queue")
-  (unless (named-timer-get :ass-excursion)
+  (eva-dbg "Running eva-run-queue")
+  (unless (named-timer-get :eva-excursion)
     (if (minibufferp) ; user busy
-        (run-with-timer 20 nil #'ass-run-queue)
+        (run-with-timer 20 nil #'eva-run-queue)
       (let ((bufpred-backup (frame-parameter nil 'buffer-predicate)))
         (unwind-protect
             (progn
               (set-frame-parameter nil 'buffer-predicate nil)
-              ;; (pop-to-buffer (ass--buffer-chat))
-              (dolist (f (or queue ass--queue))
-                (ass-call-fn-check-dismissals f)))
+              ;; (pop-to-buffer (eva--buffer-chat))
+              (dolist (f (or queue eva--queue))
+                (eva-call-fn-check-dismissals f)))
           ;; FIXME: Actually, this will executed at the first keyboard-quit, so
           ;; we will never have a nil predicate. We need to preserve it during
           ;; an excursion.
           (set-frame-parameter nil 'buffer-predicate bufpred-backup))))))
 
-(defun ass-butt-in-gently ()
+(defun eva-butt-in-gently ()
   "Butt in if any queries are pending, with an introductory chime."
   ;; If a session is already active, don't start a new one.
-  (ass-dbg "Running ass-butt-in-gently")
-  (unless (named-timer-get :ass-excursion)
+  (eva-dbg "Running eva-butt-in-gently")
+  (unless (named-timer-get :eva-excursion)
     (if (minibufferp) ; user busy
-        (run-with-timer 20 nil #'ass-butt-in-gently)
-      (setq ass-date (ts-now))
-      (when-let ((fns (if ass-debug-no-timid
-                          (ass-enabled-fns)
-                        (-filter #'ass--pending-p (ass-enabled-fns)))))
-        (setq ass--queue fns)
+        (run-with-timer 20 nil #'eva-butt-in-gently)
+      (setq eva-date (ts-now))
+      (when-let ((fns (if eva-debug-no-timid
+                          (eva-enabled-fns)
+                        (-filter #'eva--pending-p (eva-enabled-fns)))))
+        (setq eva--queue fns)
         (unless (eq t (frame-focus-state))
           (require 'notifications)
-          (notifications-notify :title ass-ai-name :body (ass-greeting)))
-        (ass--chime-aural)
-        (ass--chime-visual)
-        (run-with-timer 1 nil #'ass-run-queue)))))
+          (notifications-notify :title eva-ai-name :body (eva-greeting)))
+        (eva--chime-aural)
+        (eva--chime-visual)
+        (run-with-timer 1 nil #'eva-run-queue)))))
 
-(defun ass-session-from-idle ()
+(defun eva-session-from-idle ()
   "Start a session if idle was long."
-  (ass-dbg "Running ass-session-from-idle")
-  (unless (< ass-length-of-last-idle ass-idle-threshold-secs-long)
-    (ass-butt-in-gently)))
+  (eva-dbg "Running eva-session-from-idle")
+  (unless (< eva-length-of-last-idle eva-idle-threshold-secs-long)
+    (eva-butt-in-gently)))
 
-(defun ass-new-session ()
+(defun eva-new-session ()
   "Recalculate what items are pending and run them."
   (interactive)
-  (ass-dbg "Running ass-new-session")
-  (unless (named-timer-get :ass-excursion)
-    (setq ass-date (ts-now))
-    (setq ass--queue (-filter #'ass--pending-p (ass-enabled-fns)))
-    (ass-run-queue)))
+  (eva-dbg "Running eva-new-session")
+  (unless (named-timer-get :eva-excursion)
+    (setq eva-date (ts-now))
+    (setq eva--queue (-filter #'eva--pending-p (eva-enabled-fns)))
+    (eva-run-queue)))
 
-(defun ass-new-session-force-all ()
+(defun eva-new-session-force-all ()
   "Run through all enabled items."
   (interactive)
-  (ass-dbg "Running ass-new-session-force-all")
-  (setq ass-date (ts-now))
-  (setq ass--queue (ass-enabled-fns))
-  (ass-run-queue))
+  (eva-dbg "Running eva-new-session-force-all")
+  (setq eva-date (ts-now))
+  (setq eva--queue (eva-enabled-fns))
+  (eva-run-queue))
 
 
 ;;; Commands
 
-(defun ass-decrement-date ()
-  "Decrement `ass-date'."
-  (interactive nil ass-chat-mode)
-  (ass-set-date (ts-dec 'day 1 ass-date)))
+(defun eva-decrement-date ()
+  "Decrement `eva-date'."
+  (interactive nil eva-chat-mode)
+  (eva-set-date (ts-dec 'day 1 eva-date)))
 
-(defun ass-increment-date ()
-  "Increment `ass-date'."
-  (interactive nil ass-chat-mode)
-  (ass-set-date (ts-inc 'day 1 ass-date)))
+(defun eva-increment-date ()
+  "Increment `eva-date'."
+  (interactive nil eva-chat-mode)
+  (eva-set-date (ts-inc 'day 1 eva-date)))
 
-(defun ass-set-date-today ()
-  "Set `ass-date' to today."
+(defun eva-set-date-today ()
+  "Set `eva-date' to today."
   (interactive)
-  (ass-set-date (ts-now)))
+  (eva-set-date (ts-now)))
 
-(defun ass-set-date (&optional ts)
-  "Decrement `ass-date' from `org-read-date'.
+(defun eva-set-date (&optional ts)
+  "Decrement `eva-date' from `org-read-date'.
 Optional arg TS skips the prompt and sets date from that."
   (interactive)
   (require 'org)
   (if ts
-      (setq ass-date ts)
+      (setq eva-date ts)
     (let* ((time (ts-format "%T"))
            (new-date (org-read-date))
            (new-datetime (ts-parse (concat new-date " " time))))
-      (setq ass-date new-datetime)))
-  (ass-emit
-   "Operating as if the date is " (ts-format "%x" ass-date) "."))
+      (setq eva-date new-datetime)))
+  (eva-emit
+   "Operating as if the date is " (ts-format "%x" eva-date) "."))
 
 
 ;;; Modes and keys
 
-(defvar ass-chat-mode-map
+(defvar eva-chat-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "r") #'ass-resume)
-    (define-key map (kbd "+") #'ass-increment-date)
-    (define-key map (kbd "-") #'ass-decrement-date)
-    (define-key map (kbd "0") #'ass-set-date-today)
-    (define-key map (kbd "d") #'ass-set-date)
+    (define-key map (kbd "r") #'eva-resume)
+    (define-key map (kbd "+") #'eva-increment-date)
+    (define-key map (kbd "-") #'eva-decrement-date)
+    (define-key map (kbd "0") #'eva-set-date-today)
+    (define-key map (kbd "d") #'eva-set-date)
     (define-key map (kbd "q") #'bury-buffer)
-    (define-key map (kbd "?") #'ass-dispatch)
-    (define-key map (kbd "h") #'ass-dispatch)
+    (define-key map (kbd "?") #'eva-dispatch)
+    (define-key map (kbd "h") #'eva-dispatch)
     map))
 
-(define-derived-mode ass-chat-mode text-mode "Ass chat")
+(define-derived-mode eva-chat-mode text-mode "Eva chat")
 
-(transient-define-prefix ass-dispatch ()
+(transient-define-prefix eva-dispatch ()
   ["General actions"
    ("q" "Quit the chat" bury-buffer)
    ]
   ["Date"
-   ("0" "Reset date to today (default)" ass-set-date-today :transient t)
-   ("-" "Decrement the date" ass-decrement-date :transient t)
-   ("+" "Increment the date" ass-increment-date :transient t)
-   ("d" "Set date..." ass-set-date :transient t)
+   ("0" "Reset date to today (default)" eva-set-date-today :transient t)
+   ("-" "Decrement the date" eva-decrement-date :transient t)
+   ("+" "Increment the date" eva-increment-date :transient t)
+   ("d" "Set date..." eva-set-date :transient t)
    ])
 
 
 ;;; "Main": startup stuff
 
-(defun ass--check-for-time-anomalies ()
+(defun eva--check-for-time-anomalies ()
   "Check for timestamps that don't look right.
-Good to run after enabling `ass-mode' or changing
-`ass-items'."
-  (let* ((datasets (--map (ass-item-dataset it) ass-items))
-         (logs (list ass-idle-log-path ass-buffer-focus-log-path))
+Good to run after enabling `eva-mode' or changing
+`eva-items'."
+  (let* ((datasets (--map (eva-item-dataset it) eva-items))
+         (logs (list eva-idle-log-path eva-buffer-focus-log-path))
          (files (-non-nil (append datasets logs)))
          (anomalous-files nil))
     (dolist (f files)
       (when (f-exists? f)
-        (let ((stamps (->> (ass-tsv-all-entries f)
+        (let ((stamps (->> (eva-tsv-all-entries f)
                            (map-keys)
                            (-map #'string-to-number))))
           (unless (<= stamps)
@@ -1670,129 +1670,129 @@ Good to run after enabling `ass-mode' or changing
               (push f anomalous-files)))))
     (when anomalous-files
       (warn (->> (append
-                  '("Ass: Anomalous timestamps found in my logs."
+                  '("Eva: Anomalous timestamps found in my logs."
                     "You probably have or have had a wrong system clock."
                     "These files have timestamps exceeding the current time:")
                   anomalous-files)
                  (s-join "\n"))))))
 
-(defun ass--keepalive ()
-  "Re-start the :ass timer if dead.
+(defun eva--keepalive ()
+  "Re-start the :eva timer if dead.
 Indispensable while hacking on the package."
-  (unless (member (named-timer-get :ass) timer-list)
-    (message "[%s] ass timer found dead, reviving it."
+  (unless (member (named-timer-get :eva) timer-list)
+    (message "[%s] eva timer found dead, reviving it."
              (format-time-string "%H:%M"))
-    (ass--start-next-timer)))
+    (eva--start-next-timer)))
 
-(defun ass--another-ass-running-p ()
-  "Return t if another Emacs instance has ass-mode on.
+(defun eva--another-eva-running-p ()
+  "Return t if another Emacs instance has eva-mode on.
 Return nil if only the current Emacs instance or none has it on.
 If you've somehow forced it on in several Emacsen, the behavior
 is unspecified, but it shouldn't be possible to do."
-  (when (f-exists? "/tmp/ass/pid")
-    (let ((pid (string-to-number (f-read-bytes "/tmp/ass/pid"))))
+  (when (f-exists? "/tmp/eva/pid")
+    (let ((pid (string-to-number (f-read-bytes "/tmp/eva/pid"))))
       (and (/= pid (emacs-pid))
            (member pid (list-system-processes))))))
 
-(defun ass--emacs-init-message ()
+(defun eva--emacs-init-message ()
   "Emit the message that Emacs has started.
 So that we can see in the chat log when Emacs was (re)started,
 creating some context."
-  (when ass--has-restored-variables
-    (ass-emit "------ Emacs (re)started. ------")))
+  (when eva--has-restored-variables
+    (eva-emit "------ Emacs (re)started. ------")))
 
-(defun ass--idle-set-fn ()
-  "Set `ass--idle-secs-fn' to an appropriate function.
+(defun eva--idle-set-fn ()
+  "Set `eva--idle-secs-fn' to an appropriate function.
 Return the function on success, nil otherwise."
-  (or (symbol-value 'ass--idle-secs-fn)  ; if preset, use that.
+  (or (symbol-value 'eva--idle-secs-fn)  ; if preset, use that.
       (and (eq system-type 'darwin)
            (autoload #'org-mac-idle-seconds "org-clock")
-           (setq ass--idle-secs-fn #'org-mac-idle-seconds))
+           (setq eva--idle-secs-fn #'org-mac-idle-seconds))
       ;; If under Mutter's Wayland compositor
       (and (getenv "DESKTOP_SESSION")
            (s-matches? (rx (or "gnome" "ubuntu")) (getenv "DESKTOP_SESSION"))
            (not (s-contains? "xorg" (getenv "DESKTOP_SESSION")))
-           (setq ass--idle-secs-fn #'ass--idle-secs-gnome))
+           (setq eva--idle-secs-fn #'eva--idle-secs-gnome))
       ;; NOTE: This condition is true under XWayland, so it must come
       ;; after any check for Wayland if we want it to mean X only.
       (and (eq window-system 'x)
-           (setq ass--x11idle-program-name
+           (setq eva--x11idle-program-name
                  (seq-find #'executable-find '("x11idle" "xprintidle")))
-           (setq ass--idle-secs-fn #'ass--idle-secs-x11))
-      (and (symbol-value 'ass-fallback-to-emacs-idle)
-           (setq ass--idle-secs-fn #'ass--idle-secs-emacs))))
+           (setq eva--idle-secs-fn #'eva--idle-secs-x11))
+      (and (symbol-value 'eva-fallback-to-emacs-idle)
+           (setq eva--idle-secs-fn #'eva--idle-secs-emacs))))
 
-(defun ass-unload-function ()
-  "Unload the Ass library."
-  (ass-mode 0)
+(defun eva-unload-function ()
+  "Unload the Eva library."
+  (eva-mode 0)
   (with-demoted-errors nil
-    (unload-feature 'ass-tests)
-    (unload-feature 'ass-config)
-    (unload-feature 'ass-doing)
-    (unload-feature 'ass-builtin))
+    (unload-feature 'eva-tests)
+    (unload-feature 'eva-config)
+    (unload-feature 'eva-doing)
+    (unload-feature 'eva-builtin))
   ;; Continue standard unloading.
   nil)
 
 ;;;###autoload
-(define-minor-mode ass-mode
+(define-minor-mode eva-mode
   "Wake up the virtual assistant."
   :global t
-  (if ass-mode
+  (if eva-mode
       (progn
-        (when ass-debug
+        (when eva-debug
           (message "------ (debug message) Trying to turn on. ------"))
         ;; Check to see whether it's ok to turn on.
-        (when (and (or (ass--idle-set-fn)
+        (when (and (or (eva--idle-set-fn)
                        (prog1 nil
                          (message
-                          (concat ass-ai-name
+                          (concat eva-ai-name
                                   ": Not able to detect idleness, I'll be"
-                                  " useless.  Disabling ass-mode."))
-                         (ass-mode 0)))
-                   (if (ass--another-ass-running-p)
+                                  " useless.  Disabling eva-mode."))
+                         (eva-mode 0)))
+                   (if (eva--another-eva-running-p)
                        (prog1 nil
-                         (message "Another ass virtual assistant active.")
-                         (ass-mode 0))
+                         (message "Another EVA active.")
+                         (eva-mode 0))
                      t))
           ;; All OK, turn on.
-          (mkdir "/tmp/ass" t)
-          (f-write (number-to-string (emacs-pid)) 'utf-8 "/tmp/ass/pid")
-          (add-function :after after-focus-change-function #'ass--log-buffer)
-          (add-hook 'window-buffer-change-functions #'ass--log-buffer)
-          (add-hook 'window-selection-change-functions #'ass--log-buffer)
-          (add-hook 'after-init-hook #'ass--init -90)
-          (add-hook 'after-init-hook #'ass--emacs-init-message 1)
-          (add-hook 'after-init-hook #'ass--check-for-time-anomalies 2)
-          (add-hook 'after-init-hook #'ass--init-r 3)
-          (add-hook 'after-init-hook #'ass--user-is-present 90)
-          (named-timer-run :ass-keepalive 300 300 #'ass--keepalive)
+          (mkdir "/tmp/eva" t)
+          (f-write (number-to-string (emacs-pid)) 'utf-8 "/tmp/eva/pid")
+          (add-function :after after-focus-change-function #'eva--log-buffer)
+          (add-hook 'window-buffer-change-functions #'eva--log-buffer)
+          (add-hook 'window-selection-change-functions #'eva--log-buffer)
+          (add-hook 'after-init-hook #'eva--init -90)
+          (add-hook 'after-init-hook #'eva--emacs-init-message 1)
+          (add-hook 'after-init-hook #'eva--check-for-time-anomalies 2)
+          (add-hook 'after-init-hook #'eva--init-r 3)
+          (add-hook 'after-init-hook #'eva--user-is-present 90)
+          (named-timer-run :eva-keepalive 300 300 #'eva--keepalive)
           (when after-init-time
             (progn
-              (ass--init)
-              (ass--check-for-time-anomalies)
-              (ass--init-r)
-              (ass--user-is-present)
-              (when ass-debug
-                (ass-emit
+              (eva--init)
+              (eva--check-for-time-anomalies)
+              (eva--init-r)
+              (eva--user-is-present)
+              (when eva-debug
+                (eva-emit
                  "------ (debug message) Mode turned on. ----------"))))))
     ;; Turn off.
-    (unless (ass--another-ass-running-p)
-      (ass-emit "Turning off.")
-      (ass--save-vars-to-disk)
-      (ignore-errors (f-delete "/tmp/ass/pid")))
-    (setq ass--idle-secs-fn nil)
-    (remove-function after-focus-change-function #'ass--log-buffer)
-    (remove-hook 'window-buffer-change-functions #'ass--log-buffer)
-    (remove-hook 'window-selection-change-functions #'ass--log-buffer)
-    (remove-hook 'after-init-hook #'ass--init)
-    (remove-hook 'after-init-hook #'ass--emacs-init-message)
-    (remove-hook 'after-init-hook #'ass--check-for-time-anomalies)
-    (remove-hook 'after-init-hook #'ass--init-r)
-    (remove-hook 'after-init-hook #'ass--start-next-timer)
-    (remove-hook 'kill-emacs-hook #'ass--save-vars-to-disk)
-    (named-timer-cancel :ass)
-    (named-timer-cancel :ass-keepalive)))
+    (unless (eva--another-eva-running-p)
+      (eva-emit "Turning off.")
+      (eva--save-vars-to-disk)
+      (ignore-errors (f-delete "/tmp/eva/pid")))
+    (setq eva--idle-secs-fn nil)
+    (remove-function after-focus-change-function #'eva--log-buffer)
+    (remove-hook 'window-buffer-change-functions #'eva--log-buffer)
+    (remove-hook 'window-selection-change-functions #'eva--log-buffer)
+    (remove-hook 'after-init-hook #'eva--init)
+    (remove-hook 'after-init-hook #'eva--emacs-init-message)
+    (remove-hook 'after-init-hook #'eva--check-for-time-anomalies)
+    (remove-hook 'after-init-hook #'eva--init-r)
+    (remove-hook 'after-init-hook #'eva--start-next-timer)
+    (remove-hook 'kill-emacs-hook #'eva--save-vars-to-disk)
+    (named-timer-cancel :eva)
+    (named-timer-cancel :eva-keepalive)))
 
-(provide 'ass)
+(provide 'eva)
 
-;;; ass.el ends here
+;;; eva.el ends here

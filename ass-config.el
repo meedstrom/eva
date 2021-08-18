@@ -1,4 +1,4 @@
-;;; ass-config.el --- Example config -*- lexical-binding: t; -*-
+;;; eva-config.el --- Example config -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2021 Martin Edström
 
@@ -25,114 +25,114 @@
 
 ;;; Code:
 
-(setq ass-user-name "Martin")
-(setq ass-user-birthday "1991-12-07")
-(setq ass-main-ledger-path   "/home/kept/Journal/Finances/l.ledger")
-(setq ass-main-datetree-path "/home/kept/Journal/diary.org")
+(setq eva-user-name "Martin")
+(setq eva-user-birthday "1991-12-07")
+(setq eva-main-ledger-path   "/home/kept/Journal/Finances/l.ledger")
+(setq eva-main-datetree-path "/home/kept/Journal/diary.org")
 
-(require 'ass)
-(require 'ass-builtin)
-(require 'ass-doing)
+(require 'eva)
+(require 'eva-builtin)
+(require 'eva-doing)
 
-(add-hook 'ass-after-load-vars-hook #'ass-check-clock)
-(add-hook 'ass-after-load-vars-hook #'ass-check-org-variables)
+(add-hook 'eva-after-load-vars-hook #'eva-check-clock)
+(add-hook 'eva-after-load-vars-hook #'eva-check-org-variables)
 
 ;; HINT: you can even use the same object multiple times in the queue, you'll
-;; just have to assign the output of (ass-item-create) to an external
+;; just have to assign the output of (eva-item-create) to an external
 ;; variable and refer to it.
-(setq ass-items
+(setq eva-items
       (list
-       (ass-item-create :fn #'ass-greet
+       (eva-item-create :fn #'eva-greet
                         :min-hours-wait 1)
 
-       (ass-item-create :fn #'ass-query-mood
+       (eva-item-create :fn #'eva-query-mood
                         :dataset "/home/kept/Self_data/mood.tsv"
                         :min-hours-wait 1)
 
-       (ass-item-create :fn #'ass-query-doing
+       (eva-item-create :fn #'eva-query-doing
                         :dataset "/home/kept/Self_data/activities.tsv"
                         :min-hours-wait 1)
 
-       (ass-item-create :fn #'ass-present-diary
+       (eva-item-create :fn #'eva-present-diary
                         :max-successes-per-day 1)
 
-       (ass-item-create :fn #'ass-query-weight
+       (eva-item-create :fn #'eva-query-weight
                         :dataset "/home/kept/Self_data/weight.tsv"
                         :max-entries-per-day 1)
 
-       (ass-item-create :fn #'ass-present-ledger-report)
+       (eva-item-create :fn #'eva-present-ledger-report)
 
-       (ass-item-create :fn #'ass-present-org-agenda)
+       (eva-item-create :fn #'eva-present-org-agenda)
 
-       (ass-item-create :fn #'ass-query-sleep
+       (eva-item-create :fn #'eva-query-sleep
                         :dataset "/home/kept/Self_data/sleep.tsv"
                         :min-hours-wait 5
                         :lookup-posted-time t)
 
-       (ass-item-create :fn #'ass-query-ingredients
+       (eva-item-create :fn #'eva-query-ingredients
                         :dataset "/home/kept/Self_data/ingredients.tsv"
                         :min-hours-wait 5)
 
-       (ass-item-create :fn #'ass-query-cold-shower
+       (eva-item-create :fn #'eva-query-cold-shower
                         :dataset "/home/kept/Self_data/cold.tsv"
                         :max-entries-per-day 1)
 
-       (ass-item-create
-        :fn (ass-wrap my-koan ()
-                      (message (ass-emit (seq-random-elt ass-aphorisms)))
-                       (sit-for ass-sit-long))
+       (eva-item-create
+        :fn (eva-wrap my-koan ()
+                      (message (eva-emit (seq-random-elt eva-aphorisms)))
+                       (sit-for eva-sit-long))
         :min-hours-wait 16)
-       ;; (ass-item-create
-       ;;  :fn (ass-defquery ass-joke ()
-       ;;        (message (ass-emit (seq-random-elt ass-aphorisms)))
-       ;;        (sit-for ass-sit-long)))
-       (ass-item-create :fn #'ass-present-ledger-file)
-       (ass-item-create
-        :fn (ass-wrap my-bye ()
-                       (message (ass-emit "All done for now."))
-                       (bury-buffer (ass-buffer-chat)))
+       ;; (eva-item-create
+       ;;  :fn (eva-defquery eva-joke ()
+       ;;        (message (eva-emit (seq-random-elt eva-aphorisms)))
+       ;;        (sit-for eva-sit-long)))
+       (eva-item-create :fn #'eva-present-ledger-file)
+       (eva-item-create
+        :fn (eva-wrap my-bye ()
+                       (message (eva-emit "All done for now."))
+                       (bury-buffer (eva-buffer-chat)))
         :min-hours-wait 0)
        ))
 
 
 ;;; Add hotkeys
 
-(transient-replace-suffix 'ass-dispatch '(0)
+(transient-replace-suffix 'eva-dispatch '(0)
   '["General actions"
     ("q" "Quit" bury-buffer)
-    ("l" "View Ledger report" ass-present-ledger-report)
-    ("f" "View Ledger file" ass-present-ledger-file)
+    ("l" "View Ledger report" eva-present-ledger-report)
+    ("f" "View Ledger file" eva-present-ledger-file)
     ("a" "View Org agenda" org-agenda-list)])
 
-;; (transient-append-suffix 'ass-dispatch "q"
-;;   '("l" "View Ledger report" ass-present-ledger-report))
-;; (transient-append-suffix 'ass-dispatch "q"
-;;   '("f" "View Ledger file" ass-present-ledger-file))
-;; (transient-append-suffix 'ass-dispatch "q"
+;; (transient-append-suffix 'eva-dispatch "q"
+;;   '("l" "View Ledger report" eva-present-ledger-report))
+;; (transient-append-suffix 'eva-dispatch "q"
+;;   '("f" "View Ledger file" eva-present-ledger-file))
+;; (transient-append-suffix 'eva-dispatch "q"
 ;;   '("a" "View Org agenda" org-agenda))
 
-(define-key ass-chat-mode-map (kbd "l") #'ass-present-ledger-report)
-(define-key ass-chat-mode-map (kbd "a") #'org-agenda-list)
+(define-key eva-chat-mode-map (kbd "l") #'eva-present-ledger-report)
+(define-key eva-chat-mode-map (kbd "a") #'org-agenda-list)
 
 
 ;;; Finally
 
-(setq ass-doings
-      (list (ass-doing-create
+(setq eva-doings
+      (list (eva-doing-create
              :name "sleep"
              :id "ac93c132-ab74-455f-a456-71d7b5ee88a6"
              :cost-false-pos 3
              :cost-false-neg 3
-             :query #'ass-query-sleep)
-            (ass-doing-create
+             :query #'eva-query-sleep)
+            (eva-doing-create
              :name "studying"
              :id "24553859-2214-4fb0-bdc9-84e7f3d04b2b"
              :cost-false-pos 8
              :cost-false-neg 8)))
 
-(ass-mode)
+(eva-mode)
 
-(setq ass-aphorisms
+(setq eva-aphorisms
       (list
        "The affairs of the world will go on forever. Do not delay the practice of meditation." ;; not koanish
        "It takes all the running you can do, to keep in the same place."
@@ -195,10 +195,10 @@
        "Missing once is an accident, missing twice is the start of a new habit."
        "If it happens once it's a mistake. If it happens twice, it's a choice."))
 
-(provide 'ass-config)
+(provide 'eva-config)
 
 ;; Local Variables:
-;; nameless-current-name: "ass"
+;; nameless-current-name: "eva"
 ;; End:
 
-;;; ass-config.el ends here
+;;; eva-config.el ends here

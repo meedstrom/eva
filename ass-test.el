@@ -1,4 +1,4 @@
-;;; ass-test.el --- Unit tests -*- lexical-binding: t; -*-
+;;; eva-test.el --- Unit tests -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2020-2021 Martin Edström
 
@@ -23,62 +23,62 @@
 
 ;;; Code:
 
-(require 'ass-config)
+(require 'eva-config)
 (require 'ert)
 
-;; (setq ass--idle-beginning (setq ass--last-online (make-ts :unix 0)))
+;; (setq eva--idle-beginning (setq eva--last-online (make-ts :unix 0)))
 
-;; (ass--count-successes-today #'ass-present-diary)
-;; (ass--call-timidly)
-;; (named-timer-run :ass-attempt (* 60 60) (* 60 60) #'ass--call-timidly)
+;; (eva--count-successes-today #'eva-present-diary)
+;; (eva--call-timidly)
+;; (named-timer-run :eva-attempt (* 60 60) (* 60 60) #'eva--call-timidly)
 ;; (run-with-timer 3 nil (lambda ()  (print (frame-focus-state))))
-;; (ass-call-from-idle)
-;; (ass-memory-put 'ass-items ass-items)
+;; (eva-call-from-idle)
+;; (eva-memory-put 'eva-items eva-items)
 
 ;; HACK: sit times specific to my machine
-(ert-deftest ass-test-pid ()
-  (ass-mode 0)
+(ert-deftest eva-test-pid ()
+  (eva-mode 0)
   (let ((p (pfuture-new "emacs" "--with-profile=doom")))
     (sit-for 5)
-    (should (ass--another-ass-running-p))
+    (should (eva--another-eva-running-p))
     (kill-process p)
     (sit-for 1)
-    (should-not (ass--another-ass-running-p))))
+    (should-not (eva--another-eva-running-p))))
 
-(ert-deftest ass-test-minibuffer-cancel-fn ()
+(ert-deftest eva-test-minibuffer-cancel-fn ()
   (run-with-timer .3 nil (lambda () (should (eq 'abort-recursive-edit (key-binding (kbd "C-g"))))))
-  (ass-query-weight))
+  (eva-query-weight))
 
-(ert-deftest ass-test-idle1 ()
-  (ass-mode 0)
-  (setq ass--idle-seconds-fn #'ass--emacs-idle-seconds)
-  (ass--start-next-timer t)
+(ert-deftest eva-test-idle1 ()
+  (eva-mode 0)
+  (setq eva--idle-seconds-fn #'eva--emacs-idle-seconds)
+  (eva--start-next-timer t)
   (sit-for .05)
-  (should (eq (seq-elt (named-timer-get :ass) 5)
-              'ass--user-is-idle))
+  (should (eq (seq-elt (named-timer-get :eva) 5)
+              'eva--user-is-idle))
   (sit-for 2)
-  (should (eq (seq-elt (named-timer-get :ass) 5)
-              'ass--user-is-active)))
+  (should (eq (seq-elt (named-timer-get :eva) 5)
+              'eva--user-is-active)))
 
-(ert-deftest ass-test-keepalive ()
-  (ass-mode 0)
-  (setq ass--idle-seconds-fn #'ass--emacs-idle-seconds)
-  (ass--keepalive)
-  (should (named-timer-get :ass))
+(ert-deftest eva-test-keepalive ()
+  (eva-mode 0)
+  (setq eva--idle-seconds-fn #'eva--emacs-idle-seconds)
+  (eva--keepalive)
+  (should (named-timer-get :eva))
   ;; Takedown
-  (named-timer-cancel :ass-keepalive)
-  (named-timer-cancel :ass))
+  (named-timer-cancel :eva-keepalive)
+  (named-timer-cancel :eva))
 
-(ert-deftest ass-test-ts-usage ()
+(ert-deftest eva-test-ts-usage ()
   (let ((now (ts-now)))
     (should (equal (ts-dec 'month 12 now)
                    (ts-dec 'year 1 now)))
     (should (= 16 (length (-uniq (append
                                   (--iterate (ts-dec 'month 1 it) now 12)
                                   (--iterate (ts-dec 'year 1 it) now 5))))))
-    ;; (should (= 66 (length (ass-past-sample-default))))
-    (should (-all-p #'ts-p (ass-past-sample-greedy)))))
+    ;; (should (= 66 (length (eva-past-sample-default))))
+    (should (-all-p #'ts-p (eva-past-sample-greedy)))))
 
-(provide 'ass-test)
+(provide 'eva-test)
 
-;;; ass-test.el ends here
+;;; eva-test.el ends here
