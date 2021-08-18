@@ -130,6 +130,18 @@ See also `ass-sit-long' and `ass-sit-medium'."
 
 ;;; Library
 
+(defcustom ass-debug init-file-debug
+  "Whether to do debug stuff."
+  :group 'ass
+  :type 'boolean)
+
+(defcustom ass-dbg-fn (when ass-debug #'message)
+  "Control the behavior of `ass-dbg'.
+Recommended options are nil, `message', `warn' and `error'."
+  :group 'ass
+  :type 'function
+  :safe t)
+
 (defvar ass--buffer-r nil)
 
 (defvar ass--queue nil)
@@ -139,8 +151,6 @@ See also `ass-sit-long' and `ass-sit-medium'."
 (defvar ass-curr-dataset nil)
 
 (defvar ass-curr-item nil)
-
-(defvar ass-debug init-file-debug)
 
 (defvar ass-date (ts-now)
   "Date to which to apply the current fn.
@@ -179,6 +189,14 @@ own R project."
     (with-current-buffer ass--buffer-r
       ;; TODO: How to check if the script errors out?
       (ess-execute "source(\"init.R\")" 'buffer))))
+
+(defun ass-dbg (&rest strings)
+  "Concat STRINGS and print them via `ass-debug-fn'.
+Do nothing if that is nil.  Note that we don't do the
+`format-message' business usual for `error' and its cousins.
+Use the real `error' for that."
+  (when ass-dbg-fn
+    (funcall ass-debug-fn (s-join " " strings))))
 
 ;; TODO: Catch typos like 03 meaning 30 minutes, not 3 hours.
 (defun ass-parse-time-amount (input)
@@ -1503,66 +1521,72 @@ Put this on `window-buffer-change-functions' and
 
 (defvar ass-debug-no-timid nil)
 
-(defalias 'ass-resume #'ass-execute)
+(defalias 'ass-resume #'ass-run-queue)
 
-(defun ass-execute (&optional queue)
+(defun ass-run-queue (&optional queue)
   "Call every function from QUEUE, default `ass--queue'.
 Does some checks and sets up a good environment, in particular
 nulling the 'buffer-predicate frame parameter so that no buffers
 spawned by the functions will be skipped by
 `switch-to-next-buffer'."
   (interactive)
-  (named-timer-cancel :ass-excursion) ;; hygiene
-  (if (minibufferp) ; user busy
-      (run-with-timer 20 nil #'ass-execute)
-    (let ((bufpred-backup (frame-parameter nil 'buffer-predicate)))
-      (unwind-protect
-          (progn
-            (set-frame-parameter nil 'buffer-predicate nil)
-            (pop-to-buffer (ass--buffer-chat))
-            (dolist (f (or queue ass--queue))
-              (ass-call-fn-check-dismissals f)))
-        ;; FIXME: Actually, this will executed at the first keyboard-quit, so
-        ;; we will never have a nil predicate. We need to preserve it during an
-        ;; excursion.
-        (set-frame-parameter nil 'buffer-predicate bufpred-backup)))))
+  (ass-dbg "Running ass-run-queue")
+  (unless (named-timer-get :ass-excursion)
+    (if (minibufferp) ; user busy
+        (run-with-timer 20 nil #'ass-run-queue)
+      (let ((bufpred-backup (frame-parameter nil 'buffer-predicate)))
+        (unwind-protect
+            (progn
+              (set-frame-parameter nil 'buffer-predicate nil)
+              ;; (pop-to-buffer (ass--buffer-chat))
+              (dolist (f (or queue ass--queue))
+                (ass-call-fn-check-dismissals f)))
+          ;; FIXME: Actually, this will executed at the first keyboard-quit, so
+          ;; we will never have a nil predicate. We need to preserve it during
+          ;; an excursion.
+          (set-frame-parameter nil 'buffer-predicate bufpred-backup))))))
 
 (defun ass-butt-in-gently ()
   "Butt in if any queries are pending, with an introductory chime."
-  ;; TODO: chcek if a session is in fact already ongoing
-  (if (minibufferp) ; user busy
-      (run-with-timer 20 nil #'ass-butt-in-gently)
-    (setq ass-date (ts-now))
-    (when-let ((fns (if ass-debug-no-timid
-                        (ass-enabled-fns)
-                      (-filter #'ass--pending-p (ass-enabled-fns)))))
-      (setq ass--queue fns)
-      (unless (eq t (frame-focus-state))
-        (require 'notifications)
-        (notifications-notify :title ass-ai-name :body (ass-greeting)))
-      (ass--chime-aural)
-      (ass--chime-visual)
-      (run-with-timer 1 nil #'ass-execute))))
+  ;; If a session is already active, don't start a new one.
+  (ass-dbg "Running ass-butt-in-gently")
+  (unless (named-timer-get :ass-excursion)
+    (if (minibufferp) ; user busy
+        (run-with-timer 20 nil #'ass-butt-in-gently)
+      (setq ass-date (ts-now))
+      (when-let ((fns (if ass-debug-no-timid
+                          (ass-enabled-fns)
+                        (-filter #'ass--pending-p (ass-enabled-fns)))))
+        (setq ass--queue fns)
+        (unless (eq t (frame-focus-state))
+          (require 'notifications)
+          (notifications-notify :title ass-ai-name :body (ass-greeting)))
+        (ass--chime-aural)
+        (ass--chime-visual)
+        (run-with-timer 1 nil #'ass-run-queue)))))
 
 (defun ass-session-from-idle ()
   "Start a session if idle was long."
+  (ass-dbg "Running ass-session-from-idle")
   (unless (< ass-length-of-last-idle ass-idle-threshold-secs-long)
     (ass-butt-in-gently)))
 
 (defun ass-new-session ()
   "Recalculate what items are pending and run them."
   (interactive)
-  (setq ass-date (ts-now))
-  (setq ass--queue
-        (-filter #'ass--pending-p (ass-enabled-fns)))
-  (ass-execute))
+  (ass-dbg "Running ass-new-session")
+  (unless (named-timer-get :ass-excursion)
+    (setq ass-date (ts-now))
+    (setq ass--queue (-filter #'ass--pending-p (ass-enabled-fns)))
+    (ass-run-queue)))
 
 (defun ass-new-session-force-all ()
   "Run through all enabled items."
   (interactive)
+  (ass-dbg "Running ass-new-session-force-all")
   (setq ass-date (ts-now))
   (setq ass--queue (ass-enabled-fns))
-  (ass-execute))
+  (ass-run-queue))
 
 
 ;;; Commands
