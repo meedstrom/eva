@@ -1,4 +1,4 @@
-;;; secretary-config.el --- Example config -*- lexical-binding: t; -*-
+;;; ass-config.el --- Example config -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2021 Martin Edström
 
@@ -25,117 +25,117 @@
 
 ;;; Code:
 
-(setq secretary-user-name "Martin")
-(setq secretary-user-birthday "1991-12-07")
-(setq secretary-main-ledger-path   "/home/kept/Journal/Finances/l.ledger")
-(setq secretary-main-datetree-path "/home/kept/Journal/diary.org")
+(setq ass-user-name "Martin")
+(setq ass-user-birthday "1991-12-07")
+(setq ass-main-ledger-path   "/home/kept/Journal/Finances/l.ledger")
+(setq ass-main-datetree-path "/home/kept/Journal/diary.org")
 
-(require 'secretary)
-(require 'secretary-builtin)
-(require 'secretary-doing)
+(require 'ass)
+(require 'ass-builtin)
+(require 'ass-doing)
 
-(add-hook 'secretary-after-load-vars-hook #'secretary-check-clock)
-(add-hook 'secretary-after-load-vars-hook #'secretary-check-org-variables)
+(add-hook 'ass-after-load-vars-hook #'ass-check-clock)
+(add-hook 'ass-after-load-vars-hook #'ass-check-org-variables)
 
 ;; HINT: you can even use the same object multiple times in the queue, you'll
-;; just have to assign the output of (secretary-item-create) to an external
+;; just have to assign the output of (ass-item-create) to an external
 ;; variable and refer to it.
-(setq secretary-items
+(setq ass-items
       (list
-       (secretary-item-create
-        :fn (secretary-defun secretary-greet ()
-              (message (secretary-emit (secretary-greeting)))
-              (sit-for secretary-sit-long))
+       (ass-item-create
+        :fn (ass-defun ass-greet ()
+              (message (ass-emit (ass-greeting)))
+              (sit-for ass-sit-long))
         :min-hours-wait 1)
 
-       (secretary-item-create :fn #'secretary-query-mood
+       (ass-item-create :fn #'ass-query-mood
                               :dataset "/home/kept/Self_data/mood.tsv"
                               :min-hours-wait 1)
 
-       (secretary-item-create :fn #'secretary-query-doing
+       (ass-item-create :fn #'ass-query-doing
                               :dataset "/home/kept/Self_data/activities.tsv"
                               :min-hours-wait 1)
 
-       (secretary-item-create :fn #'secretary-present-diary
+       (ass-item-create :fn #'ass-present-diary
                               :max-successes-per-day 1)
 
-       (secretary-item-create :fn #'secretary-query-weight
+       (ass-item-create :fn #'ass-query-weight
                               :dataset "/home/kept/Self_data/weight.tsv"
                               :max-entries-per-day 1)
 
-       (secretary-item-create :fn #'secretary-present-ledger-report)
+       (ass-item-create :fn #'ass-present-ledger-report)
 
-       (secretary-item-create :fn #'secretary-present-org-agenda)
+       (ass-item-create :fn #'ass-present-org-agenda)
 
-       (secretary-item-create :fn #'secretary-query-sleep
+       (ass-item-create :fn #'ass-query-sleep
                               :dataset "/home/kept/Self_data/sleep.tsv"
                               :min-hours-wait 5
                               :lookup-posted-time t)
 
-       (secretary-item-create :fn #'secretary-query-ingredients
+       (ass-item-create :fn #'ass-query-ingredients
                               :dataset "/home/kept/Self_data/ingredients.tsv"
                               :min-hours-wait 5)
 
-       (secretary-item-create :fn #'secretary-query-cold-shower
+       (ass-item-create :fn #'ass-query-cold-shower
                               :dataset "/home/kept/Self_data/cold.tsv"
                               :max-entries-per-day 1)
 
-       (secretary-item-create
-        :fn (secretary-defun my-koan ()
-              (message (secretary-emit (seq-random-elt secretary-aphorisms)))
-              (sit-for secretary-sit-long))
+       (ass-item-create
+        :fn (ass-defun my-koan ()
+              (message (ass-emit (seq-random-elt ass-aphorisms)))
+              (sit-for ass-sit-long))
         :min-hours-wait 16)
-       ;; (secretary-item-create
-       ;;  :fn (secretary-defquery secretary-joke ()
-       ;;        (message (secretary-emit (seq-random-elt secretary-aphorisms)))
-       ;;        (sit-for secretary-sit-long)))
-       (secretary-item-create :fn #'secretary-present-ledger-file)
-       (secretary-item-create
-        :fn (secretary-defun my-bye ()
-              (message (secretary-emit "All done for now."))
-              (bury-buffer (secretary-buffer-chat)))
+       ;; (ass-item-create
+       ;;  :fn (ass-defquery ass-joke ()
+       ;;        (message (ass-emit (seq-random-elt ass-aphorisms)))
+       ;;        (sit-for ass-sit-long)))
+       (ass-item-create :fn #'ass-present-ledger-file)
+       (ass-item-create
+        :fn (ass-defun my-bye ()
+              (message (ass-emit "All done for now."))
+              (bury-buffer (ass-buffer-chat)))
         :min-hours-wait 0)
        ))
 
 
 ;;; Add hotkeys
 
-(transient-replace-suffix 'secretary-dispatch '(0)
+(transient-replace-suffix 'ass-dispatch '(0)
   '["General actions"
     ("q" "Quit" bury-buffer)
-    ("l" "View Ledger report" secretary-present-ledger-report)
-    ("f" "View Ledger file" secretary-present-ledger-file)
+    ("l" "View Ledger report" ass-present-ledger-report)
+    ("f" "View Ledger file" ass-present-ledger-file)
     ("a" "View Org agenda" org-agenda-list)])
 
-;; (transient-append-suffix 'secretary-dispatch "q"
-;;   '("l" "View Ledger report" secretary-present-ledger-report))
-;; (transient-append-suffix 'secretary-dispatch "q"
-;;   '("f" "View Ledger file" secretary-present-ledger-file))
-;; (transient-append-suffix 'secretary-dispatch "q"
+;; (transient-append-suffix 'ass-dispatch "q"
+;;   '("l" "View Ledger report" ass-present-ledger-report))
+;; (transient-append-suffix 'ass-dispatch "q"
+;;   '("f" "View Ledger file" ass-present-ledger-file))
+;; (transient-append-suffix 'ass-dispatch "q"
 ;;   '("a" "View Org agenda" org-agenda))
 
-(define-key secretary-chat-mode-map (kbd "l") #'secretary-present-ledger-report)
-(define-key secretary-chat-mode-map (kbd "a") #'org-agenda-list)
+(define-key ass-chat-mode-map (kbd "l") #'ass-present-ledger-report)
+(define-key ass-chat-mode-map (kbd "a") #'org-agenda-list)
 
 
 ;;; Finally
 
-(setq secretary-doings
-      (list (secretary-doing-create
+(setq ass-doings
+      (list (ass-doing-create
              :name "sleep"
              :id "ac93c132-ab74-455f-a456-71d7b5ee88a6"
              :cost-false-pos 3
              :cost-false-neg 3
-             :query #'secretary-query-sleep)
-            (secretary-doing-create
+             :query #'ass-query-sleep)
+            (ass-doing-create
              :name "studying"
              :id "24553859-2214-4fb0-bdc9-84e7f3d04b2b"
              :cost-false-pos 8
              :cost-false-neg 8)))
 
-(secretary-mode)
+(ass-mode)
 
-(setq secretary-aphorisms
+(setq ass-aphorisms
       (list
       "The affairs of the world will go on forever. Do not delay the practice of meditation." ;; not koanish
         "It takes all the running you can do, to keep in the same place."
@@ -198,10 +198,10 @@
         "Missing once is an accident, missing twice is the start of a new habit."
         "If it happens once it's a mistake. If it happens twice, it's a choice."))
 
-(provide 'secretary-config)
+(provide 'ass-config)
 
 ;; Local Variables:
-;; nameless-current-name: "secretary"
+;; nameless-current-name: "ass"
 ;; End:
 
-;;; secretary-config.el ends here
+;;; ass-config.el ends here

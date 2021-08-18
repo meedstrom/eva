@@ -1,4 +1,4 @@
-;;; secretary-test.el --- Unit tests -*- lexical-binding: t; -*-
+;;; ass-test.el --- Unit tests -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2020-2021 Martin Edström
 
@@ -23,62 +23,62 @@
 
 ;;; Code:
 
-(require 'secretary-config)
+(require 'ass-config)
 (require 'ert)
 
-;; (setq secretary--idle-beginning (setq secretary--last-online (make-ts :unix 0)))
+;; (setq ass--idle-beginning (setq ass--last-online (make-ts :unix 0)))
 
-;; (secretary--count-successes-today #'secretary-present-diary)
-;; (secretary--call-timidly)
-;; (named-timer-run :secretary-attempt (* 60 60) (* 60 60) #'secretary--call-timidly)
+;; (ass--count-successes-today #'ass-present-diary)
+;; (ass--call-timidly)
+;; (named-timer-run :ass-attempt (* 60 60) (* 60 60) #'ass--call-timidly)
 ;; (run-with-timer 3 nil (lambda ()  (print (frame-focus-state))))
-;; (secretary-call-from-idle)
-;; (secretary-memory-put 'secretary-items secretary-items)
+;; (ass-call-from-idle)
+;; (ass-memory-put 'ass-items ass-items)
 
 ;; HACK: sit times specific to my machine
-(ert-deftest secretary-test-pid ()
-  (secretary-mode 0)
+(ert-deftest ass-test-pid ()
+  (ass-mode 0)
   (let ((p (pfuture-new "emacs" "--with-profile=doom")))
     (sit-for 5)
-    (should (secretary--another-secretary-running-p))
+    (should (ass--another-ass-running-p))
     (kill-process p)
     (sit-for 1)
-    (should-not (secretary--another-secretary-running-p))))
+    (should-not (ass--another-ass-running-p))))
 
-(ert-deftest secretary-test-minibuffer-cancel-fn ()
+(ert-deftest ass-test-minibuffer-cancel-fn ()
   (run-with-timer .3 nil (lambda () (should (eq 'abort-recursive-edit (key-binding (kbd "C-g"))))))
-  (secretary-query-weight))
+  (ass-query-weight))
 
-(ert-deftest secretary-test-idle1 ()
-  (secretary-mode 0)
-  (setq secretary--idle-seconds-fn #'secretary--emacs-idle-seconds)
-  (secretary--start-next-timer t)
+(ert-deftest ass-test-idle1 ()
+  (ass-mode 0)
+  (setq ass--idle-seconds-fn #'ass--emacs-idle-seconds)
+  (ass--start-next-timer t)
   (sit-for .05)
-  (should (eq (seq-elt (named-timer-get :secretary) 5)
-              'secretary--user-is-idle))
+  (should (eq (seq-elt (named-timer-get :ass) 5)
+              'ass--user-is-idle))
   (sit-for 2)
-  (should (eq (seq-elt (named-timer-get :secretary) 5)
-              'secretary--user-is-active)))
+  (should (eq (seq-elt (named-timer-get :ass) 5)
+              'ass--user-is-active)))
 
-(ert-deftest secretary-test-keepalive ()
-  (secretary-mode 0)
-  (setq secretary--idle-seconds-fn #'secretary--emacs-idle-seconds)
-  (secretary--keepalive)
-  (should (named-timer-get :secretary))
+(ert-deftest ass-test-keepalive ()
+  (ass-mode 0)
+  (setq ass--idle-seconds-fn #'ass--emacs-idle-seconds)
+  (ass--keepalive)
+  (should (named-timer-get :ass))
   ;; Takedown
-  (named-timer-cancel :secretary-keepalive)
-  (named-timer-cancel :secretary))
+  (named-timer-cancel :ass-keepalive)
+  (named-timer-cancel :ass))
 
-(ert-deftest secretary-test-ts-usage ()
+(ert-deftest ass-test-ts-usage ()
   (let ((now (ts-now)))
     (should (equal (ts-dec 'month 12 now)
                    (ts-dec 'year 1 now)))
     (should (= 16 (length (-uniq (append
                                   (--iterate (ts-dec 'month 1 it) now 12)
                                   (--iterate (ts-dec 'year 1 it) now 5))))))
-    ;; (should (= 66 (length (secretary-past-sample-default))))
-    (should (-all-p #'ts-p (secretary-past-sample-greedy)))))
+    ;; (should (= 66 (length (ass-past-sample-default))))
+    (should (-all-p #'ts-p (ass-past-sample-greedy)))))
 
-(provide 'secretary-test)
+(provide 'ass-test)
 
-;;; secretary-test.el ends here
+;;; ass-test.el ends here

@@ -46,7 +46,7 @@ ggplot(as_tibble(wt), aes(weighed, weight_kg)) +
   geom_vline(xintercept = ymd("2020-06-01") + months(0:12), color = "#555555") +
   geom_text(data = projected_wt, aes(weighed, weight_kg, label = note))
 
-ggsave("/tmp/secretary/sc_plot1.png",
+ggsave("/tmp/ass/sc_plot1.png",
        height = 5,
        width = WIDTH,
        units = "cm",
@@ -68,7 +68,7 @@ ggplot(mood, aes(time, mood_score, label = mood_desc)) +
   geom_point() +
   geom_text(vjust = 2)
 
-ggsave("/tmp/secretary/sc_mood.png",
+ggsave("/tmp/ass/sc_mood.png",
        height = 5,
        width = WIDTH,
        units = "cm",

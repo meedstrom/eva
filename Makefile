@@ -2,32 +2,32 @@
 .POSIX:
 .SUFFIXES: .el .elc
 EMACS	= emacs
-EL   	= secretary.el secretary-config.el secretary-builtin.el secretary-doing.el
+EL   	= ass.el ass-config.el ass-builtin.el ass-doing.el
 ELC  	= $(EL:.el=.elc)
 # external dependencies
 LDFLAGS = -L deps/ts -L deps/dash -L deps/s -L deps/ess/lisp -L deps/f -L deps/named-timer -L deps/pfuture -L deps/transient/lisp
 
 # default make action to run frequently during devel
 compile-and-clean: clean $(ELC) test
-	rm -f $(ELC) secretary-test.elc
+	rm -f $(ELC) ass-test.elc
 
 # $ELC expands to .elc versions of all files listed in $EL.
 compile: $(ELC)
 
-check: secretary-test.elc
-	$(EMACS) -Q -L . $(LDFLAGS) --batch -l secretary-test.elc -f ert-run-tests-batch
+check: ass-test.elc
+	$(EMACS) -Q -L . $(LDFLAGS) --batch -l ass-test.elc -f ert-run-tests-batch
 
 # alias
 test: check
 
 clean:
-	rm -f $(ELC) secretary-test.elc
+	rm -f $(ELC) ass-test.elc
 
 # Dependencies
-secretary-test.elc:  $(ELC)
-secretary-config.elc: secretary.elc secretary-builtin.elc secretary-doing.elc
-secretary-activity.elc: secretary.elc secretary-builtin.elc
-secretary-builtin.elc: secretary.elc
+ass-test.elc:  $(ELC)
+ass-config.elc: ass.elc ass-builtin.elc ass-doing.elc
+ass-activity.elc: ass.elc ass-builtin.elc
+ass-builtin.elc: ass.elc
 
 # Tell make how to compile an .el into an .elc.
 .el.elc:

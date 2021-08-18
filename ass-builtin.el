@@ -1,4 +1,4 @@
-;;; secretary-builtin.el --- Premade applications -*- lexical-binding: t; -*-
+;;; ass-builtin.el --- Premade applications -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2021 Martin Edström
 
@@ -24,7 +24,7 @@
 
 ;;; Code:
 
-(require 'secretary)
+(require 'ass)
 
 ;; Calm the compiler.
 (declare-function ess-execute "ess")
@@ -52,72 +52,72 @@
 ;; Improvements to the core library should mean we can simplify the more
 ;; complex definitions and move them to this section.
 
-(secretary-defquery secretary-query-meditation ()
+(ass-defquery ass-query-meditation ()
   "Ask user whether they meditated and how long."
-  (when (secretary-ynp "Did you meditate today?")
-    (let* ((mins (secretary-read-string "Do you know how long (in minutes)? "))
+  (when (ass-ynp "Did you meditate today?")
+    (let* ((mins (ass-read-string "Do you know how long (in minutes)? "))
            (cleaned-mins (number-to-string (string-to-number mins)))) ; HACK
-      (secretary-tsv-append current-dataset
+      (ass-tsv-append current-dataset
         (ts-format)
         "TRUE"
         (unless (string= "0" cleaned-mins) cleaned-mins)))))
 
-(secretary-defquery secretary-query-cold-shower ()
+(ass-defquery ass-query-cold-shower ()
   "Ask user to rate their cold exposure today."
-  (let ((rating (secretary-read-string "Cold rating? ")))
-    (secretary-tsv-append current-dataset
-      (ts-format secretary-date)
+  (let ((rating (ass-read-string "Cold rating? ")))
+    (ass-tsv-append current-dataset
+      (ts-format ass-date)
       rating)))
 
-(secretary-defun secretary-query-ingredients ()
+(ass-defun ass-query-ingredients ()
   "Ask user for a description of what they ate."
-  (let* ((response (secretary-read-string
+  (let* ((response (ass-read-string
                     "What ingredients did you eat recently? ")))
-    (secretary-tsv-append current-dataset
-      (ts-format secretary-date)
+    (ass-tsv-append current-dataset
+      (ts-format ass-date)
       response)
-    (secretary-emit "Ingredients recorded today: "
-                    (->> (secretary-tsv-entries-by-date current-dataset)
+    (ass-emit "Ingredients recorded today: "
+                    (->> (ass-tsv-entries-by-date current-dataset)
                          (nreverse)
                          (-map #'-last-item)
                          (s-join ", ")
                          (s-replace ",," ",")))))
 
-(secretary-defun secretary-present-org-agenda ()
+(ass-defun ass-present-org-agenda ()
   "Send the user to an Org agenda log with archives enabled.
 Near equivalent to typing l v A after entering `org-agenda-list'."
   (require 'org-agenda)
-  (message (secretary-emit "Sending you to the Org agenda log + archive."))
-  (sit-for secretary-sit-medium)
+  (message (ass-emit "Sending you to the Org agenda log + archive."))
+  (sit-for ass-sit-medium)
   (org-agenda-list)
   (org-agenda-log-mode t)
   (org-agenda-archives-mode t)
-  (push (current-buffer) secretary-excursion-buffers)
+  (push (current-buffer) ass-excursion-buffers)
   (keyboard-quit))
 
 
 ;;; Mood
 
-(defvar secretary-mood-alist nil
-  "For suggesting a score in the `secretary-query-mood' prompt.
+(defvar ass-mood-alist nil
+  "For suggesting a score in the `ass-query-mood' prompt.
 Merely a convenience for auto-completion. The variable populates
 itself through use.")
 
-(secretary-defquery secretary-query-mood ()
+(ass-defquery ass-query-mood ()
   "Ask user about their mood."
-  (let* ((first-response (secretary-read
+  (let* ((first-response (ass-read
                           "Your mood: "
                           (--sort (> 0 (random))
-                                  (map-keys secretary-mood-alist))))
-         (old-score (cdr (assoc first-response secretary-mood-alist)))
+                                  (map-keys ass-mood-alist))))
+         (old-score (cdr (assoc first-response ass-mood-alist)))
          (prompt-for-score
           (concat "Score from 1 to 10"
                   (when old-score " (default " old-score ")")
                   ": "))
          (second-response
           (if (s-numeric? first-response)
-              (secretary-read "Mood description (optional): ")
-            (secretary-read-string prompt-for-score nil nil old-score)))
+              (ass-read "Mood description (optional): ")
+            (ass-read-string prompt-for-score nil nil old-score)))
          (mood-desc (if (s-numeric? first-response)
                         second-response
                       first-response))
@@ -125,89 +125,89 @@ itself through use.")
                     first-response
                   second-response))
          (score-num (string-to-number score)))
-    (secretary-tsv-append current-dataset
+    (ass-tsv-append current-dataset
       (ts-format)
       (s-replace "," "." score)
       mood-desc)
-    (when secretary-debug
-      (secretary-emit "------ (debug message) Recorded mood: "
-                      (s-join " " (cdr (secretary-tsv-last-row
+    (when ass-debug
+      (ass-emit "------ (debug message) Recorded mood: "
+                      (s-join " " (cdr (ass-tsv-last-row
                                         current-dataset)))))
-    ;; Update secretary-mood-alist.
-    (if (assoc mood-desc secretary-mood-alist)
-        (setq secretary-mood-alist
+    ;; Update ass-mood-alist.
+    (if (assoc mood-desc ass-mood-alist)
+        (setq ass-mood-alist
               (--replace-where (string= (car it) mood-desc)
                                (cons (car it) score)
-                               secretary-mood-alist))
-      (push (cons mood-desc score) secretary-mood-alist))
+                               ass-mood-alist))
+      (push (cons mood-desc score) ass-mood-alist))
     (when (and (<= score-num 1)
-               (secretary-ynp "Do you want to talk?")
-               (secretary-ynp "I can direct you to my colleague ELIZA, though"
+               (ass-ynp "Do you want to talk?")
+               (ass-ynp "I can direct you to my colleague ELIZA, though"
                               " she's not too bright.  Will that do?"))
       (doctor)
-      (secretary-stop-watching-excursion)
+      (ass-stop-watching-excursion)
       (keyboard-quit))
     score-num))
 
-(add-hook 'secretary-after-load-vars-hook
-          (defun secretary-mood-load ()
-            "Reload `secretary-mood-alist' from memory."
-            (setq secretary-mood-alist
-                  (map-elt secretary-mem 'secretary-mood-alist))))
+(add-hook 'ass-after-load-vars-hook
+          (defun ass-mood-load ()
+            "Reload `ass-mood-alist' from memory."
+            (setq ass-mood-alist
+                  (map-elt ass-mem 'ass-mood-alist))))
 
-(add-hook 'secretary-before-save-vars-hook
-          (defun secretary-mood-save ()
-            "Save `secretary-mood-alist' to memory."
-            (secretary-mem-pushnew 'secretary-mood-alist)))
+(add-hook 'ass-before-save-vars-hook
+          (defun ass-mood-save ()
+            "Save `ass-mood-alist' to memory."
+            (ass-mem-pushnew 'ass-mood-alist)))
 
 
 ;;; Weight
 
-(secretary-defquery secretary-query-weight ()
+(ass-defquery ass-query-weight ()
   "Ask user about their weight."
-  (let* ((last-wt (secretary-tsv-last-value current-dataset))
-         (wt (secretary-read "What do you weigh today? "
+  (let* ((last-wt (ass-tsv-last-value current-dataset))
+         (wt (ass-read "What do you weigh today? "
                              `(,last-wt
                                "I don't know")
                              last-wt)))
     (if (= 0 (string-to-number wt))
         ;; user typed only non-numeric characters
-        (secretary-emit "Ok, I'll ask you again later.")
-      (secretary-tsv-append current-dataset
-        (ts-format secretary-date)
+        (ass-emit "Ok, I'll ask you again later.")
+      (ass-tsv-append current-dataset
+        (ts-format ass-date)
         (s-replace "," "." wt))
-      (secretary-emit "Weight today: "
-                      (secretary-tsv-last-value current-dataset)
+      (ass-emit "Weight today: "
+                      (ass-tsv-last-value current-dataset)
                       " kg"))))
 
 ;; TODO: Pass start-date (today minus 3mo) and projection incline, letting
 ;;       user change the incline
 ;; TODO: Persist the buffer content across restarts
-(defun secretary-plot-weight ()
+(defun ass-plot-weight ()
   "Present a plot of the user's weight."
   (interactive)
-  (setq secretary--current-fn #'secretary-plot-weight)
-  (mkdir "/tmp/secretary" t)
+  (setq ass-curr-fn #'ass-plot-weight)
+  (mkdir "/tmp/ass" t)
   ;; Refresh data with R.
-  (let ;; FIXME: Allow custom item fns, and allow empty `secretary-items'
-      ((weight-path (secretary-item-dataset
-                     (secretary-item-by-fn #'secretary-query-weight)))
-       (mood-path (secretary-item-dataset
-                   (secretary-item-by-fn #'secretary-query-mood))))
-    (with-current-buffer secretary--buffer-r
+  (let ;; FIXME: Allow custom item fns, and allow empty `ass-items'
+      ((weight-path (ass-item-dataset
+                     (ass-item-by-fn #'ass-query-weight)))
+       (mood-path (ass-item-dataset
+                   (ass-item-by-fn #'ass-query-mood))))
+    (with-current-buffer ass--buffer-r
       (ess-execute (concat "weight_dataset <- '" weight-path "'") 'buffer)
       (ess-execute (concat "mood_dataset <- '" mood-path "'") 'buffer)
       (ess-execute "source(\"make_data_for_plots.R\")" 'buffer)))
   ;; Plot with gnuplot.
   (let* ((pkg-loc (convert-standard-filename
-                   (f-dirname (find-library-name "secretary"))))
+                   (f-dirname (find-library-name "ass"))))
          (gnuplot-script-path (convert-standard-filename
                                (expand-file-name "weight.gnuplot" pkg-loc))))
     (with-current-buffer (get-buffer-create
-                          (concat "*" (symbol-name secretary--current-fn) "*"))
+                          (concat "*" (symbol-name ass-curr-fn) "*"))
       (let ((reserve (buffer-string)))
         (delete-region (point-min) (point-max))
-        (message (secretary-emit "Plotting your weight..."))
+        (message (ass-emit "Plotting your weight..."))
         ;; TODO: make it more informative for debugging, don't use
         ;; ignore-errors. Ideally bury the buffer upon error and emit
         ;; stderr to the chat log.
@@ -227,7 +227,7 @@ itself through use.")
 ;;       at 01:00. Notice the unusual hour change and ask if user meant 23
 ;;       yesterday.
 ;; TODO: Generally react when it's 00-04 or so.
-(secretary-defun secretary-query-sleep ()
+(ass-defun ass-query-sleep ()
   "Query you for wake-up time and sleep quantity for one sleep block today.
 You are free to decline either query, but you should not later
 register sleep quantity from this same block in order to \"get
@@ -235,44 +235,44 @@ the totals correct\" -- the database will interpret it as a
 different sleep block and continue to count the original one as
 having a censored (nonzero!) quantity of sleep on top of what you
 add."
-  (let* ((today-rows (secretary-tsv-entries-by-date
+  (let* ((today-rows (ass-tsv-entries-by-date
                       current-dataset
-                      (ts-dec 'day 1 secretary-date)))
+                      (ts-dec 'day 1 ass-date)))
          (total-yesterday (-sum (--map (string-to-number (nth 3 it))
                                        today-rows))))
     ;; Totalling less than 4 hours is unusual, so a possible anomaly in data.
     (if (> (* 60 4) total-yesterday)
-        (if (secretary-ynp "Yesterday, you slept "
+        (if (ass-ynp "Yesterday, you slept "
                            (number-to-string (round (/ total-yesterday 60.0)))
                            " hours, is this about right?")
             nil
-          (when (secretary-ynp "Edit \"" current-dataset "\"?")
+          (when (ass-ynp "Edit \"" current-dataset "\"?")
             (find-file current-dataset)
-            (push (current-buffer) secretary-excursion-buffers)
+            (push (current-buffer) ass-excursion-buffers)
             ;; prevent counting this run as a success
-            (secretary-stop-watching-excursion)
+            (ass-stop-watching-excursion)
             (keyboard-quit)))))
-  (let* ((recently-hhmm (ts-format "%H:%M" (ts-dec 'minute 10 secretary-date)))
+  (let* ((recently-hhmm (ts-format "%H:%M" (ts-dec 'minute 10 ass-date)))
          (recently-response (concat "Recently (" recently-hhmm ")"))
          (wakeup-time
-          (let* ((reply (secretary-read
+          (let* ((reply (ass-read
                          (concat "I assume you have slept today ("
-                                 (ts-format "%A" secretary-date)
+                                 (ts-format "%A" ass-date)
                                  "). When did you wake? ")
                          (list "I don't know"
                                recently-response))))
             (cond ((equal reply recently-response)
                    recently-hhmm)
                   ((s-match (rx num) reply)
-                   (secretary-coerce-to-hh-mm reply))
+                   (ass-coerce-to-hh-mm reply))
                   (t nil))))
          (sleep-minutes
-          (secretary-parse-time-amount
-           (secretary-read "How long did you sleep? "
+          (ass-parse-time-amount
+           (ass-read "How long did you sleep? "
                            `("I don't know"
                              ,(number-to-string
-                               (/ secretary-length-of-last-idle 60 60)))))))
-    (secretary-emit (when wakeup-time
+                               (/ ass-length-of-last-idle 60 60)))))))
+    (ass-emit (when wakeup-time
                       (concat "You woke at " wakeup-time ". "))
                     (when sleep-minutes
                       (concat "You slept " (number-to-string sleep-minutes)
@@ -281,59 +281,59 @@ add."
                               " hours)."))
                     (when (-all-p #'null '(wakeup-time sleep-minutes))
                       (concat "One sleep block recorded without metrics.")))
-    (secretary-tsv-append current-dataset
-      (ts-format "%F" secretary-date) ;; date (no time component)
+    (ass-tsv-append current-dataset
+      (ts-format "%F" ass-date) ;; date (no time component)
       wakeup-time ;; time (optional)
       (when sleep-minutes (number-to-string sleep-minutes)))))
 
 
 ;;; Ledger & finances
 
-(defcustom secretary-main-ledger-path
+(defcustom ass-main-ledger-path
   (convert-standard-filename "~/my.ledger")
-  "File used by `secretary-present-ledger-report'."
-  :group 'secretary
+  "File used by `ass-present-ledger-report'."
+  :group 'ass
   :type 'file)
 
-(secretary-defun secretary-present-ledger-report ()
-  "Jump to `secretary-main-ledger-path' and run `ledger-report'.
+(ass-defun ass-present-ledger-report ()
+  "Jump to `ass-main-ledger-path' and run `ledger-report'.
 Uses the first command specified in `ledger-reports'."
-  (cond ((not (f-exists-p secretary-main-ledger-path))
-         (message (secretary-emit
-                   "secretary-main-ledger-path does not refer to existing"
+  (cond ((not (f-exists-p ass-main-ledger-path))
+         (message (ass-emit
+                   "ass-main-ledger-path does not refer to existing"
                    " file, skipping Ledger report.")))
          ((not (require 'ledger-mode nil t))
-          (message (secretary-emit
+          (message (ass-emit
                     "Ledger-mode failed to load, skipping Ledger report.")))
          (t
-          (message (secretary-emit "Here's your Ledger report, have fun."))
+          (message (ass-emit "Here's your Ledger report, have fun."))
           (if (get-buffer ledger-report-buffer-name)
               (ledger-report-goto)
-            (with-current-buffer (find-file-noselect secretary-main-ledger-path)
+            (with-current-buffer (find-file-noselect ass-main-ledger-path)
               (ledger-report (caar ledger-reports) nil)))
           (push (get-buffer ledger-report-buffer-name)
-                secretary-excursion-buffers)
+                ass-excursion-buffers)
           (keyboard-quit))))
 
-(secretary-defun secretary-present-ledger-file ()
-  (unless (f-exists-p secretary-main-ledger-path)
-    (warn "not found: secretary-main-ledger-path"))
-  (message (secretary-emit "Here's your ledger.  Please, edit."))
-  (sit-for secretary-sit-medium)
-  (view-file-other-window secretary-main-ledger-path)
-  (push (current-buffer) secretary-excursion-buffers)
+(ass-defun ass-present-ledger-file ()
+  (unless (f-exists-p ass-main-ledger-path)
+    (warn "not found: ass-main-ledger-path"))
+  (message (ass-emit "Here's your ledger.  Please, edit."))
+  (sit-for ass-sit-medium)
+  (view-file-other-window ass-main-ledger-path)
+  (push (current-buffer) ass-excursion-buffers)
   (goto-char (point-max))
   (keyboard-quit))
 
-(defun secretary-make-ods-for-finance ()
+(defun ass-make-ods-for-finance ()
   "Make and open an ODS spreadsheet from Ledger data.
 Requires the ssconvert program that comes with Gnumeric."
   (interactive)
-  (unless (f-exists-p secretary-main-ledger-path)
-    (warn "not found: secretary-main-ledger-path"))
+  (unless (f-exists-p ass-main-ledger-path)
+    (warn "not found: ass-main-ledger-path"))
   (let* ((script (expand-file-name "generate_an_ods.R"
                                    (f-dirname
-                                    (find-library-name "secretary"))))
+                                    (find-library-name "ass"))))
          (sheet (expand-file-name "tmp_finances.ods"
                                   (temporary-file-directory)))
          (default-directory (f-dirname script))
@@ -343,24 +343,24 @@ Requires the ssconvert program that comes with Gnumeric."
                                             "mimeopen"
                                             "xdg-open"))))
     (if (= 0 (call-process "Rscript" nil nil nil
-                           script secretary-main-ledger-path sheet))
+                           script ass-main-ledger-path sheet))
         (pfuture-new app sheet)
-      (message (secretary-emit "Error running " script)))))
+      (message (ass-emit "Error running " script)))))
 
 
 ;;; Diary
-(defcustom secretary-main-datetree-path
+(defcustom ass-main-datetree-path
   "~/org/archive.org"
   "The file name of your main datetree, if you have one.
 Only relevant if you have one you use as a big archive file, see
 Info node `(org) Moving subtrees', or you write/capture
-diary entries directly into.  Checked by `secretary-present-diary'."
-  :group 'secretary
+diary entries directly into.  Checked by `ass-present-diary'."
+  :group 'ass
   :type 'file)
 
-(defvar secretary-past-sample-function #'secretary-past-sample-greedy)
+(defvar ass-past-sample-function #'ass-past-sample-greedy)
 
-(defun secretary-past-sample-greedy (&optional ts)
+(defun ass-past-sample-greedy (&optional ts)
   "Return a list of ts objects.
 They refer to yesterday, this weekday the last 4 weeks, this day
 of the month the last 12 months, and this date the last 50
@@ -373,7 +373,7 @@ today."
             (--iterate (ts-dec 'month 1 it) now 12)
             (--iterate (ts-dec 'year 1 it) now 50)))))
 
-(defun secretary-past-sample-casual (&optional ts)
+(defun ass-past-sample-casual (&optional ts)
   "Return a list of ts objects.
 They refer to to yesterday, this this day of the month the last 6
 months, and this date the last 50 years. Optionally, the point of
@@ -385,9 +385,9 @@ reference can be TS instead of today."
             (--iterate (ts-dec 'year 1 it) now 50)))))
 
 ;; TODO: Allow a list of datetrees
-(defun secretary-make-indirect-datetree (buffer dates)
+(defun ass-make-indirect-datetree (buffer dates)
   "Replace BUFFER contents with a datetree of archive entries.
-Searches `secretary-main-datetree-path' for entries matching
+Searches `ass-main-datetree-path' for entries matching
 members in DATES (ts objects). Return the count of dates that
 were found to have entries."
   (require 'org)
@@ -400,7 +400,7 @@ were found to have entries."
     (org-mode)
     (delete-region (point-min) (point-max))
     (with-temp-buffer
-      (insert-file-contents secretary-main-datetree-path)
+      (insert-file-contents ass-main-datetree-path)
       (org-with-wide-buffer
        (goto-char (point-min))
        (dolist (date dates)
@@ -420,12 +420,12 @@ were found to have entries."
       (kill-buffer buffer))
     counter))
 
-(defun secretary-existing-diary (&optional date dir file-format)
+(defun ass-existing-diary (&optional date dir file-format)
   "Return the first file in DIR matching FILE-FORMAT.
 FILE-FORMAT is handled by `parse-time-string'. The value returned
 is a full filesystem path or nil.
 
-When DATE is nil, use `secretary-date'.  Should be a ts object.
+When DATE is nil, use `ass-date'.  Should be a ts object.
 When DIR is nil, use `org-journal-dir'.
 When FILE-FORMAT is nil, use `org-journal-file-format'; if that's
  unset, use \"%F.org\".
@@ -440,7 +440,7 @@ Note that org-journal is not needed."
                                org-journal-file-format)
                           "%F.org"))
          (file (--find (s-contains-p (ts-format file-format
-                                                (or date secretary-date))
+                                                (or date ass-date))
                                      it)
                        (directory-files dir))))
     (unless (null file)
@@ -451,19 +451,19 @@ Note that org-journal is not needed."
 ;;                 all in chrono order.
 ;; TODO: (Feature) Try creating a sparse tree, so user can edit in-place
 ;; TODO: (Feature) Maybe show the agenda log taken from each date?
-(secretary-defun secretary-present-diary ()
+(ass-defun ass-present-diary ()
   "Show user a selection of past diary entries."
-  (let* ((dates-to-check (funcall secretary-past-sample-function secretary-date))
-         (discrete-files-found (--keep (secretary-existing-diary it) dates-to-check))
-         (buffer (get-buffer-create (concat "*" secretary-ai-name ": Selected diary entries*")))
-         (datetree-found-count (secretary-make-indirect-datetree buffer dates-to-check))
+  (let* ((dates-to-check (funcall ass-past-sample-function ass-date))
+         (discrete-files-found (--keep (ass-existing-diary it) dates-to-check))
+         (buffer (get-buffer-create (concat "*" ass-ai-name ": Selected diary entries*")))
+         (datetree-found-count (ass-make-indirect-datetree buffer dates-to-check))
          (total-found-count (+ (length discrete-files-found) datetree-found-count)))
     (if (= 0 total-found-count)
-        (message (secretary-emit "No diary entries relevant to this date."))
-      (when (or (when secretary-presumptive
-                  (secretary-emit "Opening " (int-to-string total-found-count) " diary entries.")
+        (message (ass-emit "No diary entries relevant to this date."))
+      (when (or (when ass-presumptive
+                  (ass-emit "Opening " (int-to-string total-found-count) " diary entries.")
                   t)
-                (secretary-ynp "Found " (int-to-string total-found-count) " past diary "
+                (ass-ynp "Found " (int-to-string total-found-count) " past diary "
                                (if (= 1 total-found-count) "entry" "entries")
                                " relevant to this date. Want me to open "
                                (if (= 1 total-found-count) "it" "them")
@@ -472,24 +472,24 @@ Note that org-journal is not needed."
             (kill-buffer buffer)
           ;; TODO: pressing q should kill it!
           (view-buffer buffer #'kill-buffer-if-not-modified)
-          (push (current-buffer) secretary-excursion-buffers))
+          (push (current-buffer) ass-excursion-buffers))
         (when (-non-nil discrete-files-found)
           (dolist (x discrete-files-found)
             (view-file x)
-            (push (current-buffer) secretary-excursion-buffers)))
+            (push (current-buffer) ass-excursion-buffers)))
         (keyboard-quit)))))
 
 
 ;;; Org
 
-(add-hook 'secretary-before-save-vars-hook
-          (defun secretary-save-org-variables ()
+(add-hook 'ass-before-save-vars-hook
+          (defun ass-save-org-variables ()
             "Sync certain org settings to mem."
             (when (featurep 'org-clock)
-              (secretary-mem-pushnew 'org-clock-current-task))
+              (ass-mem-pushnew 'org-clock-current-task))
             (when (featurep 'org-agenda)
-              (secretary-mem-pushnew 'org-agenda-files))
-            ;; Transform newlines; secretary-tsv-append correctly refuses them.
+              (ass-mem-pushnew 'org-agenda-files))
+            ;; Transform newlines; ass-tsv-append correctly refuses them.
             (when (featurep 'org-capture)
               (let ((transformed-org-templates
                      (cl-loop for template in org-capture-templates
@@ -497,38 +497,38 @@ Note that org-journal is not needed."
                                                  (s-replace "\n" "\\n" it)
                                                it)
                                              template))))
-                (secretary-mem-pushnew-alt transformed-org-templates)))))
+                (ass-mem-pushnew-alt transformed-org-templates)))))
 
 ;; UNTESTED
-(defun secretary-check-org-variables ()
+(defun ass-check-org-variables ()
   "Alert user if certain Org settings have changed.
-Suitable on `secretary-after-load-vars-hook'."
+Suitable on `ass-after-load-vars-hook'."
   (let ((restored-templates
-         (cl-loop for template in (map-elt secretary-mem 'transformed-org-templates)
+         (cl-loop for template in (map-elt ass-mem 'transformed-org-templates)
                   collect (--map (if (stringp it)
                                      (s-replace "\\n" "\n" it)
                                    it)
                                  template))))
-    (when secretary-debug
+    (when ass-debug
       (if (equal restored-templates org-capture-templates)
-          (message (secretary-emit "org-capture-templates unchanged"))
-        (message (secretary-emit "org-capture-templates changed!")))
-      (if (equal org-agenda-files (map-elt secretary-mem 'org-agenda-files))
-          (message (secretary-emit "org-agenda-files unchanged"))
-        (message (secretary-emit "org-agenda-files changed!"))))))
+          (message (ass-emit "org-capture-templates unchanged"))
+        (message (ass-emit "org-capture-templates changed!")))
+      (if (equal org-agenda-files (map-elt ass-mem 'org-agenda-files))
+          (message (ass-emit "org-agenda-files unchanged"))
+        (message (ass-emit "org-agenda-files changed!"))))))
 
 ;; UNTESTED
-(defun secretary-check-clock ()
+(defun ass-check-clock ()
   "If there's a dangling clock, prompt to load Org.
-Suitable on `secretary-after-load-vars-hook'."
-  (and (map-elt secretary-mem 'org-clock-current-task)
-       (secretary-ynp "Dangling clock found, activate Org?")
+Suitable on `ass-after-load-vars-hook'."
+  (and (map-elt ass-mem 'org-clock-current-task)
+       (ass-ynp "Dangling clock found, activate Org?")
        (require 'org-clock)))
 
-(provide 'secretary-builtin)
+(provide 'ass-builtin)
 
 ;; Local Variables:
-;; nameless-current-name: "secretary"
+;; nameless-current-name: "ass"
 ;; End:
 
-;;; secretary-builtin.el ends here
+;;; ass-builtin.el ends here

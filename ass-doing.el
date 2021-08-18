@@ -1,4 +1,4 @@
-;;; secretary-doing.el --- activity tracking -*- lexical-binding: t; -*-
+;;; ass-doing.el --- activity tracking -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2021 Martin Edström
 
@@ -21,13 +21,13 @@
 
 ;;; Code:
 
-(require 'secretary)
+(require 'ass)
 
 ;; (require 'org-id)
-;; (org-id-update-id-locations '("/home/kept/Emacs/secretary/test.org"))
+;; (org-id-update-id-locations '("/home/kept/Emacs/ass/test.org"))
 
-(cl-defstruct (secretary-doing
-               (:constructor secretary-doing-create)
+(cl-defstruct (ass-doing
+               (:constructor ass-doing-create)
                (:copier nil))
   name
   id
@@ -35,40 +35,40 @@
   cost-false-neg
   query)
 
-(defvar secretary-doings)
+(defvar ass-doings)
 
-(defun secretary-doing-by-name (name)
-  "Get the first doing in `secretary-doings' matching NAME."
-  (--find (equal name (secretary-doing-name it)) secretary-doings))
+(defun ass-doing-by-name (name)
+  "Get the first doing in `ass-doings' matching NAME."
+  (--find (equal name (ass-doing-name it)) ass-doings))
 
-(defun secretary-doings-names ()
-  "Get the :name of all members of `secretary-doings'."
-  (-map #'secretary-doing-name secretary-doings))
+(defun ass-doings-names ()
+  "Get the :name of all members of `ass-doings'."
+  (-map #'ass-doing-name ass-doings))
 
 ;; TODO: Get all informally named doings from the dataset.
-(secretary-defquery secretary-query-doing ()
+(ass-defn ass-query-doing ()
   "Ask user what they're up to."
-  (let* ((name (secretary-read "What are you up to? "
-                               (secretary-doings-names)))
+  (let* ((name (ass-read "What are you up to? "
+                               (ass-doings-names)))
          (name-corrected
-          (--find (member it (secretary-doings-names))
+          (--find (member it (ass-doings-names))
                   (list name
                         (capitalize name)
                         (downcase name))))
          (name (if name-corrected
                    name-corrected
                  name))
-         (doing (secretary-doing-by-name name)))
-    (secretary-tsv-append current-dataset
-      (ts-format secretary-date) ;; the time the doing happened
+         (doing (ass-doing-by-name name)))
+    (ass-tsv-append current-dataset
+      (ts-format ass-date) ;; the time the doing happened
       name
       (when doing
-        (secretary-doing-id doing)))))
+        (ass-doing-id doing)))))
 
-(provide 'secretary-doing)
+(provide 'ass-doing)
 
 ;; Local Variables:
-;; nameless-current-name: "secretary"
+;; nameless-current-name: "ass"
 ;; End:
 
-;;; secretary-doing.el ends here
+;;; ass-doing.el ends here
