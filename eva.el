@@ -723,14 +723,8 @@ integer for the first field."
          (newline-maybe-really (if (string= "" (f-read-bytes path))
                                    ""
                                  newline-maybe))
-         ;; On my machine at least, `ts-unix' and `float-time' very frequently
-         ;; return numbers at a precision of 7 subsecond digits, ensure it for
-         ;; consistent string lengths (aesthetic).
-         ;;
-         ;; TODO: Actually it sometimes (very rarely) hits 8, should we just
-         ;; use the full %N?
          (posted (if float-time
-                     (ts-format "%s.%7N")
+                     (ts-format "%s.%N")
                    (ts-format "%s")))
          (text (s-join "\t" fields))
          (new-text (concat newline-maybe-really posted "\t" text))
@@ -1061,8 +1055,8 @@ Return non-nil on yes, and nil on no."
 
 ;; "Fail" query
 (defun eva--after-cancel-do-things ()
-  (eva-dbg "Running eva--after-cancel-do-things")
   "Actions after user cancels a eva prompt."
+  (eva-dbg "Running eva--after-cancel-do-things")
   (advice-remove 'abort-recursive-edit #'eva--after-cancel-do-things)
   (when (null eva-curr-fn)
     (error "Unexpectedly null: eva-curr-fn"))
@@ -1071,23 +1065,6 @@ Return non-nil on yes, and nil on no."
   ;; Re-add the fn to the queue because it got removed (so I expect); after a
   ;; cancel, we want it to remain queued up.
   (cl-pushnew eva-curr-fn eva--queue))
-
-;; TODO! WIP
-(defun eva--tag-buffer-viewed (&rest _)
-  (eva-dbg "Running eva--tag-buffer-viewed")
-  ;; don't bother to track views if it's just 1 buffer
-  (unless (< 1 (length secretary--excursion-buffers))
-    ;; Ensure that every item is a list
-    (setq secretary--excursion-buffers
-          (--map-when (not (listp it)) (list it) secretary--excursion-buffers))
-    (and (member (current-buffer) (map-keys secretary--excursion-buffers))
-         (map-put! secretary--excursion-buffers (current-buffer) t))
-    (if (apply #'and (map-values secretary--excursion-buffers))
-        ;; now all of them have been visited, mark a successful excursion when
-        ;; the user leaves this buffer
-        )))
-
-;;(add-hook 'window-buffer-change-functions #'eva--tag-buffer-viewed)
 
 ;; Ok, here's the shenanigans.  Observe that keyboard-quit and
 ;; abort-recursive-edit are distinct.  When the user cancels a "query" by
@@ -1135,6 +1112,10 @@ In BODY, you have access to the extra temporary variables:
        (unless eva-curr-item
          (error "%s not listed in eva-items" (symbol-name eva-curr-fn)))
        ;; Set up watchers in case any "excursion" happens.
+       ;;
+       ;; FIXME: This hook causes severe bugs, commented out for now, result:
+       ;;        user has to manually resume after they're finished w/ an
+       ;;        excursion
        ;; (add-hook 'kill-buffer-hook #'eva--check-return-from-excursion 96)
        (named-timer-run :eva-excursion (* 5 60) ()
                         #'eva-stop-watching-excursion)
@@ -1655,7 +1636,7 @@ Good to run after enabling `eva-mode' or changing
                            (map-keys)
                            (-map #'string-to-number))))
           (unless (<= stamps)
-            (message (concat "Timestamps not strictly increasing in: " f)))
+            (warn (concat "Timestamps not strictly increasing in: " f)))
           ;; Check that no timestamp bigger than current time.
           (if (--any-p (> it (float-time)) stamps)
               (push f anomalous-files)))))
@@ -1689,7 +1670,7 @@ is unspecified, but it shouldn't be possible to do."
   "Emit the message that Emacs has started.
 So that we can see in the chat log when Emacs was (re)started,
 creating some context."
-  (when eva--has-restored-variables
+  (when eva--has-restored-variables ; guard clause needed b/c of emit's code
     (eva-emit "------ Emacs (re)started. ------")))
 
 (defun eva--idle-set-fn ()

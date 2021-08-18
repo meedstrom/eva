@@ -8,7 +8,9 @@
 \#*\#
 .\#*
 
-/BRAINSTORM.org
-/wip.el
-/doc/
+
+/mothball*
+/*-old*
+/BRAINSTORM.org*
+/wip*.el
 /deps/
