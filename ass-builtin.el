@@ -196,10 +196,8 @@ itself through use.")
   (mkdir "/tmp/ass" t)
   ;; Refresh data with R.
   (let ;; FIXME: Allow custom item fns, and allow empty `ass-items'
-      ((weight-path (ass-item-dataset
-                     (ass-item-by-fn #'ass-query-weight)))
-       (mood-path (ass-item-dataset
-                   (ass-item-by-fn #'ass-query-mood))))
+      ((weight-path (ass-item-dataset (ass-item-by-fn #'ass-query-weight)))
+       (mood-path (ass-item-dataset (ass-item-by-fn #'ass-query-mood))))
     (with-current-buffer ass--buffer-r
       (ess-execute (concat "weight_dataset <- '" weight-path "'") 'buffer)
       (ess-execute (concat "mood_dataset <- '" mood-path "'") 'buffer)

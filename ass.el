@@ -159,22 +159,6 @@ some queries apply, for example to log something for yesterday.
 This may not apply, check the source for the welcomer you are
 using.")
 
-(defmacro ass--process-output-to-string (program &rest args)
-  "Like `shell-command-to-string' without the shell intermediary.
-You don't need a /bin/sh.  PROGRAM and ARGS are passed on to
-`call-process'."
-  (declare (debug (&rest form)))
-  `(with-temp-buffer
-     (call-process ,program nil (current-buffer) nil ,@args)
-     (buffer-string)))
-
-(defmacro ass--process-output-to-number (program &rest args)
-  "Like `shell-command-to-string' without the shell intermediary.
-Also converts the result to number. PROGRAM and ARGS are passed
-on to `call-process'."
-  (declare (debug (&rest form)))
-  `(string-to-number (ass--process-output-to-string ,program ,@args)))
-
 (defun ass--init-r ()
   "Spin up an R process and load needed R libraries.
 Uses `run-ess-r' which is full of sanity checks (e.g. for cygwin
@@ -249,6 +233,22 @@ If \"am\" or \"pm\" present, assume input is in 12-hour clock."
             (number-to-string hour) ":"
             (when (< minute 10) "0")
             (number-to-string minute))))
+
+(defmacro ass--process-output-to-string (program &rest args)
+  "Like `shell-command-to-string' without the shell intermediary.
+You don't need a /bin/sh.  PROGRAM and ARGS are passed on to
+`call-process'."
+  (declare (debug (&rest form)))
+  `(with-temp-buffer
+     (call-process ,program nil (current-buffer) nil ,@args)
+     (buffer-string)))
+
+(defmacro ass--process-output-to-number (program &rest args)
+  "Like `shell-command-to-string' without the shell intermediary.
+Also converts the result to number. PROGRAM and ARGS are passed
+on to `call-process'."
+  (declare (debug (&rest form)))
+  `(string-to-number (ass--process-output-to-string ,program ,@args)))
 
 
 ;;; Library for interactivity
@@ -678,7 +678,7 @@ or optional ts object TS."
 (defun ass-tsv-last-row (path)
   "In .tsv at PATH, get last row as a Lisp list."
   (with-temp-buffer
-    (insert-file-contents path)
+    (insert-file-contents-literally path)
     (goto-char (point-max))
     (when (looking-back "^" nil) ;; if empty line
       (forward-line -1))
@@ -947,10 +947,6 @@ Referred to by their :fn value.")
   "Return t if FN is due to be called."
   (let* ((i (ass-item-by-fn fn))
          (dataset (ass-item-dataset i))
-         ;; (alt-dataset (expand-file-name (concat "successes-" (symbol-name fn))
-         ;;                                ass-cache-dir-path))
-         ;; max-successes is meant as an alias for max-entries. if both are
-         ;; defined, entries has precedence.
          (max-entries (ass-item-max-entries-per-day i))
          (max-successes (ass-item-max-successes-per-day i))
          (lookup-posted-time (ass-item-lookup-posted-time i))
@@ -958,9 +954,10 @@ Referred to by their :fn value.")
          (min-hrs-wait (ass-item-min-hours-wait i))
          (min-secs-wait (* 60 60 min-hrs-wait))
          (successes-today (ass--count-successes-today fn))
-         (successes-specified-and-exceeded (and successes-today
-                                                max-successes
-                                                (>= successes-today max-successes)))
+         (successes-specified-and-exceeded
+          (and successes-today
+               max-successes
+               (>= successes-today max-successes)))
          (last-called (make-ts :unix (or (ass-item-last-called i) 0)))
          (called-today (and (= (ts-day last-called) (ts-day (ts-now)))
                             (> (ts-hour last-called) 4)))
@@ -973,7 +970,7 @@ Referred to by their :fn value.")
                       (string-to-number (car (ass-tsv-last-row dataset))))
                  (ts-diff (ts-now)
                           (ts-parse (ass-tsv-last-timestamp* dataset)))))))
-         ;; Even if we didn't log yet, we don't quite want to be that persistent
+         ;; Even if we didn't log yet, we don't want to be that persistent.
          (recently-called (< (ts-diff (ts-now) last-called)
                              ;; hours multiplied by n dismissals
                              (* dismissals 60 60))))
@@ -996,8 +993,9 @@ Referred to by their :fn value.")
   (ass-item-dataset (ass-item-by-fn fn)))
 
 (defun ass-enabled-fns ()
-  (-difference (-map #'ass-item-fn ass-items)
-               ass-disabled-fns))
+  "Subset of `secretary-items' not known as disabled.
+Referred to by their :fn value."
+  (-difference (-map #'ass-item-fn ass-items) ass-disabled-fns))
 
 (defun ass-reenable-fn ()
   "Prompt to reenable one of the disabled items."
@@ -1234,7 +1232,7 @@ flush other variables that merely refer to the variable name in
 their value."
   (f-copy ass-mem-history-path "/tmp/ass-mem.backup")
   (with-temp-buffer
-    (insert-file-contents ass-mem-history-path)
+    (insert-file-contents-literally ass-mem-history-path)
     (flush-lines (symbol-name var))
     (write-file ass-mem-history-path)))
 
@@ -1711,10 +1709,8 @@ Return the function on success, nil otherwise."
            (setq ass--idle-secs-fn #'org-mac-idle-seconds))
       ;; If under Mutter's Wayland compositor
       (and (getenv "DESKTOP_SESSION")
-           (s-matches? (rx (or "gnome" "ubuntu"))
-                        (getenv "DESKTOP_SESSION"))
-           (not (s-contains? "xorg"
-                              (getenv "DESKTOP_SESSION")))
+           (s-matches? (rx (or "gnome" "ubuntu")) (getenv "DESKTOP_SESSION"))
+           (not (s-contains? "xorg" (getenv "DESKTOP_SESSION")))
            (setq ass--idle-secs-fn #'ass--idle-secs-gnome))
       ;; NOTE: This condition is true under XWayland, so it must come
       ;; after any check for Wayland if we want it to mean X only.
