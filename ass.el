@@ -828,38 +828,34 @@ In BODY, you have access to the extra temporary variables:
 ;; WIP
 (defun ass--wrap (&rest body)
   "BODY."
+  (setq ass-curr-item (ass-item-by-fn ass-curr-fn))
+  (setq ass-curr-dataset (ass-item-dataset ass-curr-item))
+  (setq ass-excursion-buffers nil)
   (unless (ass-item-by-fn ass-curr-fn)
-    (error "%s not listed in ass-items"
-           (symbol-name ass-curr-fn)))
+    (error "%s not listed in ass-items" (symbol-name ass-curr-fn)))
   ;; Set up watchers in case any "excursion" happens.
   (add-hook 'kill-buffer-hook #'ass--check-return-from-excursion 96)
   (named-timer-run :ass-excursion (* 5 60) nil #'ass-stop-watching-excursion)
   ;; Set up watcher for cancelled prompt.
   (advice-add 'abort-recursive-edit :before #'ass--after-cancel-do-things)
-  (let* ((current-item (ass-item-by-fn ass-curr-fn))
-         (current-dataset (ass-item-dataset current-item)))
-    (unwind-protect
-        (prog1 (progn
-                 ;; I suppose we could infer from last-called afterwards
-                 ;; whether the excursion was a failure?
-                 (setf (ass-item-last-called current-item)
-                       (time-convert (current-time) 'integer))
-                 (apply #'progn body)
-                 ;; (eval body t) what's better?
-                 )
-          ;; All below this line will only happen for pure queries, and only after success.
-          (setq ass--queue
-                (cl-remove ass-curr-fn ass--queue :count 1))
-          (setf (ass-item-dismissals current-item) 0)
-          ;; Save timestamp of this successful run, even if there's no user-specified dataset.
-          (when (null current-dataset)
-            (ass-tsv-append
-             (expand-file-name (concat "successes-" (symbol-name ass-curr-fn)) ass-cache-dir-path)))
-          ;; Clean up, because this wasn't an excursion.
-          (named-timer-cancel :ass-excursion)
-          (remove-hook 'kill-buffer-hook #'ass--check-return-from-excursion))
-      ;; All below this line will happen for both queries and excursions, success or no.
-      (advice-remove 'abort-recursive-edit #'ass--after-cancel-do-things))))
+  (unwind-protect
+      (prog1 (progn
+               (setf (ass-item-last-called ass-curr-item)
+                     (time-convert (current-time) 'integer))
+               (apply #'progn body))
+        ;; All below this line will only happen for pure queries, and only after success.
+        (setq ass--queue (cl-remove ass-curr-fn ass--queue :count 1))
+        (setf (ass-item-dismissals ass-curr-item) 0)
+        ;; Save timestamp of this successful run, even if there's no user-specified dataset.
+        (when (null ass-curr-dataset)
+          (ass-tsv-append
+           (expand-file-name (concat "successes-" (symbol-name ass-curr-fn))
+                             ass-cache-dir-path)))
+        ;; Clean up, because this wasn't an excursion.
+        (named-timer-cancel :ass-excursion)
+        (remove-hook 'kill-buffer-hook #'ass--check-return-from-excursion))
+    ;; All below this line will happen for both queries and excursions, success or no.
+    (advice-remove 'abort-recursive-edit #'ass--after-cancel-do-things)))
 
 (defmacro ass-defquery (name args &rest body)
   "Boilerplate wrapper for `cl-defun'.
