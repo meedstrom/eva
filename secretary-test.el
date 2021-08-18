@@ -69,38 +69,6 @@
   (named-timer-cancel :secretary-keepalive)
   (named-timer-cancel :secretary))
 
-(ert-deftest secretary-test-defun ()
-  (should
-   (equal
-    (macroexpand
-     '(secretary-defun foo (x1 x2)
-                    "docstr"
-                    (bar)
-                    (baz)))
-    (macroexpand
-     '(cl-defun foo (x1 x2)
-                    "docstr"
-                    (interactive)
-                    (setq secretary--current-fn #'foo)
-                    (unless (secretary-item-by-fn secretary--current-fn)
-                      (error "%s not listed in secretary-items" (symbol-name secretary--current-fn)))
-                    (advice-add 'abort-recursive-edit :before #'secretary--after-cancel-do-things)
-                    (let ((current-dataset (secretary-item-dataset
-                                            (secretary-item-by-fn secretary--current-fn))))
-                      (unwind-protect
-                          (prog1 (progn
-                                   (bar)
-                                   (baz))
-                            (setq secretary--queue
-                                  (remove secretary--current-fn secretary--queue))
-                            (setf (secretary-item-dismissals
-                                   (secretary-item-by-fn secretary--current-fn))
-                                  0)
-			    (when (null current-dataset)
-			      (secretary-tsv-append
-			       (expand-file-name "successes-foo" secretary-memory-dir))))
-                        (advice-remove 'abort-recursive-edit #'secretary--after-cancel-do-things))))))))
-
 (ert-deftest secretary-test-ts-usage ()
   (let ((now (ts-now)))
     (should (equal (ts-dec 'month 12 now)
