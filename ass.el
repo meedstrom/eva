@@ -846,11 +846,10 @@ In BODY, you have access to the extra temporary variables:
         ;; All below this line will only happen for pure queries, and only after success.
         (setq ass--queue (cl-remove ass-curr-fn ass--queue :count 1))
         (setf (ass-item-dismissals ass-curr-item) 0)
-        ;; Save timestamp of this successful run, even if there's no user-specified dataset.
-        (when (null ass-curr-dataset)
-          (ass-tsv-append
-           (expand-file-name (concat "successes-" (symbol-name ass-curr-fn))
-                             ass-cache-dir-path)))
+        ;; Save timestamp of this successful run.
+        (ass-tsv-append
+         (expand-file-name (concat "successes-" (symbol-name ass-curr-fn))
+                           ass-cache-dir-path))
         ;; Clean up, because this wasn't an excursion.
         (named-timer-cancel :ass-excursion)
         (remove-hook 'kill-buffer-hook #'ass--check-return-from-excursion))
@@ -1120,7 +1119,8 @@ separate function from `ass--user-is-present'."
   last-called ;; almost always filled-in
   fn ;; primary key (must be unique)
   max-calls-per-day
-  (max-successes-per-day nil :documentation "Alias of :max-entries-per-day, more semantic where there is no dataset.")
+  max-successes-per-day
+  ;; (max-successes-per-day nil :documentation "Alias of :max-entries-per-day, more semantic where there is no dataset.")
   max-entries-per-day
   lookup-posted-time
   dataset
@@ -1142,8 +1142,7 @@ Referred to by their :fn value.")
          ;; max-successes is meant as an alias for max-entries. if both are
          ;; defined, entries has precedence.
          (max-entries (ass-item-max-entries-per-day i))
-         (max-successes (or max-entries (ass-item-max-successes-per-day i)))
-         (max-entries (or max-successes (ass-item-max-entries-per-day i)))
+         (max-successes (ass-item-max-successes-per-day i))
          (lookup-posted-time (ass-item-lookup-posted-time i))
          (dismissals (ass-item-dismissals i))
          (min-hrs-wait (ass-item-min-hours-wait i))
