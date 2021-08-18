@@ -221,34 +221,12 @@ itself through use.")
 
 ;;; Sleep
 
-;; TODO: This is both a query and excursion, uses another query's dataset, and
-;; the dialogue wording could benefit from merging with the other query ("Now
-;; let's talk about today"). Is merging the best way to go about it? Is there a
-;; way to define a combined query-and-excursion that fits in with our concepts,
-;; or a better set of concepts that will cover use cases like this?
-
-;; Old one.
-;; TODO: make it only ask once
-(defun secretary-check-yesterday-sleep ()
-  (let* ((dataset (secretary-item-dataset (secretary-item-by-fn secretary--current-fn)))
-         (today-rows (secretary-tsv-entries-by-date dataset (ts-dec 'day 1 secretary-date)))
-         (total-yesterday (-sum (--map (string-to-number (nth 3 it)) today-rows))))
-    ;; Totalling less than 4 hours is unusual, implying a possible anomaly in data.
-    (if (> (* 60 4) total-yesterday)
-        (if (secretary-ynp "Yesterday, you slept "
-                           (number-to-string (round (/ total-yesterday 60.0)))
-                           " hours, is this about right?")
-            nil
-          (secretary-emit "You may edit the history at "
-                          dataset
-                          ". For now, let's talk about today.")))))
-
-;; TODO: (Feature) Look at when idle ended to suggest a response.
-;; TODO: (Feature) Let user say "since 5" instead of quantity-art
+;; TODO: (Feature) Look at when idle ended to suggest a quantity.
+;; TODO: (Feature) Let user say "since 21" instead of quantity
 ;; TODO: Fix the case where someone wakes up at 23:00 but replies to the query
 ;;       at 01:00. Notice the unusual hour change and ask if user meant 23
 ;;       yesterday.
-;; New version
+;; TODO: Generally react when it's 00-04 or so.
 (secretary-defun secretary-query-sleep ()
   "Query you for wake-up time and sleep quantity for one sleep block today.
 You are free to decline either query, but you should not later
@@ -268,7 +246,7 @@ add."
                            (number-to-string (round (/ total-yesterday 60.0)))
                            " hours, is this about right?")
             nil
-          (when (secretary-ynp "Edit " current-dataset "?")
+          (when (secretary-ynp "Edit \"" current-dataset "\"?")
             (find-file current-dataset)
             (push (current-buffer) secretary-excursion-buffers)
             ;; prevent counting this run as a success
@@ -278,9 +256,11 @@ add."
          (recently-response (concat "Recently (" recently-hhmm ")"))
          (wakeup-time
           (let* ((reply (secretary-read
-                         "I assume you have slept today. When did you wake? "
-                         `("I don't know"
-                           ,recently-response))))
+                         (concat "I assume you have slept today ("
+                                 (ts-format "%A" secretary-date)
+                                 "). When did you wake? ")
+                         (list "I don't know"
+                               recently-response))))
             (cond ((equal reply recently-response)
                    recently-hhmm)
                   ((s-match (rx num) reply)
