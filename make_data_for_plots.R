@@ -13,23 +13,17 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+# ------------------------------------------------------------------------
 
-# On a fresh install, this will take time because it installs packages. If
-# there are problems, of course you can forgo renv and use your system-wide R
-# packages. Just comment this out and call install.packages() as needed.
-source("renv/activate.R")
+source("init.R")
 
-# Idempotent -- the first time the R process sources us, this blurb will be a
-# big cause of any delay. After that it's instant because there's nothing to
-# do.
-suppressPackageStartupMessages({
-  library(dplyr)
-  library(purrr)
-  library(tidyr)
-  library(readr)
-  library(stringr)
-  library(lubridate)
-})
+if (!"weight_dataset" %in% ls()) {
+  stop("Please define weight_dataset via elisp ess-execute")
+}
+
+if (!"mood_dataset" %in% ls()) {
+  stop("Please define mood_dataset via elisp ess-execute")
+}
 
 # Projected daily weight loss. Sobering to see how slow the result...
 daily_change <- -0.1
@@ -37,7 +31,7 @@ daily_change <- -0.1
 if (!dir.exists("/tmp/secretary"))
   dir.create("/tmp/secretary")
 
-wt <- read_tsv("/home/kept/Self_data/weight.tsv",
+wt <- read_tsv(weight_dataset,
                col_names = c("posted", "weighed", "weight_kg")) %>%
   mutate(weighed = as_date(weighed)) %>%
   select(-posted) %>%
@@ -53,7 +47,7 @@ projected_wt <-
 
 # --------------
 
-mood <- read_tsv("/home/kept/Self_data/mood.tsv",
+mood <- read_tsv(mood_dataset,
                  col_names = c("posted", "time", "mood_score", "mood_desc")) %>%
   mutate(time = as_datetime(time)) %>%
   drop_na(mood_score) %>%

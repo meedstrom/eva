@@ -180,17 +180,24 @@ itself through use.")
                       (secretary-tsv-last-value current-dataset)
                       " kg"))))
 
-;; TODO: pass start-date (today minus 3mo) and projection incline, letting
-;; user change the incline (persist for future plots toeo)
+;; TODO: Pass start-date (today minus 3mo) and projection incline, letting
+;;       user change the incline
 ;; TODO: Persist the buffer content across restarts
-;; TODO: pass the weight log file name instead of hardcoding in the R script
 (defun secretary-plot-weight ()
   "Present a plot of the user's weight."
   (interactive)
   (setq secretary--current-fn #'secretary-plot-weight)
+  (mkdir "/tmp/secretary" t)
   ;; Refresh data with R.
-  (with-current-buffer secretary-buffer-r
-    (ess-execute "source(\"make_data_for_plots.R\")" 'buffer))
+  (let ;; FIXME: Allow custom item fns, and allow empty `secretary-items'
+      ((weight-path (secretary-item-dataset
+                     (secretary-item-by-fn #'secretary-query-weight)))
+       (mood-path (secretary-item-dataset
+                   (secretary-item-by-fn #'secretary-query-mood))))
+    (with-current-buffer secretary--buffer-r
+      (ess-execute (concat "weight_dataset <- '" weight-path "'") 'buffer)
+      (ess-execute (concat "mood_dataset <- '" mood-path "'") 'buffer)
+      (ess-execute "source(\"make_data_for_plots.R\")" 'buffer)))
   ;; Plot with gnuplot.
   (let* ((pkg-loc (convert-standard-filename
                    (f-dirname (find-library-name "secretary"))))

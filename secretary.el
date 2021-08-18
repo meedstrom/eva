@@ -174,7 +174,7 @@ own R project."
     ;; for the process buffer
     (with-current-buffer secretary--buffer-r
       ;; TODO: How to check if the script errors out?
-      (ess-execute "source(\"make_data_for_plots.R\")" 'buffer))))
+      (ess-execute "source(\"init.R\")" 'buffer))))
 
 ;; TODO: Catch typos like 03 meaning 30 minutes, not 3 hours.
 (defun secretary-parse-time-amount (input)
@@ -1799,7 +1799,7 @@ Return the function on success, nil otherwise."
               (secretary--user-is-present)
               (when secretary-debug
                 (secretary-emit
-                 "------ (debug message) Mode turned on. ------"))))))
+                 "------ (debug message) Mode turned on. ----------"))))))
     ;; Turn off.
     (unless (secretary--another-secretary-running-p)
       (secretary-emit "Turning off.")
