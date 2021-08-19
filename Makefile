@@ -2,7 +2,7 @@
 .POSIX:
 .SUFFIXES: .el .elc
 EMACS	= emacs
-EL   	= eva.el eva-config.el eva-builtin.el eva-doing.el
+EL   	= eva.el eva-config.el eva-builtin.el eva-activity.el
 ELC  	= $(EL:.el=.elc)
 # external dependencies
 LDFLAGS = -L deps/ts -L deps/dash -L deps/s -L deps/ess/lisp -L deps/f -L deps/named-timer -L deps/pfuture -L deps/transient/lisp
@@ -25,7 +25,7 @@ clean:
 
 # Dependencies
 eva-test.elc:  $(ELC)
-eva-config.elc: eva.elc eva-builtin.elc eva-doing.elc
+eva-config.elc: eva.elc eva-builtin.elc eva-activity.elc
 eva-activity.elc: eva.elc eva-builtin.elc
 eva-builtin.elc: eva.elc
 

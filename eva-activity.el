@@ -1,4 +1,4 @@
-;;; eva-doing.el --- activity tracking -*- lexical-binding: t; -*-
+;;; eva-activity.el --- activity tracking -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2021 Martin Edström
 
@@ -19,14 +19,14 @@
 
 ;;; Commentary:
 
-;; Things related to tracking your doings.  Still experimental.
+;; Things related to activity tracking.  Still experimental.
 
 ;;; Code:
 
 (require 'eva)
 
-(cl-defstruct (eva-doing
-               (:constructor eva-doing-create)
+(cl-defstruct (eva-activity
+               (:constructor eva-activity-create)
                (:copier nil))
   name
   id
@@ -34,37 +34,37 @@
   cost-false-neg
   query)
 
-(defvar eva-doings)
+(defvar eva-activity-list)
 
-(defun eva-doing-by-name (name)
-  "Get the first doing in `eva-doings' matching NAME."
-  (--find (equal name (eva-doing-name it)) eva-doings))
+(defun eva-activity-by-name (name)
+  "Get the first activity in `eva-activitys' matching NAME."
+  (--find (equal name (eva-activity-name it)) eva-activity-list))
 
-(defun eva-doings-names ()
-  "Get the :name of all members of `eva-doings'."
-  (-map #'eva-doing-name eva-doings))
+(defun eva-activity-names ()
+  "Get the :name of all members of `eva-activitys'."
+  (-map #'eva-activity-name eva-activity-list))
 
-;; TODO: Get all informally named doings from the dataset.
-(eva-wrap eva-query-doing ()
+;; TODO: Get all informally named activities from the dataset.
+(eva-defun eva-query-activity ()
   "Ask user what they're up to."
-  (let* ((name (eva-read "What are you up to? " (eva-doings-names)))
+  (let* ((name (eva-read "What are you up to? " (eva-activity-names)))
          (name-corrected
-          (--find (member it (eva-doings-names))
+          (--find (member it (eva-activity-names))
                   (list name (capitalize name) (downcase name))))
          (name (if name-corrected
                    name-corrected
                  name))
-         (doing (eva-doing-by-name name)))
+         (activity (eva-activity-by-name name)))
     (eva-tsv-append eva-curr-dataset
-      (ts-format eva-date) ;; the time the doing happened
+      (ts-format eva-date) ;; the time the activity happened
       name
-      (when doing
-        (eva-doing-id doing)))))
+      (when activity
+        (eva-activity-id activity)))))
 
-(provide 'eva-doing)
+(provide 'eva-activity)
 
 ;; Local Variables:
 ;; nameless-current-name: "eva"
 ;; End:
 
-;;; eva-doing.el ends here
+;;; eva-activity.el ends here

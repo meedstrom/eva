@@ -25,16 +25,29 @@
 
 ;;; Code:
 
-(setq eva-user-name "Martin")
-(setq eva-user-birthday "1991-12-07")
-(setq eva-main-ledger-path   "/home/kept/Journal/Finances/l.ledger")
-(setq eva-main-datetree-path "/home/kept/Journal/diary.org")
+;; ;; must be set early
+(setq eva-ai-name "Alfred")
+(setq eva-fallback-to-emacs-idle t)
+
+;; best set early, but not strictly breaking if not
+(setq eva-user-name "Bruce")
+(setq eva-user-birthday "1963-02-19")
+(setq eva-user-short-title "sir")
+(setq eva-idle-log-path         "/home/kept/Self_data/idle.tsv")
+(setq eva-buffer-focus-log-path "/home/kept/Self_data/buffer-focus.tsv")
+(setq eva-buffer-info-path      "/home/kept/Self_data/buffer-info.tsv")
+(setq eva-main-ledger-path      "/home/kept/Journal/Finances/l.ledger")
+(setq eva-main-datetree-path    "/home/kept/Journal/diary.org")
 
 (require 'eva)
 (require 'eva-builtin)
-(require 'eva-doing)
+(require 'eva-activity)
 
-(add-hook 'eva-after-load-vars-hook #'eva-check-clock)
+;; these are used by `eva-present-diary', org-journal not needed
+(setq org-journal-dir "/home/kept/Diary")
+(setq org-journal-file-format "%F.org")
+
+(add-hook 'eva-after-load-vars-hook #'eva-check-dangling-clock)
 (add-hook 'eva-after-load-vars-hook #'eva-check-org-variables)
 
 ;; HINT: you can even use the same object multiple times in the queue, you'll
@@ -49,7 +62,7 @@
                         :dataset "/home/kept/Self_data/mood.tsv"
                         :min-hours-wait 1)
 
-       (eva-item-create :fn #'eva-query-doing
+       (eva-item-create :fn #'eva-query-activity
                         :dataset "/home/kept/Self_data/activities.tsv"
                         :min-hours-wait 1)
 
@@ -60,39 +73,38 @@
                         :dataset "/home/kept/Self_data/weight.tsv"
                         :max-entries-per-day 1)
 
-       (eva-item-create :fn #'eva-present-ledger-report)
-
-       (eva-item-create :fn #'eva-present-org-agenda)
+       (eva-item-create :fn #'eva-plot-weight
+                        :max-entries-per-day 1)
 
        (eva-item-create :fn #'eva-query-sleep
                         :dataset "/home/kept/Self_data/sleep.tsv"
                         :min-hours-wait 5
                         :lookup-posted-time t)
 
-       (eva-item-create :fn #'eva-query-ingredients
-                        :dataset "/home/kept/Self_data/ingredients.tsv"
-                        :min-hours-wait 5)
-
-       (eva-item-create :fn #'eva-query-cold-shower
-                        :dataset "/home/kept/Self_data/cold.tsv"
-                        :max-entries-per-day 1)
-
+       ;; you can inline define the functions too
        (eva-item-create
-        :fn (eva-wrap my-koan ()
-                      (message (eva-emit (seq-random-elt eva-aphorisms)))
-                       (sit-for eva-sit-long))
+        :fn (eva-defun my-koan ()
+              (message (eva-emit (seq-random-elt eva-aphorisms)))
+              (sit-for eva-sit-long))
         :min-hours-wait 16)
-       ;; (eva-item-create
-       ;;  :fn (eva-defquery eva-joke ()
-       ;;        (message (eva-emit (seq-random-elt eva-aphorisms)))
-       ;;        (sit-for eva-sit-long)))
-       (eva-item-create :fn #'eva-present-ledger-file)
+
+       (eva-item-create :fn #'eva-present-ledger-report)
+
+       ;; (eva-item-create :fn #'eva-present-org-agenda)
+
+       ;; (eva-item-create :fn #'eva-query-ingredients
+       ;;                  :dataset "/home/kept/Self_data/ingredients.tsv"
+       ;;                  :min-hours-wait 5)
+
+       ;; (eva-item-create :fn #'eva-query-cold-shower
+       ;;                  :dataset "/home/kept/Self_data/cold.tsv"
+       ;;                  :max-entries-per-day 1)
+
        (eva-item-create
-        :fn (eva-wrap my-bye ()
-                       (message (eva-emit "All done for now."))
-                       (bury-buffer (eva-buffer-chat)))
-        :min-hours-wait 0)
-       ))
+        :fn (eva-defun my-bye ()
+              (message (eva-emit "All done for now."))
+              (bury-buffer (eva-buffer-chat)))
+        :min-hours-wait 0)))
 
 
 ;;; Add hotkeys
@@ -104,31 +116,33 @@
     ("f" "View Ledger file" eva-present-ledger-file)
     ("a" "View Org agenda" org-agenda-list)])
 
-;; (transient-append-suffix 'eva-dispatch "q"
-;;   '("l" "View Ledger report" eva-present-ledger-report))
-;; (transient-append-suffix 'eva-dispatch "q"
-;;   '("f" "View Ledger file" eva-present-ledger-file))
-;; (transient-append-suffix 'eva-dispatch "q"
-;;   '("a" "View Org agenda" org-agenda))
-
 (define-key eva-chat-mode-map (kbd "l") #'eva-present-ledger-report)
 (define-key eva-chat-mode-map (kbd "a") #'org-agenda-list)
 
 
 ;;; Finally
 
-(setq eva-doings
-      (list (eva-doing-create
-             :name "sleep"
-             :id "ac93c132-ab74-455f-a456-71d7b5ee88a6"
-             :cost-false-pos 3
-             :cost-false-neg 3
-             :query #'eva-query-sleep)
-            (eva-doing-create
-             :name "studying"
-             :id "24553859-2214-4fb0-bdc9-84e7f3d04b2b"
-             :cost-false-pos 8
-             :cost-false-neg 8)))
+(setq eva-activity-list
+      (list (eva-activity-create :name "sleep"
+                                 :id "ac93c132-ab74-455f-a456-71d7b5ee88a6"
+                                 :cost-false-pos 3
+                                 :cost-false-neg 3
+                                 :query #'eva-query-sleep)
+
+            (eva-activity-create :name "studying"
+                                 :id "24553859-2214-4fb0-bdc9-84e7f3d04b2b"
+                                 :cost-false-pos 8
+                                 :cost-false-neg 8)
+
+            (eva-activity-create :name "coding"
+                                 :id "24553859-2214-4fb0-bdc9-84e7f3d04b2b"
+                                 :cost-false-pos 8
+                                 :cost-false-neg 8)
+
+            (eva-activity-create :name "unknown"
+                                 :id "24553859-2214-4fb0-bdc9-84e7f3d04b2b"
+                                 :cost-false-pos 8
+                                 :cost-false-neg 8)))
 
 (eva-mode)
 
