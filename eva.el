@@ -272,7 +272,7 @@ on to `call-process'."
 (defvar eva--last-chatted nil
   "Timestamp updated whenever the chat is written to.")
 
-(defun eva--buffer-chat ()
+(defun eva-buffer-chat ()
   "Buffer where the eva sends its messages."
   (or (get-buffer (concat "*" eva-ai-name ": chat log*"))
       (let ((buf (get-buffer-create
@@ -310,7 +310,7 @@ buffer, binds certain hotkeys."
          (prompt (string-join strings)))
     (unwind-protect
         (progn
-          (pop-to-buffer (eva--buffer-chat))
+          (pop-to-buffer (eva-buffer-chat))
           (eva-emit prompt)
           (define-key y-or-n-p-map (kbd "h") #'eva-dispatch)
           (define-key y-or-n-p-map (kbd "<SPC>") #'eva-dispatch)
@@ -404,7 +404,7 @@ example."
                                     "\n")
                           ""))
         (msg (concat "\n<" (ts-format "%H:%M") "> " (string-join strings))))
-    (with-current-buffer (eva--buffer-chat)
+    (with-current-buffer (eva-buffer-chat)
       (goto-char (point-max))
       (with-silent-modifications
         (delete-blank-lines)
@@ -416,7 +416,7 @@ example."
 (defun eva-emit-same-line (&rest strings)
   "Print STRINGS to the chat buffer without newline."
   (let ((msg (string-join strings)))
-    (with-current-buffer (eva--buffer-chat)
+    (with-current-buffer (eva-buffer-chat)
       (goto-char (point-max))
       (with-silent-modifications
         (insert msg)))
@@ -786,7 +786,7 @@ the mode was enabled)."
   :type '(hook :options (eva--log-idle
                          eva-session-from-idle)))
 
-(defcustom eva-periodic-present-hook
+(defcustom eva-periodic-hook
   '(eva--save-vars-to-disk
     eva--save-buffer-logs-to-disk)
   "Hook run periodically as long as the user is not idle.
@@ -862,7 +862,7 @@ overhead."
 This function is called by `eva--start-next-timer'
 repeatedly for as long as the user is active (not idle).
 
-Runs `eva-periodic-present-hook'."
+Runs `eva-periodic-hook'."
   ;; Guard the case where the user puts the computer to sleep manually, which
   ;; means this function will still be queued to run when the computer wakes.
   ;; If the time difference is suddenly big, hand off to the other function.
@@ -873,7 +873,7 @@ Runs `eva-periodic-present-hook'."
     (setq eva--idle-beginning (ts-fill (ts-now)))
     (eva--start-next-timer)
     ;; Run hooks last, in case they contain bugs.
-    (run-hooks 'eva-periodic-present-hook)))
+    (run-hooks 'eva-periodic-hook)))
 
 ;; NOTE: This runs rapidly, so it should be relatively efficient
 (defun eva--user-is-idle (&optional decrement)
@@ -1075,7 +1075,7 @@ Return non-nil on yes, and nil on no."
 ;; cancelled.  In this macro, pay attention to the placement of NEW-BODY, since
 ;; it may contain a keyboard-quit.  Thus, everything coming after NEW-BODY will
 ;; never be called for excursions, unless of course you use unwind-protect.
-(defmacro eva-wrap (name args &rest body)
+(defmacro eva-defun (name args &rest body)
   "Boilerplate wrapper for `cl-defun'.
 NAME, ARGS and BODY are as in `cl-defun'.
 To see what it expands to, try `emacs-lisp-macroexpand'.
@@ -1107,8 +1107,8 @@ In BODY, you have access to the extra temporary variables:
          (message "Was in minibuffer when %s called, not proceeding."
                   (symbol-name eva-curr-fn))
          (keyboard-quit))
-       (unless (get-buffer-window (eva--buffer-chat))
-         (pop-to-buffer (eva--buffer-chat)))
+       (unless (get-buffer-window (eva-buffer-chat))
+         (pop-to-buffer (eva-buffer-chat)))
        (unless eva-curr-item
          (error "%s not listed in eva-items" (symbol-name eva-curr-fn)))
        ;; Set up watchers in case any "excursion" happens.
@@ -1343,18 +1343,19 @@ Appropriate on init."
 (defun eva--save-vars-to-disk ()
   "Sync all relevant variables to disk."
   (if (eva--another-eva-running-p)
-      (warn "Another eva running, not saving variables.")
+      (warn "Another EVA running, not saving variables.")
     (unless eva--has-restored-variables
-      (error "Attempted to save variables to disk, but never fully \n%s\n%s\n%s"
-             "restored them from disk first, so the results would have been"
-             "built on blank data, which is not right.  Please post an issue:"
+      (error "\n%s\n%s\n%s\n%s"
+             "Attempted to save variables to disk, but never fully"
+             "restored them from disk first, so the variables would have been"
+             "as on a new setup, possibly all blank.  Please post an issue:"
              "https://github.com/meedstrom/eva even if you fix it"))
     (eva-mem-pushnew 'eva--last-online)
     (eva-mem-pushnew 'eva-items)
     (eva-mem-pushnew 'eva-disabled-fns)
     (make-directory eva-cache-dir-path t)
     (when eva-chat-log-path
-      (eva-write-safely (with-current-buffer (eva--buffer-chat)
+      (eva-write-safely (with-current-buffer (eva-buffer-chat)
                           (buffer-string))
                         eva-chat-log-path))
     (run-hooks 'eva-before-save-vars-hook)
@@ -1490,7 +1491,7 @@ Put this on `window-buffer-change-functions' and
 
 ;;; Interactive sessions
 
-(defvar eva-dbg-no-gentle nil)
+(defvar eva-dbg-do-all-items nil)
 
 (defalias 'eva-resume #'eva-run-queue)
 
@@ -1509,7 +1510,7 @@ spawned by the functions will be skipped by
         (unwind-protect
             (progn
               (set-frame-parameter nil 'buffer-predicate nil)
-              ;; (pop-to-buffer (eva--buffer-chat))
+              ;; (pop-to-buffer (eva-buffer-chat))
               (dolist (f (or queue eva--queue))
                 (eva-call-fn-check-dismissals f)))
           ;; FIXME: Actually, this will executed at the first keyboard-quit, so
@@ -1525,7 +1526,7 @@ spawned by the functions will be skipped by
     (if (minibufferp) ; user busy
         (run-with-timer 20 nil #'eva-session-butt-in-gently)
       (setq eva-date (ts-now))
-      (when-let ((fns (if eva-dbg-no-gentle
+      (when-let ((fns (if eva-dbg-do-all-items
                           (eva-enabled-fns)
                         (-filter #'eva--pending-p (eva-enabled-fns)))))
         (setq eva--queue fns)
@@ -1723,7 +1724,9 @@ Return the function on success, nil otherwise."
                          (eva-mode 0)))
                    (if (eva--another-eva-running-p)
                        (prog1 nil
-                         (message "Another EVA active.")
+                         (message
+                          (concat "Another EVA active, I won't get"
+                                  " in their way.  Disabling eva-mode."))
                          (eva-mode 0))
                      t))
           ;; All OK, turn on.
@@ -1733,7 +1736,7 @@ Return the function on success, nil otherwise."
           (add-hook 'window-buffer-change-functions #'eva--log-buffer)
           (add-hook 'window-selection-change-functions #'eva--log-buffer)
           (add-hook 'after-init-hook #'eva--init -90)
-          (add-hook 'after-init-hook #'eva--emacs-init-message 1)
+          ;; (add-hook 'after-init-hook #'eva--emacs-init-message 1)
           (add-hook 'after-init-hook #'eva--check-for-time-anomalies 2)
           (add-hook 'after-init-hook #'eva--init-r 3)
           (add-hook 'after-init-hook #'eva--user-is-present 90)

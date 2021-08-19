@@ -388,7 +388,7 @@ reference can be TS instead of today."
             (--iterate (ts-dec 'year 1 it) now 50)))))
 
 ;; TODO: Allow a list of datetrees
-(defun eva-make-indirect-datetree (buffer dates)
+(defun eva--make-indirect-datetree (buffer dates)
   "Replace BUFFER contents with a datetree of archive entries.
 Searches `eva-main-datetree-path' for entries matching
 members in DATES (ts objects). Return the count of dates that
@@ -423,7 +423,7 @@ were found to have entries."
       (kill-buffer buffer))
     counter))
 
-(defun eva-existing-diary (&optional date dir file-format)
+(defun eva--existing-diary (&optional date dir file-format)
   "Return the first file in DIR matching FILE-FORMAT.
 FILE-FORMAT is handled by `parse-time-string'. The value returned
 is a full filesystem path or nil.
@@ -457,14 +457,20 @@ Note that org-journal is not needed."
 (eva-wrap eva-present-diary ()
   "Show user a selection of past diary entries."
   (let* ((dates-to-check (funcall eva-past-sample-function eva-date))
-         (discrete-files-found (--keep (eva-existing-diary it) dates-to-check))
-         (buffer (get-buffer-create (concat "*" eva-ai-name ": Selected diary entries*")))
-         (datetree-found-count (eva-make-indirect-datetree buffer dates-to-check))
-         (total-found-count (+ (length discrete-files-found) datetree-found-count)))
+         (discrete-files-found
+          (--keep (eva--existing-diary it) dates-to-check))
+         (buffer (get-buffer-create
+                  (concat "*" eva-ai-name ": Selected diary entries*")))
+         (datetree-found-count
+          (eva--make-indirect-datetree buffer dates-to-check))
+         (total-found-count
+          (+ (length discrete-files-found) datetree-found-count)))
     (if (= 0 total-found-count)
         (message (eva-emit "No diary entries relevant to this date."))
       (when (or (when eva-presumptive
-                  (eva-emit "Opening " (int-to-string total-found-count) " diary entries.")
+                  (eva-emit "Opening "
+                            (int-to-string total-found-count)
+                            " diary entries.")
                   t)
                 (eva-ynp "Found " (int-to-string total-found-count) " past diary "
                          (if (= 1 total-found-count) "entry" "entries")
@@ -474,7 +480,7 @@ Note that org-journal is not needed."
         (if (= 0 datetree-found-count)
             (kill-buffer buffer)
           ;; TODO: pressing q should kill it!
-          (view-buffer buffer #'kill-buffer-if-not-modified)
+          (view-buffer buffer #'kill-buffer)
           (push (current-buffer) eva-excursion-buffers))
         (when (-non-nil discrete-files-found)
           (dolist (x discrete-files-found)
@@ -486,7 +492,7 @@ Note that org-journal is not needed."
 ;;; Org
 
 (add-hook 'eva-before-save-vars-hook
-          (defun eva-save-org-variables ()
+          (defun eva--save-org-variables ()
             "Sync certain org settings to mem."
             (when (featurep 'org-clock)
               (eva-mem-pushnew 'org-clock-current-task))
@@ -502,6 +508,8 @@ Note that org-journal is not needed."
                                              template))))
                 (eva-mem-pushnew-alt transformed-org-templates)))))
 
+(defvar eva--org-vars-checked nil)
+
 (defun eva-check-org-variables ()
   "Alert user if certain Org settings have changed.
 Suitable on `eva-after-load-vars-hook'."
@@ -510,17 +518,31 @@ Suitable on `eva-after-load-vars-hook'."
                   collect (--map (if (stringp it)
                                      (s-replace "\\n" "\n" it)
                                    it)
-                                 template))))
-    (when eva-debug
-      (if (equal restored-templates org-capture-templates)
-          (message (eva-emit "org-capture-templates unchanged"))
-        (message (eva-emit "org-capture-templates changed!")))
-      (if (equal org-agenda-files (map-elt eva-mem 'org-agenda-files))
-          (message (eva-emit "org-agenda-files unchanged"))
-        (message (eva-emit "org-agenda-files changed!"))))))
+                                 template)))
+        (restored-agenda-files
+         (map-elt eva-mem 'org-agenda-files)))
+    (when eva-debug ; TODO: remove this condition, but ensure it's not annoying
+      (when restored-templates
+        (if (equal restored-templates org-capture-templates)
+            (message (eva-emit "org-capture-templates unchanged."))
+          (message (eva-emit "org-capture-templates changed!"))))
+      (when restored-agenda-files
+        (if (equal restored-agenda-files org-agenda-files)
+            (message (eva-emit "org-agenda-files unchanged."))
+          (message (eva-emit "org-agenda-files changed!")))))))
+
+;; (defun eva-check-org-variables ()
+;;   "Alert user if certain Org settings have changed.
+;; Wait until Org loads.  Suitable on `eva-after-load-vars-hook'."
+;;   (with-eval-after-load 'org
+;;     ;; Hopefully I run only once, but user could have a misconfigured setup
+;;     ;; such that `load' is called repeatedly on Org.  Ensure we only run once.
+;;     (unless eva--org-vars-checked
+;;       (eva--org-vars-check)
+;;       (setq eva--org-vars-checked t))))
 
 ;; UNTESTED
-(defun eva-check-clock ()
+(defun eva-check-dangling-clock ()
   "If there's a dangling clock, prompt to load Org.
 Suitable on `eva-after-load-vars-hook'."
   (and (map-elt eva-mem 'org-clock-current-task)
