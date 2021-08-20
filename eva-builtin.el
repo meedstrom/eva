@@ -52,11 +52,11 @@
 ;; Improvements to the core library should mean we can simplify the more
 ;; complex definitions and move them to this section.
 
-(eva-wrap eva-greet ()
+(eva-defun eva-greet ()
   (message (eva-emit (eva-greeting)))
   (sit-for eva-sit-long))
 
-(eva-wrap eva-query-meditation ()
+(eva-defun eva-query-meditation ()
   "Ask user whether they meditated and how long."
   (when (eva-ynp "Did you meditate today?")
     (let* ((mins (eva-read-string "Do you know how long (in minutes)? "))
@@ -66,14 +66,14 @@
         "TRUE"
         (unless (string= "0" cleaned-mins) cleaned-mins)))))
 
-(eva-wrap eva-query-cold-shower ()
+(eva-defun eva-query-cold-shower ()
   "Ask user to rate their cold exposure today."
   (let ((rating (eva-read-string "Cold rating? ")))
     (eva-tsv-append eva-curr-dataset
       (ts-format eva-date)
       rating)))
 
-(eva-wrap eva-query-ingredients ()
+(eva-defun eva-query-ingredients ()
   "Ask user for a description of what they ate."
   (let* ((response (eva-read-string
                     "What ingredients did you eat recently? ")))
@@ -87,7 +87,7 @@
                    (s-join ", ")
                    (s-replace ",," ",")))))
 
-(eva-wrap eva-present-org-agenda ()
+(eva-defun eva-present-org-agenda ()
   "Send the user to an Org agenda log with archives enabled.
 Near equivalent to typing l v A after entering `org-agenda-list'."
   (require 'org-agenda)
@@ -109,7 +109,7 @@ Near equivalent to typing l v A after entering `org-agenda-list'."
 Merely a convenience for auto-completion. The variable populates
 itself through use.")
 
-(eva-wrap eva-query-mood ()
+(eva-defun eva-query-mood ()
   "Ask user about their mood."
   (let* ((first-response (eva-read
                           "Your mood: "
@@ -169,7 +169,7 @@ itself through use.")
 
 ;;; Weight
 
-(eva-wrap eva-query-weight ()
+(eva-defun eva-query-weight ()
   "Ask user about their weight."
   (let* ((last-wt (eva-tsv-last-value eva-curr-dataset))
          (wt (eva-read "What do you weigh today? "
@@ -231,7 +231,7 @@ itself through use.")
 ;;       at 01:00. Notice the unusual hour change and ask if user meant 23
 ;;       yesterday.
 ;; TODO: Generally react when it's 00-04 or so.
-(eva-wrap eva-query-sleep ()
+(eva-defun eva-query-sleep ()
   "Query you for wake-up time and sleep quantity for one sleep block today.
 You are free to decline either query, but you should not later
 register sleep quantity from this same block in order to \"get
@@ -299,7 +299,7 @@ add."
   :group 'eva
   :type 'file)
 
-(eva-wrap eva-present-ledger-report ()
+(eva-defun eva-present-ledger-report ()
   "Jump to `eva-main-ledger-path' and run `ledger-report'.
 Uses the first command specified in `ledger-reports'."
   (cond ((not (f-exists-p eva-main-ledger-path))
@@ -317,7 +317,7 @@ Uses the first command specified in `ledger-reports'."
          (push (get-buffer ledger-report-buffer-name) eva-excursion-buffers)
          (keyboard-quit))))
 
-(eva-wrap eva-present-ledger-file ()
+(eva-defun eva-present-ledger-file ()
   (unless (f-exists-p eva-main-ledger-path)
     (warn "not found: eva-main-ledger-path"))
   (message (eva-emit "Here's your ledger.  Please, edit."))
@@ -454,7 +454,7 @@ Note that org-journal is not needed."
 ;;                 all in chrono order.
 ;; TODO: (Feature) Try creating a sparse tree, so user can edit in-place
 ;; TODO: (Feature) Maybe show the agenda log taken from each date?
-(eva-wrap eva-present-diary ()
+(eva-defun eva-present-diary ()
   "Show user a selection of past diary entries."
   (let* ((dates-to-check (funcall eva-past-sample-function eva-date))
          (discrete-files-found
