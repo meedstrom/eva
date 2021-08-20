@@ -141,44 +141,37 @@ By default, your entry point is =eva-run-queue= (called automatically throughout
 To understand better how the package works, you can make a different entry point.  The sky's the limit.  This snippet contains a fairly "dumb" approach:
 
 #+begin_src elisp
-(defun my-custom-session ()
+(defun my-custom-session (&optional just-idled)
   (setq eva-date (ts-now))
-  (let ((just-idled))
-    (and just-idled
-         (eva-ynp "Have you slept?")
-         (eva-query-sleep))
-    (unless (eva-logged-today-p "/home/kept/Self_data/weight.tsv")
-      (eva-query-weight))
-    (eva-query-mood)
-    (and (eva-ynp "Up to reflect?")
-         (eva-ynp "Have you learned something?")
-         (org-capture nil "s")) ;; say you have a capture template on "s"
-    (if (eva-ynp (concat "How about some flashcards?"))
-        (org-drill))
-    (if (eva-ynp "Have you stretched today?")
-        nil
-      (if (eva-ynp "Do you want reminders for why?")
-          nil
-        nil))
-    (if (eva-ynp "Did you photographe your face today?")
-        nil)
-    (unless (eva-logged-today "/home/kept/Self_data/meditation.csv")
-      (eva-query-meditation eva-date))
-    (unless (eva-logged-today "/home/kept/Self_data/cold.csv")
-      (when (eva-ynp "Have you had a cold shower yet?")
-        (eva-query-cold-shower)))
-    (if (eva-ynp "Have you paid for anything since yesterday?")
-        (eva-present-ledger-file))
-    (if (eva-ynp "Shall I remind you of your life goals? Don't be shy.")
-        (view-file "/home/kept/Journal/gtd.org"))
-    (and (> 2 (eva-query-mood))
-         (doctor))
-    (eva-present-plots)
-    (eva-present-diary)
-    (and (-all-p #'null (-map #'eva-logged-today-p
-                              (-map #'eva-item-dataset eva-items)))
-         (eva-ynp "Shall I come back in an hour?")
-         (run-with-timer 3600 nil #'eva-session-from-idle))))
+  (and just-idled
+       (eva-ynp "Have you slept?")
+       (eva-query-sleep))
+  (unless (eva-logged-today-p "/home/kept/Self_data/weight.tsv")
+    (eva-query-weight))
+  (eva-query-mood)
+  (and (eva-ynp "Up to reflect?")
+       (eva-ynp "Have you learned something?")
+       (org-capture nil "s")) ;; say you have a capture template on "s"
+  (if (eva-ynp (concat "How about some flashcards?"))
+      (org-drill))
+  (unless (eva-logged-today "/home/kept/Self_data/meditation.csv")
+    (eva-query-meditation eva-date))
+  (unless (eva-logged-today "/home/kept/Self_data/cold.csv")
+    (when (eva-ynp "Have you had a cold shower yet?")
+      (eva-query-cold-shower)))
+  (if (eva-ynp "Have you paid for anything since yesterday?")
+      (eva-present-ledger-file))
+  (if (eva-ynp "Shall I remind you of your life goals? Don't be shy.")
+      (view-file "/home/kept/Journal/gtd.org"))
+  (and (> 2 (eva-query-mood))
+       (doctor))
+  (eva-plot-weight)
+  (eva-plot-mood)
+  (eva-present-diary)
+  (and (-all-p #'null (-map #'eva-logged-today-p
+                            (-map #'eva-item-dataset eva-items)))
+       (eva-ynp "Shall I come back in an hour?")
+       (run-with-timer 3600 nil #'eva-session-from-idle)))
 #+end_src
 
 If you want a more intelligent session, populate =eva--queue= and then call =eva-run-queue= -- see the source for the =session-= functions.
@@ -193,7 +186,6 @@ Monday     16 August 2021 W33
   eva:        9:04......  Martin Edström: fix                                                  :Memacs:git::
 Tuesday    17 August 2021
   eva:        10:40...... Martin Edström: Comply with checkdoc, flycheck, package-lint         :Memacs:git::
-  eva:        11:06...... Martin Edström: style                                                :Memacs:git::
   eva:        11:06...... Martin Edström: Hopefully fixed bug nulling mood-alist               :Memacs:git::
   eva:        11:37...... Martin Edström: Post design goals                                    :Memacs:git::
   eva:        12:20...... Martin Edström: minor                                                :Memacs:git::
@@ -203,31 +195,20 @@ Tuesday    17 August 2021
 Wednesday  18 August 2021
   eva:        0:41......  Martin Edström: simplify                                             :Memacs:git::
   eva:        0:42......  Martin Edström: had corrupt dataset, add a check for next time       :Memacs:git::
-  eva:        0:42......  Martin Edström: missed a rename                                      :Memacs:git::
-  eva:        0:42......  Martin Edström: care and feeding of rg                               :Memacs:git::
   eva:        0:47......  Martin Edström: fix                                                  :Memacs:git::
-  eva:        2:19......  Martin Edström: Improve sleep query                                  :Memacs:git::
   eva:        2:19......  Martin Edström: Make R take user-supplied dataset path               :Memacs:git::
-  eva:        2:20......  Martin Edström: style                                                :Memacs:git::
   eva:        3:09......  Martin Edström: fixes                                                :Memacs:git::
   eva:        3:11......  Martin Edström: Better guard clauses                                 :Memacs:git::
   eva:        3:56......  Martin Edström: Remove test obsoleted by emacs-lisp-macroexpand      :Memacs:git::
-  eva:        4:31......  Martin Edström: Renames for brevity                                  :Memacs:git::
   eva:        4:33......  Martin Edström: Rename test.el                                       :Memacs:git::
-  eva:        5:01......  Martin Edström: Add license on sound files                           :Memacs:git::
   eva:        5:01......  Martin Edström: alignment                                            :Memacs:git::
   eva:        5:33......  Martin Edström: Fix wrap                                             :Memacs:git::
   eva:        5:35......  Martin Edström: Always track query successes                         :Memacs:git::
-  eva:        5:36......  Martin Edström: Use more s.el f.el                                   :Memacs:git::
   eva:        5:50......  Martin Edström: minor                                                :Memacs:git::
   eva:        16:27...... Martin Edström: Settle on a single boilerplate macro                 :Memacs:git::
   eva:        16:30...... Martin Edström: Add debug messages                                   :Memacs:git::
   eva:        16:31...... Martin Edström: fix                                                  :Memacs:git::
-  eva:        16:31...... Martin Edström: formatting                                           :Memacs:git::
-  eva:        16:35...... Martin Edström: Rename (stage 1)                                     :Memacs:git::
-  eva:        16:36...... Martin Edström: Rename (stage 2 and done)                            :Memacs:git::
   eva:        17:40...... Martin Edström: style                                                :Memacs:git::
-  eva:        17:40...... Martin Edström: renames                                              :Memacs:git::
   eva:        18:03...... Martin Edström: Clearer init                                         :Memacs:git::
   eva:        20:21...... Martin Edström: cleanup and document                                 :Memacs:git::
   eva:        20:38...... Martin Edström: Update licensing                                     :Memacs:git::
@@ -305,7 +286,7 @@ Then set up a regular job that collects your Git histories. Here's a way to do t
 You may have to restart Emacs for the agenda to properly update. Anyway, now when you type =v A= in the agenda, these Git commits will show up.  You will also be shown that view by the builtin =eva-present-org-agenda=.
 ** Org configuration
 *** Reminder of clocked task
-Do you want to be reminded every 10 minutes of the currently clocked task?  A trivial timer can do it:
+Do you want to be reminded every 10 minutes of the currently clocked task?  A timer can do it:
 
 #+begin_src elisp
 (require 'named-timer) ;; an indispensable 70-line library
@@ -332,7 +313,7 @@ To remind you of dangling clocks after a restart, Org's builtin way is as follow
 (add-hook 'org-clock-in-hook #'org-clock-save) ;; in case of a crash
 #+end_src
 
-With those settings, whenever opening an Org buffer (thus autoloading Org) it will scan agenda files (I think (FIXME)).  Alternatively, =(add-hook 'org-mode-hook #'=org-resolve-clocks=)= can help you.
+With those settings, whenever opening an Org buffer (thus autoloading Org) it will scan agenda files (I think (FIXME)).  Alternatively, =(add-hook 'org-mode-hook #'org-resolve-clocks=) can help you.
 
 However, Eva also keeps track of the active clock, so if you *don't want to load Org on every Emacs startup*, that's where Eva can help you.  The following hook will ask about turning on Org if and only if it remembers an unfinished clock from last session.  After thus loading Org, your Org config will react to the dangling clock and can take it from there.
 
@@ -342,26 +323,26 @@ However, Eva also keeps track of the active clock, so if you *don't want to load
 #+end_src
 
 * Notes on built-ins
-** eva-query-sleep
-eva-query-sleep is made to be flexible. It can log either or both of two variables: wake-up time, and sleep quantity.  Thus, its log file doesn't have the usual full date/time stamp, instead tracking date and wake-up time separately.  The wake-up time can be left blank if you don't know when you woke up (or don't consider it important), you can still enter the approximate sleep quantity.  What's important is to realize that each row in this dataset is supposed to represent one sleep block.  Thus, if you later recall when it was you woke up, you shouldn't just add a new line, but edit the dataset.
+** =eva-query-sleep=
+=eva-query-sleep= is made to be flexible. It can log either or both of two variables: wake-up time, and sleep quantity.  Thus, its log file doesn't have the usual full date/time stamp, instead tracking date and wake-up time separately.  The wake-up time can be left blank if you don't know when you woke up (or don't consider it important), you can still enter the approximate sleep quantity.  What's important is to realize that it's best for each row in this dataset to represent one sleep block.  Thus, if you later recall when it was you woke up, you shouldn't just add a new line, but edit the dataset.
 
-** eva-present-diary
+** =eva-present-diary=
 This does diary backlook; shows you past entries on this date last month, the month before that, and so on.  I've found it good in so many ways.
 
 Currently this works best with daily diary files in the org-journal style (no need for org-journal installed), i.e. when you have a folder somewhere that contains files named =2020-01-01.org=, =2020-01-02.org=, =2020-01-03.org= and so on.  If you do have org-journal, it also checks =org-journal-file-format= in case of a custom file-name format, but =org-journal-file-type= must be ='daily= (the default).
 
 The presenter also looks for a datetree file set at =eva-main-datetree-path=.  This is for those of you who capture writings to a datetree, by way of a member of =org-capture-templates= targeting something like =(file+olp+datetree "~/diary.org")=.
 
-** eva--log-buffer
+** =eva--log-buffer=
 (This is fully automated and not something you'd add to =eva-items=.)
 
-The buffer logger writes two files, buffer-focus.tsv and buffer-info.tsv (or whatever you rename them to).  If you are familiar with the notion of normalized databases, it's self-explanatory: buffer-focus.tsv associates timestamps with buffers, identified by an UUID, and buffer-info.tsv associates those UUIDs with various facts about those buffers, such as title, file (if any) and major mode.
+The buffer logger writes two files, =buffer-focus.tsv= and =buffer-info.tsv= (or whatever you rename them to).  If you are familiar with the notion of normalized databases, it's self-explanatory: =buffer-focus.tsv= associates timestamps with buffers, identified by an UUID, and =buffer-info.tsv= associates those UUIDs with various facts about those buffers, such as title, file (if any) and major mode.
 # FIXME: TBD
 # When any of these facts change, it's considered an entirely new buffer, with a new UUID, although its previous ID is recorded as an additional fact.
 
-It's possible you'll want the buffer logger to record something more. A good example is to record eww-current-url of an eww buffer. Your options are to redefine eva--log-buffer (in which case please open an issue), or simply tell eww to change its buffer title to match the URL.  However, this relies on the TBD feature that considers each new title a new buffer with new UUID.
+It's possible you'll want the buffer logger to record something more. A good example is to record =eww-current-url= of an eww buffer. Your options are to redefine =eva--log-buffer= (in which case please open an issue), or simply tell eww to change its buffer title to match the URL.  However, this relies on the TBD feature that considers each new title a new buffer with new UUID.
 
-** eva--log-idle
+** =eva--log-idle=
 (This is fully automated and not something you'd add to =eva-items=.)
 
 The idleness logger is a byproduct of essential functionality. It's not much of an assistant without idle awareness, so you get this log for free.

@@ -107,14 +107,13 @@ Alternatively with Doom Emacs, this goes in =packages.el=:
 For set-up, please see the manual at [[file:doc/eva.org][doc/eva.org]] (available as Info manual after installation) and the example at [[file:eva-config.el][eva-config.el]].
 
 * Milestone for 1.0: Auto-clocking
-Input welcome on [[https://github.com/meedstrom/eva/issues/4][Issue #4]] or by email!
-
 ** Goal
 The goal: continuously clock into the correct Org tasks with minimal user initiative.  We assume all tasks come under master tasks named Coding, Studying, Yak Shaving and so on, or can be refiled as such.  The specificity of these categories is up in the air -- they just need to be the same categories we define as "activities", more on that later, and it's feasible some of them can be very narrow in meaning, while others have to remain broad.
 
 Implementing this has an exciting side effect.  The model we build of the user could be useful for other things beyond just clocking what the user is doing.  E.g. we'll have a guess of the user's mood, which could trigger specific actions.  Ultimately I want my VA to take initiative and follow me up about things that I have never told it to.
 
 ** Theory
+NOTE: Input is welcome -- post on [[https://github.com/meedstrom/eva/issues/4][Issue #4]] or email me at [[mailto:meedstrom@teknik.io][meedstrom@teknik.io]]!
 
 One of the end products should be presentable as something like this badly simulated area chart:
 
@@ -257,7 +256,8 @@ drawdag(dagitty(
 #+end_src
 
 
-[[file:assets/dag1.png]] Model graph. As usual for DAGs, an arrow means "this causally influences that".  Some of these are observed variables, others have to be estimated (activity, missingness_{verification}). Hyperpriors left out for now.
+[[file:assets/dag1.png]]
+Figure 2: Model graph. As usual for DAGs, an arrow means "this causally influences that".  Some of these are observed variables, others have to be estimated (activity, missingness_{verification}). Hyperpriors left out for now.
 
 # #+begin_quote
 # Aside: if you need a refresher on DAGs, see.
@@ -269,24 +269,24 @@ drawdag(dagitty(
 # |   |                  |
 
 Observations
-- activity is a classification of activity (e.g. coding, sleeping, studying), with fewer factor levels than buffer_{kind}.
-- activity is unobserved.
-- activity_{verified} is user-supplied data -- their claim of what activity they're up to -- gotten through automatic prompts at the computer.
-- missingness_{verification} is the unobserved process causing activity_{verified} to have NAs.
-- Fortunately, we know the generative process behind missingness_{verification} -- it's simply from when we ask and when we don't ask the user, and we can design that to be a random sampling over the day, so this is not as much a mystery as in many missing-data models.
+- The contribution of =time.of.day= was illustrated in Figure 1 under [[#Theory][Theory]].
+- =activity= is a classification of activity (e.g. coding, sleeping, studying), with fewer factor levels than buffer_{kind}.
+- =activity= is unobserved.
+- =activity_verified= is user-supplied data -- their claim of what activity they're up to -- gotten through automatic prompts at the computer.
+- =missingness_verification= is the unobserved process causing =activity_verified= to have NAs.
+- Fortunately, we know the generative process behind =missingness_verification= -- it's simply from when we ask and when we don't ask the user, and we can design that to be a random sampling over the day, so this is not as much a mystery as in many missing-data models.
   - However, there are times when the computer doesn't get an answer because the user is either away (aka idle) or won't respond.  If the latter situation is rare, it doesn't necessarily affect our predictions of activity for the times of day when the user is /not/ idle, and those predictions are our research objective.
-- The contribution of time.of.day was illustrated in Figure 1 under [[#Theory][Theory]].
-- We could leave out buffer in this graph since the artifice [[#configuration:-preclassify][buffer_{kind]]} counts as observed, but buffer_{kind} could theoretically be an estimated variable.
-- Note that buffer_{kind} has NAs, it's not realistic to preclassify all buffers.
-- buffer has tens of thousands of factor levels.
-- The concept of a "change of activity" (shift from one factor level to another in the activity variable) may not map to any meaningful neural event in the user.  The user might be in some form of undirected state, their choice of next activity heavily influenced by randomness (whatever they happen to see or hear, what someone else says, ...).  However, we can model that as an activity named "undirected", usually transitional between two activities.  Not sure if it's possible to detect, nor if it's important to distinguish this from other types of unknown activity.
-- All our observatitons of sleep is really a subset of class_{verified} data, so they're baked into that variable.
+- We could leave out =buffer= in this graph since the [[#configuration:-preclassify][artificial]] variable =buffer_kind= counts as observed, but =buffer_kind= could theoretically be an estimated variable.
+- Note that =buffer_kind= has NAs, it's not realistic to preclassify all buffers.
+- =buffer= has tens of thousands of factor levels.
+- The concept of a "change of activity" (shift from one factor level to another in the =activity= variable) may not map to any meaningful neural event in the user.  The user might be in some form of undirected state, their choice of next activity heavily influenced by randomness (whatever they happen to see or hear, what someone else says, ...).  However, we can model that as an activity named "undirected", usually transitional between two activities.  Not sure if it's possible to detect, nor if it's important to distinguish this from other types of unknown activity.
+- All our observations of sleep can be considered a subset of =activity_verified= data, so they're baked into that variable.
 
 Questions
-- [ ] Baking sleep into class_{verified}: does this play havoc with the latter's missingness process, considering that our random sampling design may naively try to poll the user's activity at night and fail to get an answer and interpret that in a way it shouldn't?  We could of auto-feed it the "sleep" response, is that ok? (only works for retroactive estimation, obviously not realtime)
-- [ ] Clarify the relation between activity and time.since.bufkind.change.  It's not like having activity at a certain value would cause a certain amount of minutes of time.since.bufkind.change, is it?  But it seems to be exponentially more likely that a shift in activity has occurred the longer the time goes on.
-- [ ] The model as it stands estimates activity at a specific instant in time, and we could possibly translate this into a something efficient akin to a Kalman filter for realtime prediction.  But how do I make a model that estimates large blocks of time in the past, instead of single instants?
-- [ ] Is there any causal relation between buffer_{kind} and time.since.bufkind.change?
+- [ ] Baking sleep into =activity_verified=: does this play havoc with the latter's missingness process, considering that our random sampling design may naively try to poll the user's activity at night and fail to get an answer and interpret that in a way it shouldn't?  We could of auto-feed it the "sleep" response, is that ok? (only works for retroactive estimation, obviously not realtime)
+- [ ] Clarify the relation between activity and =time.since.bufkind.change=.  It's not like having activity at a certain value would cause a certain amount of minutes of =time.since.bufkind.change=, is it?  But it seems to be exponentially more likely that a shift in activity has occurred the longer the time goes on.
+- [ ] The model as it stands estimates activity at a specific instant in time, and we could possibly translate this into a something efficient like a Kalman filter for realtime prediction.  But how do I make a model that estimates large blocks of time in the past, instead of single instants?
+- [ ] Is there any causal relation between =buffer_kind= and =time.since.bufkind.change=?
 
 # Maybe it's a hidden Markov model.
 
