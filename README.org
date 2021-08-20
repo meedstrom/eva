@@ -107,7 +107,7 @@ Alternatively with Doom Emacs, this goes in =packages.el=:
 For set-up, please see the manual at [[file:doc/eva.org][doc/eva.org]] (available as Info manual after installation) and the example at [[file:eva-config.el][eva-config.el]].
 
 * Milestone for 1.0: Auto-clocking
-Input welcome on [[https://github.com/meedstrom/eva/issues/4][Issue \#4]] or by email!
+Input welcome on [[https://github.com/meedstrom/eva/issues/4][Issue #4]] or by email!
 
 ** Goal
 The goal: continuously clock into the correct Org tasks with minimal user initiative.  We assume all tasks come under master tasks named Coding, Studying, Yak Shaving and so on, or can be refiled as such.  The specificity of these categories is up in the air -- they just need to be the same categories we define as "activities", more on that later, and it's feasible some of them can be very narrow in meaning, while others have to remain broad.
@@ -136,8 +136,7 @@ ggplot(d, aes(time)) +
 #+end_src
 
 #+ATTR_HTML: :width 600
-#+CAPTION: Categorical distributions over 96 quarter-hours (24 hours)
-[[file:assets/badly_simulated.png]]
+[[file:assets/badly_simulated.png]] Figure 1: Categorical distributions over 96 quarter-hours (24 hours)
 
 Figure 1 shows a time series over a day.  See how at any point in time, we have a set of probabilities for each of the 4 different possible activities (Is this a Dirichlet process?).  This is one component of the full model (see [[#DAG][DAG]]), showing you our guesses based only on the time, presumably from past data on what the user was doing at those times.
 
@@ -163,7 +162,7 @@ I was running nested if-then-else clauses to guess the present state, nothing mo
 
 You like concrete? I give you concrete! Here are the kinds of data we gather:
 
-#+CAPTION: Buffer log ("buffers" are cognate to application windows)
+Buffer log ("buffers" are cognate to application windows)
 | focus-in time    | name                                 | file | mode | id  |
 |------------------+--------------------------------------+------+------+-----|
 | 2020-02-16 13:20 | firefox:efficientbadass.blogspot.com | ...  | ...  | ... |
@@ -173,7 +172,7 @@ You like concrete? I give you concrete! Here are the kinds of data we gather:
 
 See how much detail we can get from buffer data under [[#configuration-preclassify][Configuration: preclassify]].
 
-#+CAPTION: Idle/offline time
+Idle/offline time
 | idle-start <datetime> | idle-length (minutes) |
 |-----------------------+-----------------------|
 | 2020-02-16 12:01      |                    82 |
@@ -257,8 +256,8 @@ drawdag(dagitty(
 ))
 #+end_src
 
-#+CAPTION: Model graph. As usual for DAGs, an arrow means "this causally influences that".  Some of these are observed variables, others have to be estimated (activity, missingness_{verification}). Hyperpriors left out for now.
-[[file:assets/dag1.png]]
+
+[[file:assets/dag1.png]] Model graph. As usual for DAGs, an arrow means "this causally influences that".  Some of these are observed variables, others have to be estimated (activity, missingness_{verification}). Hyperpriors left out for now.
 
 # #+begin_quote
 # Aside: if you need a refresher on DAGs, see.
@@ -500,5 +499,5 @@ The question is: what else is part of a weekly review:
 - ...
 
 # ASIDE: Always compare this package you want to make to a simple extension of your org agenda, with more hotkeys on display for all kinds of interesting commands (like review diary). What does your package have that is special?
-#
+
 # It should be a new sort of interface to org-mode. A unified interface, as opposed to a haphazard set of tools. An org VA knows all the capabilities of org-mode. It can call org-pomodoro without you knowing what that is. More importantly, it can /prompt/ you into doing a pomdoro when appropriate -- or something else, depending on what it knows. For that it is necessary to feed it with info about your whole personal system, things like the setting of org-journal-dir or how often you want to reflect on topic X. Maybe declarative config?
