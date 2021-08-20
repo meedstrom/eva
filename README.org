@@ -162,7 +162,7 @@ I was running nested if-then-else clauses to guess the present state, nothing mo
 
 You like concrete? I give you concrete! Here are the kinds of data we gather:
 
-Buffer log ("buffers" are cognate to application windows)
+*** Buffer log ("buffers" are cognate to application windows)
 | focus-in time    | name                                 | file | mode | id  |
 |------------------+--------------------------------------+------+------+-----|
 | 2020-02-16 13:20 | firefox:efficientbadass.blogspot.com | ...  | ...  | ... |
@@ -172,7 +172,7 @@ Buffer log ("buffers" are cognate to application windows)
 
 See how much detail we can get from buffer data under [[#configuration-preclassify][Configuration: preclassify]].
 
-Idle/offline time
+*** Idle/offline time
 | idle-start <datetime> | idle-length (minutes) |
 |-----------------------+-----------------------|
 | 2020-02-16 12:01      |                    82 |
@@ -182,8 +182,7 @@ Idle/offline time
 | 2020-02-16 23:02      |                   663 |
 | ...                   |                   ... |
 
-
-#+CAPTION: Sleep
+*** Sleep
 | when <date> | sleep-end <time> | sleep-length (minutes) |
 |-------------+------------------+------------------------|
 |  2020-02-16 |            08:30 |                    420 |
@@ -193,8 +192,7 @@ Idle/offline time
 |         ... |              ... |                    ... |
 
 
-#+NAME: activity-tbl
-#+CAPTION: Activity -- the most important data
+*** Activity -- the most important data
 | when <datetime>  | activity category      |
 |------------------+------------------------|
 | 2020-02-16 08:30 | "surfing"              |
@@ -205,7 +203,7 @@ Idle/offline time
 | 2020-02-17 21:00 | "i dunno man piss off" |
 | ...              | ...                    |
 
-#+CAPTION: Mood
+*** Mood
 | when <datetime>     | mood-score | note             |
 |---------------------+------------+------------------|
 | 2021-08-16 15:37:34 |          9 |                  |
@@ -216,6 +214,8 @@ Idle/offline time
 | 2021-08-18 12:02:04 |          6 | weird            |
 | 2021-08-18 16:11:43 |          6 | weird            |
 | 2021-08-18 17:37:56 |          7 | good             |
+
+*** Notes
 
 We can control the sampling frequency and times of day if that's of interest, i.e. ask about activity at random times.  Regarding activity, we would not usually get freeform text responses unless the user wishes it, but responses that map to the activities we define (see below in [[#configuration:-define-activities]]).
 
@@ -231,7 +231,7 @@ Ideally, I'd also ask questions via the user's phone, gather GPS history, poll t
 
 From the buffer data, we can create a new variable: "time since buffer-change", and here things start to get interesting for realtime nowcasting.  Of course if you but briefly check an internet article for, say, 30 seconds and get back to your school notes, it's not meaningful (to me) to report this as a change of activity.  So the amount of time since the change matters.  And of course the internet article could be related to the schoolwork.
 
-Also an important piece of data is what kind of buffers these are in Table 1.  If every unique combination of variables constitutes its own factor level we'll have an enormous amount of levels.  So, from URL and other metadata, we can and should boil down the buffers into relatively few buckets.  Here's a natural application for a reinforcement learning algorithm, but the human approach described in [[#configuration-preclassify][Configuration: preclassify]] seems likely to be pretty good after some iteration, and can always be updated when it's found to be halting.
+Also an important piece of data is what kind of buffers these are in the buffer log.  If every unique combination of variables constitutes its own factor level we'll have an enormous amount of levels.  So, from URL and other metadata, we can and should boil down the buffers into relatively few buckets.  Here's a natural application for a reinforcement learning algorithm, but the human approach described in [[#configuration-preclassify][Configuration: preclassify]] seems likely to be pretty good after some iteration, and can always be updated when it's found to be halting.
 
 # Also, predicted activity category.
 
