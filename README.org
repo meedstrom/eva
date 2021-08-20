@@ -4,7 +4,7 @@
 # are permitted in any medium without royalty provided the copyright
 # notice and this notice are preserved.  This file is offered as-is,
 # without any warranty.
-#
+
 # There is an exception to the above paragraph: it does not apply to
 # screencasts in this file.
 
@@ -13,7 +13,6 @@
 
 A screencast goes here.
 
-#+TOC: headlines
 * Introduction
 
 This is an Emacs-based virtual assistant: Eva for short.  It helps you with
@@ -22,13 +21,13 @@ This is an Emacs-based virtual assistant: Eva for short.  It helps you with
 - presenting some of it back to you,
 - and getting you to do things.
 
-My goal is an extensible toolbox for making a virtual assistant (VA) that meets your needs, rather than a monolith.  A bazaar-developed monolith, no matter how configurable, would eventually sink because there is no limit to scope creep for a VA.  Thus, writing new functions is the primary means of customizing this thing.  I ship a lot of dogfooded functions do in [[https://github.com/meedstrom/eva/tree/eva-builtin.el][eva-builtin.el]], and it's hopefully easy to make your own substitutes.  I'll be happy to mainline your addition or suggestion; please, open an issue!
+My goal is an extensible toolbox for making a virtual assistant (VA) that meets your needs, rather than a monolith.  A bazaar-developed monolith, no matter how configurable, would eventually sink because there is no limit to scope creep for a VA.  Thus, writing new functions is the primary means of configuring this thing.  I ship a lot of dogfood in [[file:eva-builtin.el]], and it's hopefully easy to make your own functions.  I'll be happy to mainline your suggestion; please, open an issue!
 
 As part of data tracking, we have some automatic loggers:
-- Idle logger:  Records all time when you were idle or the VA was off (perhaps the computer was off).
-- Buffer logger:  Records the current buffer, with info such as how long the buffer was in focus, its title, major mode, visited file name, variables =exwm-class-name=, =eww-url= and so on.
+- Idle logger:  Record all time when you were idle or the VA was off (perhaps the computer was off).
+- Buffer logger:  Record the current buffer, with info such as how long the buffer was in focus, its title, major mode, visited file name, variables =exwm-class-name=, =eww-url= and so on.
 
-We keep much of our state on disk, so everything works across reboots and crashes, which don't matter.
+We keep much of our state on disk, so everything works across reboots and crashes. We are not reliant on =kill-emacs-hook=.
 
 # As part of data tracking, Eva always logs the current buffer, with info such as how long the buffer was in focus, its title, major mode, visited file name, variables =exwm-class-name=, =eww-url= and so on.  It also logs idle/offline time.  That means you know how much of the buffer-focus time wasn't.  Since it knows when the idle state ended, you also get the hook =eva-after-return-from-idle-hook= for any purpose -- during which you can look up =eva-length-of-last-idle= -- a modern and necessary complement to =emacs-startup-hook=.  We keep much of our state on disk, so everything works across reboots and crashes, which shouldn't and don't matter.
 
@@ -36,19 +35,19 @@ Anyway, plot twist.  The above is all a byproduct of the original purpose.
 
 ** Background
 
-Years ago, I wrote a procrastination detector that would notice if I was yak-shaving Emacs init files and clock that under a specific Org heading as "procrastination".  Eventually I extended it to clock /whatever I was doing/ so I didn't have to.  E.g. visiting StackOverflow counted as work, but visiting Hacker News didn't, but that ran into difficulties.  The technical challenge is more complex than it may appear:
+Years ago, I wrote a procrastination detector that would notice if I was yak-shaving Emacs init files and clock that under a specific Org-mode heading as "procrastination".  Eventually I extended it to clock /whatever I was doing/ so I didn't have to.  E.g. visiting StackOverflow counted as work, but visiting Hacker News didn't, but that ran into difficulties.  The technical challenge is more complex than it may appear:
 
 - It's not enough to have hardcoded heuristics like a series of if-then clauses.  You need probability estimates.  Either from a Bayesian model (like with [[https://mc-stan.org][Stan]]), or supervised/reinforcement learning (like with PyTorch or TensorFlow).
-- The data available to Emacs -- various facts such as what buffer is active -- is not enough to go on. You need more data, and that includes the kind of data you can't gather passively, but for which you have to poll the user.
+- The data available to Emacs -- various facts such as what buffer is active -- is not enough to go on. You need more information, and that includes information for which you have to poll the user.
 
 That creates follow-up questions:
-- How to poll the user for info while minimizing the risk that they get tired of all the questions and comment out =eva-mode= in their initfiles?
-- How to ask the right questions at the right times?
+- How to poll the user for info while minimizing the risk that they get tired of all the questions and comment out =eva-mode= in their initfile?
+- How to ask the questions at the right times?
 - How to reward the user for sticking with it?
 
-Another question is whether we can make all this data more useful, after all's said and done and the auto-clocker works correctly.  We don't clock just to look at the pretty summaries, right?  The very system that generates the data is best positioned to use it: this is the advantage of integration.  Naturally if you already have a system for asking questions of the user, you can use this same system to talk at the user -- remind them what they're supposed to be working on, present plots, forecasts and summaries.  We can even hold on to "messages in a bottle" the user wrote for themselves and help out with other forms of self-review.
+Another question is whether we can make this data more useful, after all's said and done and the auto-clocker works correctly.  We don't clock just to look at the pretty summaries, right?  The very system that generates the data is best positioned to use it: this is the advantage of integration.  Naturally if you already have a system for asking questions of the user, you can use this same system to talk at the user -- remind them what they're supposed to be working on, present plots, forecasts and summaries.  We can even hold on to "messages in a bottle" the user wrote for themselves and help out with other forms of self-review.
 
-So I started simple: a series of =(y-or-n-p)= or =(completing-read)= on Emacs init.  That was not fun, but then I coded some more, and now we're here.  We have most features we need for the original purpose, some byproduct features, and some bonus features.  Before the auto-clocking can work, we have to flesh out the statistical model, which is hard.  Input is welcome: please see [[#milestone-for-1.0:-auto-clocking][Milestone for 1.0: Auto-clocking]].
+I started simple: a series of =(y-or-n-p)= or =(completing-read)= on Emacs init.  That was the UX equivalent of axe murder, but then I coded some more, and now we're here.  We have most features we need for the original purpose, some byproduct features, and some bonus features.  Before the auto-clocking can work, we have to flesh out the statistical model, which is hard.  Input is welcome: please see [[#milestone-for-10-auto-clocking][Milestone for 1.0: Auto-clocking]].
 
 You write functions and add them to =eva-items=, and Eva picks out things in this list to run.  A simple version might look like this (see [[file:eva-config.el][eva-config.el]] for full example):
 
@@ -108,24 +107,21 @@ Alternatively with Doom Emacs, this goes in =packages.el=:
 For set-up, please see the manual at [[file:doc/eva.org][doc/eva.org]] (available as Info manual after installation) and the example at [[file:eva-config.el][eva-config.el]].
 
 * Milestone for 1.0: Auto-clocking
+Input welcome on [[https://github.com/meedstrom/eva/issues/4][Issue \#4]] or by email!
 
-This feature requires
+** Goal
+The goal: continuously clock into the correct Org tasks with minimal user initiative.  We assume all tasks come under master tasks named Coding, Studying, Yak Shaving and so on, or can be refiled as such.  The specificity of these categories is up in the air -- they just need to be the same categories we define as "activities", more on that later, and it's feasible some of them can be very narrow in meaning, while others have to remain broad.
 
-Continuously clock into the appropriate org tasks. We assume all tasks come under master tasks named Coding, Studying, Yak Shaving &c or can be refiled as such. The specificity level of these categories is up in the air.
-
-# This module will benefit from a lot of data, including polling the mic and camera, maybe even emailing your phone at times to confirm or reject a prediction. It'll hopefully function well enough without these data sources, it's just that more is better.
-
-Implementing this has an exciting side effect. The model we build of the user could be useful for other things beyond just clocking what the user is doing. E.g. we'll have a guess of the user's mood, which could trigger specific actions. Ultimately I want my VA to take initiative and follow me up about things that I have never told it to.
+Implementing this has an exciting side effect.  The model we build of the user could be useful for other things beyond just clocking what the user is doing.  E.g. we'll have a guess of the user's mood, which could trigger specific actions.  Ultimately I want my VA to take initiative and follow me up about things that I have never told it to.
 
 ** Theory
 
 One of the end products should be presentable as something like this badly simulated area chart:
 
 #+begin_src R :export none
-install.packages("gtools")
 library(gtools)
 library(tidyverse)
-bs3 <- bind_rows(
+d <- bind_rows(
   as_tibble(rdirichlet(n = (4*8), alpha = c(7, 3, 1, 1))),
   as_tibble(rdirichlet(n = (4*2), alpha = c(5, 1, 1, 5))),
   as_tibble(rdirichlet(n = (4*6), alpha = c(1, 2, 4, 9))),
@@ -134,24 +130,22 @@ bs3 <- bind_rows(
   mutate(time = 1:(4*24)) %>%
   pivot_longer(starts_with("V"), names_to = "activity", values_to = "likelihood") %>%
   mutate(activity = factor(activity, labels = c("sleep", "play", "study", "work")))
-bs3
 
-ggplot(bs3, aes(time)) +
+ggplot(d, aes(time)) +
   geom_area(aes(y = likelihood, fill = activity))
 #+end_src
 
 #+ATTR_HTML: :width 600
-#+NAME: CategSeries
 #+CAPTION: Categorical distributions over 96 quarter-hours (24 hours)
 [[file:assets/badly_simulated.png]]
 
-Figure [[CategSeries]] shows a time series over a day.  See how at any point in time, we have a set of probabilities for each of the 4 different possible activities (Is this a Dirichlet process?).  This is merely one component of the full model (see [[#DAG][DAG]]), showing you our guesses based only on the time, presumably from past data on what the user was doing at those times.
+Figure 1 shows a time series over a day.  See how at any point in time, we have a set of probabilities for each of the 4 different possible activities (Is this a Dirichlet process?).  This is one component of the full model (see [[#DAG][DAG]]), showing you our guesses based only on the time, presumably from past data on what the user was doing at those times.
 
-Priors would be [[https://onlinelibrary.wiley.com/doi/book/10.1002/0470033312][elicited]] from the user as probably a set of 4 separate hand-drawn distributions (one for each activity) spread over a time span of 24 hours.  It's a shame we can't assume access to a touchpen so that the user can draw it, but a flexible approach would be to ask them to fill in a list of 24 numbers for (24 hours) and have the plot autogenerated as they go, so they can edit the list until it looks right to them.
+Priors would be [[#elicitation-of-priors][elicited]] from the user as probably a set of 4 separate hand-drawn distributions (one for each activity) spread over a time span of 24 hours.  It's a shame we can't assume access to a touchpen so that the user can draw it, but a flexible approach would be to ask them to fill in a list of 24 numbers for (24 hours) and have the plot autogenerated as they go, so they can edit the list until it looks right to them, or we can let them play with the parameters to a beta distribution.
 
-*** Rubin's basic questions
+*** Rubin's [[https://statmodeling.stat.columbia.edu/2009/05/24/handy_statistic/][basic questions]]
 
-1. What would you do if you had all the data? Rubin's first question
+1. What would you do if you had all the data?
 
 By all data, I assume you mean all data /except/ user verification on current activity, since the point is to minimize our need for that.
 
@@ -161,7 +155,7 @@ My answer leads me to ask how often to re-run the model and how to use the outpu
 
 As an aside, we could block off reclassifying time too far in the past - "lock it in" as it were, but that still leaves say, the last 24-48 hours. We also rely pretty hard on the user's claims of the truth when we can get them, and keep track of whether a block of time is verified or just a guess. Would it perhaps form a second dataset? Hell, how does the dataset look?
 
-2. What were you doing before you had any data? Rubin's second question
+2. What were you doing before you had any data?
 
 I was running nested if-then-else clauses to guess the present state, nothing more. They were hardcoded heuristics with no sense of probability. That's where I started to feel the need to somehow include past information, because the guesses were frequently stupid, and in particular, changed too easily. Perhaps I could have implemented a hack to give them some sluggishness, like average the guesses every minute for the past 15 minutes and only change the prediction when the average exceeds 50%. But that'd have probably resulted in a lot of 7.5 minute time blocks instead of a lot of 1-minute blocks which still looks artificial and feels like I haven't solved the problem. Another problem was when the user corrected the clock: for how long should this correction be canon?
 
@@ -169,16 +163,15 @@ I was running nested if-then-else clauses to guess the present state, nothing mo
 
 You like concrete? I give you concrete! Here are the kinds of data we gather:
 
-#+NAME: buffer-tbl
 #+CAPTION: Buffer log ("buffers" are cognate to application windows)
-| focus-in time    | name                                 | visited-file | type | id  |
-|------------------+--------------------------------------+--------------+------+-----|
-| 2020-02-16 13:20 | firefox:efficientbadass.blogspot.com | ...          | ...  | ... |
-| 2020-02-16 13:21 | school-notes.txt                     | ...          | ...  | ... |
-| 2020-02-16 13:24 | firefox:efficientbadass.blogspot.com | ...          | ...  | ... |
-| ...              | ...                                  | ...          | ...  | ... |
+| focus-in time    | name                                 | file | mode | id  |
+|------------------+--------------------------------------+------+------+-----|
+| 2020-02-16 13:20 | firefox:efficientbadass.blogspot.com | ...  | ...  | ... |
+| 2020-02-16 13:21 | school-notes.txt                     | ...  | ...  | ... |
+| 2020-02-16 13:24 | firefox:efficientbadass.blogspot.com | ...  | ...  | ... |
+| ...              | ...                                  | ...  | ...  | ... |
 
-See how much detail we can get from buffer data under [[Configuration: classify high-confidence cases]].
+See how much detail we can get from buffer data under [[#configuration-preclassify][Configuration: preclassify]].
 
 #+CAPTION: Idle/offline time
 | idle-start <datetime> | idle-length (minutes) |
@@ -192,7 +185,7 @@ See how much detail we can get from buffer data under [[Configuration: classify 
 
 
 #+CAPTION: Sleep
-| date <date> | sleep-end <time> | sleep-length (minutes) |
+| when <date> | sleep-end <time> | sleep-length (minutes) |
 |-------------+------------------+------------------------|
 |  2020-02-16 |            08:30 |                    420 |
 |  2020-02-17 |            10:00 |                    600 |
@@ -235,16 +228,13 @@ We also have some probably less-relevant variables gathered around once per day,
 - Cold showers (subjective rating)
 - ...
 
-Ideally, I'd also ask questions via the user's phone, gather GPS history, poll the webcam and mic for movement and sound, but I'm not sure such data makes a difference for our purposes.
+Ideally, I'd also ask questions via the user's phone, gather GPS history, poll the webcam and mic for movement and sound, but I'm not sure such data makes a difference for the purpose at hand.
 
 From the buffer data, we can create a new variable: "time since buffer-change", and here things start to get interesting for realtime nowcasting.  Of course if you but briefly check an internet article for, say, 30 seconds and get back to your school notes, it's not meaningful (to me) to report this as a change of activity.  So the amount of time since the change matters.  And of course the internet article could be related to the schoolwork.
 
-Also an important piece of data is what kind of buffers these are in Table [[buffer-tbl]], because if every unique URL and filename constitutes its own factor level we'll have an enormous amount of levels.  So, from URL and other metadata, we can and should boil down the buffers into relatively few buckets.  Here's a natural application for a reinforcement learning algorithm, but the human approach described in [[Configuration: classify high-confidence cases]] seems likely to be pretty good after some iteration, and can always be updated when it's found to be halting.
+Also an important piece of data is what kind of buffers these are in Table 1.  If every unique combination of variables constitutes its own factor level we'll have an enormous amount of levels.  So, from URL and other metadata, we can and should boil down the buffers into relatively few buckets.  Here's a natural application for a reinforcement learning algorithm, but the human approach described in [[#configuration-preclassify][Configuration: preclassify]] seems likely to be pretty good after some iteration, and can always be updated when it's found to be halting.
 
-Also, predicted activity category.
-
-# #+CAPTION: Powerful friends
-# [[file:forest-girl.jpg]]
+# Also, predicted activity category.
 
 ** DAG
 
@@ -252,22 +242,23 @@ So here's a first draft DAG (directed acyclic graph) for causal relations within
 
 #+begin_src R
 library(dagitty)
-
 drawdag(dagitty(
   "dag{
-        time.of.day -> class;
+        time.of.day -> activity;
         buffer_kind -> buffer;
-        class -> time.since.bufkind.change;
-        class -> buffer_kind;
+        activity -> time.since.bufkind.change;
+        activity -> buffer_kind;
         time.of.day -> buffer_kind;
-        class -> class_verified;
-        missingness_verification -> class_verified;
+        activity -> activity_verified;
+        missingness_verification -> activity_verified;
         idle.but.not.asleep -> missingness_verification;
-        class -> idle.but.not.asleep;
+        activity -> idle.but.not.asleep;
    }"
 ))
 #+end_src
 
+#+CAPTION: Model graph. As usual for DAGs, an arrow means "this causally influences that".  Some of these are observed variables, others have to be estimated (activity, missingness_{verification}). Hyperpriors left out for now.
+[[file:assets/dag1.png]]
 
 # #+begin_quote
 # Aside: if you need a refresher on DAGs, see.
@@ -279,36 +270,45 @@ drawdag(dagitty(
 # |   |                  |
 
 Observations
-- class is a classification of activity (e.g. coding, sleeping, studying), perhaps using the same factor levels as buffer_{kind}, perhaps fewer.
-- class_{verified} is user-supplied data -- their claims of what activity they're up to -- gotten through automatic prompts at the computer.
-- Fortunately, we know the generative process behind missingness_{verification} - it's simply from when we ask and when we don't ask the user, and we can design that to be a random sampling over the day, so this is not a mystery as it is in many missing-data models.
-  - However, there are times when the computer doesn't get an answer because the user is either away (aka idle) or won't respond.  If the latter situation is rare, it doesn't necessarily affect our predictions of class for the times of day when the user is /not/ idle, and those predictions are our research objective.
-- The contribution of time.of.day was demonstrated in [[Theory][Theory]] (Figure 1).
-- Note that buffer_{kind} has NAs, it's not realistic to preclassify all buffers. That, or it has a few different {unknown.bin1, unknown.bin2, unknown.bin3, ...} levels.
-- A true "change of activity" (shift from one factor level to another) may not map to any meaningful neural event in the user.  The user might be in an undirected state, letting what's in front of them determine what they do next.  However, we can count that as an activity named "undirected", usually transitional between two activities.
+- activity is a classification of activity (e.g. coding, sleeping, studying), with fewer factor levels than buffer_{kind}.
+- activity is unobserved.
+- activity_{verified} is user-supplied data -- their claim of what activity they're up to -- gotten through automatic prompts at the computer.
+- missingness_{verification} is the unobserved process causing activity_{verified} to have NAs.
+- Fortunately, we know the generative process behind missingness_{verification} -- it's simply from when we ask and when we don't ask the user, and we can design that to be a random sampling over the day, so this is not as much a mystery as in many missing-data models.
+  - However, there are times when the computer doesn't get an answer because the user is either away (aka idle) or won't respond.  If the latter situation is rare, it doesn't necessarily affect our predictions of activity for the times of day when the user is /not/ idle, and those predictions are our research objective.
+- The contribution of time.of.day was illustrated in Figure 1 under [[#Theory][Theory]].
+- We could leave out buffer in this graph since the artifice [[#configuration:-preclassify][buffer_{kind]]} counts as observed, but buffer_{kind} could theoretically be an estimated variable.
+- Note that buffer_{kind} has NAs, it's not realistic to preclassify all buffers.
+- buffer has tens of thousands of factor levels.
+- The concept of a "change of activity" (shift from one factor level to another in the activity variable) may not map to any meaningful neural event in the user.  The user might be in some form of undirected state, their choice of next activity heavily influenced by randomness (whatever they happen to see or hear, what someone else says, ...).  However, we can model that as an activity named "undirected", usually transitional between two activities.  Not sure if it's possible to detect, nor if it's important to distinguish this from other types of unknown activity.
+- All our observatitons of sleep is really a subset of class_{verified} data, so they're baked into that variable.
 
 Questions
-- [ ] All our observatitons of sleep is really a subset of class_{verified} data, so they're baked into that variable. Though perhaps this plays epistemic havoc with its missingness process, considering that our random sampling design may naively try to poll the user's activity at night and fail to get an answer and interpret that in a way it shouldn't?
-- [ ] Clarify the relation between class and time.since.bufkind.change. It's not like having class at a certain value would cause a certain amount of minutes of time.since.bufkind.change "no more, no less", is it?
-- [ ] The model as it stands estimates =class= at a specific instant in time /t/, so we could possibly translate this into a Kalman filter implementation for realtime prediction (though I don't know anything about them).  But how do I make a model that estimates large blocks of time in the past, instead of single instants?
+- [ ] Baking sleep into class_{verified}: does this play havoc with the latter's missingness process, considering that our random sampling design may naively try to poll the user's activity at night and fail to get an answer and interpret that in a way it shouldn't?  We could of auto-feed it the "sleep" response, is that ok? (only works for retroactive estimation, obviously not realtime)
+- [ ] Clarify the relation between activity and time.since.bufkind.change.  It's not like having activity at a certain value would cause a certain amount of minutes of time.since.bufkind.change, is it?  But it seems to be exponentially more likely that a shift in activity has occurred the longer the time goes on.
+- [ ] The model as it stands estimates activity at a specific instant in time, and we could possibly translate this into a something efficient akin to a Kalman filter for realtime prediction.  But how do I make a model that estimates large blocks of time in the past, instead of single instants?
 - [ ] Is there any causal relation between buffer_{kind} and time.since.bufkind.change?
 
-Maybe it's a hidden Markov model.
+# Maybe it's a hidden Markov model.
 
 # A human's life my not be reducible to a Markov process all the time, but it only needs to be so most of the time for the VA to do its job.
 
-** Configuration: classify high-confidence cases
+** Configuration: preclassify
 
-So the buffer metadata is a pretty important component of our model, but we don't have any variable called =buffer_kind= with a nice convenient 10-30 factor levels (as opposed to thousands).  So we need to create it, by boiling down the other metadata via a good helping of researcher fiat.
+So the buffer metadata is an essential component of our model, but we don't have any variable called =buffer_kind= with a nice convenient 10-30 factor levels (as opposed to thousands).  So we need to create it, by boiling down the other metadata via a helping of researcher fiat.
 
-As you'll probably agree, this preclassification is extremely useful to probably the majority of predictions we'll make.  I've given the factor names descriptive labels to see how they might map to activity categories, though they won't necessarily do so in the presence of other data (like time of day).  We may have fewer activity categories than buffer kinds shown here, so several buffer kinds could indicate the same activity.  Epistemically, this exercise is not where the classification happens, it's just grouping the buffer metadata into meaningful buckets (factor levels), trying our best to find their natural borders in [[https://www.greaterwrong.com/tag/thingspace][thingspace]]. We basically do grunt work that a ML algorithm could do.
+As you'll probably agree once you look over the below code snippet, this preclassification is extremely useful to probably the majority of predictions we'll make.  I've given the factor names descriptive labels to see how they might map to activity categories, though they won't necessarily do so in the presence of other data (like time of day).  We may have fewer activity categories than the buffer kinds shown here, so several buffer kinds could indicate the same activity.
+
+Epistemically, this exercise is not where the classification happens, it's just grouping the buffer metadata into meaningful buckets (factor levels), trying our best to find their natural borders in [[https://www.greaterwrong.com/tag/thingspace][thingspace]].
+
+(TODO: Show a summary of the dataset too)
 
 #+begin_src R
 # When unsure, leave a NA.  Note that it's okay to define kinds that you view
-# as conceptual subsets of another even if you don't specify that relation. The
+# as conceptual subsets of another even if you don't specify that relation.  The
 # names of the kinds (after the tilde ~) are just suggestive, and meaningless
-# to the modeler. Consider giving them truly meaningless names, like "fnord" or
-# "1", "2".
+# to the modeler.  Consider giving them truly meaningless names, like "fnord" or
+# "1", "2", "3"...
 
 # Keep in mind that this list is parsed sequentially: the first match wins.
 # Look at the printout of d to see what kind of info exists.
@@ -346,85 +346,103 @@ d %>%
   ))
 #+end_src
 
+There remain cases where the buffer_{kind} is left at NA because none of the rules matched.  Instead of a single NA bucket, we might put it in one of a few "unknown_1", "unknown_2", ... buckets, like one for web browsing where the URL doesn't make it clear what's the activity (but we still know it's web browsing, at least).
+
 ** Configuration: define activities
 
-First, define an exhaustive and _mutually exclusive_ list of activities, such that any minute in your day can be classified as one of these activities.
+First, the user shall define an exhaustive and _mutually exclusive_ list of activities, such that any minute in their day can be classified as one of these activities.
 
 #+BEGIN_SRC elisp
-(setq secretary-activities
+(setq eva-activity-list
       (list
-       (secretary-activity-create :name "sleep"
-                                  :cost-false-pos 3
-                                  :cost-false-neg 3)
-       (secretary-activity-create :name "studying"
-                                  :id "24553859-2214-4fb0-bdc9-84e7f3d04b2b"
-                                  :cost-false-pos 8
-                                  :cost-false-neg 8)
-       (secretary-activity-create :name "unknown"
-                                  :cost-false-pos 0
-                                  :cost-false-neg 0)))
+       (eva-activity-create :name "sleep"
+                            :cost-false-pos 3
+                            :cost-false-neg 3)
+
+       (eva-activity-create :name "studying"
+                            :id "24553859-2214-4fb0-bdc9-84e7f3d04b2b"
+                            :cost-false-pos 5
+                            :cost-false-neg 8)
+
+       (eva-activity-create :name "unknown"
+                            :cost-false-pos 0
+                            :cost-false-neg 0)))
 #+END_SRC
 
 - =:name= is name of the activity.  Try not to change it, as it'll trigger a new elicitation of priors, like you'd deleted the activity and added a different one.
-- =:id= is the =org-id= identifier of an Org headline, this is optional.  Setting it will allow us to insert the history as org-clock lines under its logbook (TBD).
+- =:id= is the =org-id= identifier of an Org headline.  Setting it will allow us to insert the history as org-clock lines under its logbook.
 - =:cost-false-pos= is the cost of a false positive, i.e. falsely assuming that you are working on this when you aren't (and thus accumulating clock time on it when you aren't doing it).
 - =:cost-false-neg= is the cost of a false negative, i.e. falsely assuming that you *aren't* working on this when you are (and thus missing out on clock time).
 
-The "costs" implement a cost function or [[https://en.wikipedia.org/wiki/Loss_function][loss function]].  Emacs will use this information to decide whether it's worth querying you to verify its predictions.  The costs have no measurement unit but are relative to the costs of other activities.  When in doubt, make both the false positive and false negative costs the same, you can refine it later.
+The "costs" implement a cost function or [[https://en.wikipedia.org/wiki/Loss_function][loss function]].  Emacs will use this information to decide whether it's worth querying you to verify its predictions.  The costs have no measurement unit but are relative to the costs of other activities.  When in doubt, give the same number to both the false positive and negative costs, you can refine them later.
 
-There should be an activity called "unknown" or similar, with costs zero.
+There should be an activity called "unknown" with costs zero, to work as a default.
 
-# Step 2: Categorize buffers. That is, use Emacs for a while so your buffer logs build up, then go edit =R/sc.R=, specifically the =d2= dataset.
-# TODO: The user should probably keep an .R file amongst their .el files, and an elisp variable should point to it. This R file could source the R files in the eva repo to get access to the data to look at, but its =d2= definition could be lazy-evaluated (dtplyr?).
+** Elicitation of priors
 
-** Continuous configuration: Elicitation of priors
+Before the auto-clocker starts running models, it will get the priors it needs by carrying out  [[https://onlinelibrary.wiley.com/doi/book/10.1002/0470033312][expert elicitation]], where the user is considered the "expert".  The user shall be asked to give their beliefs about a range of situations.  We already went into this a bit under [[#Theory]], how the user would give their priors about activities over different times of day.
 
-Before the auto-clocker starts making any predictions, it will *elicit priors*.  You'll be asked to give your prior beliefs about a wide range of situations (TBD). This is a one-time thing in principle, though the questioning will repeat every time you add or remove an activity to =eva-activities=, since that alters the statistical model.  If Emacs should fail to load your initfiles, it'll read =eva-activities= from a backup, but you should keep the =setq= form in your initfiles, in case Emacs fails to load the backup.  Feel free to change the costs at any time, but leave the names alone as it will look like you added a new activity.
+Aside from times of day, the user might be asked for Dirichlet concentration parameters to how each =buffer_kind= predicts activity.
 
-While these questions are necessary for epistemic coherence, there's no need to overthink your answers.  They serve as a starting point, and sufficient data will overwhelm them eventually, provided you didn't zero out any possibilities nor put them at 100% ([[https://en.wikipedia.org/wiki/Cromwell%27s_rule][Cromwell's rule]]).
+Ideally, this would be a one-time thing, but in practice we have to repeat it whenever the user re-defines the buffer kinds (repeat for each buffer kind affected by the change) or re-defines the activities (repeat everything), since that changes the statistical model.  This would be an iterative process that's most intense in the beginning.
 
-Later when you add a new activity category, we'll repeat the questioning.  All the data up to that point will be discarded to avoid HARK ([[https://en.wikipedia.org/wiki/Hypotheses_suggested_by_the_data][hypothesising after results known]]).  The idea is that you roll up everything you've learned into the new priors.  Exploit the descriptive statistics we make available during questioning, look them over.
+Every time the questioning repeats, we have to discard all the data up to that point to avoid HARK ([[https://en.wikipedia.org/wiki/Hypotheses_suggested_by_the_data][hypothesising after results known]]).  The idea is that the user rolls up everything they've learned into the new priors.  We display descriptive statistics during this questioning.  If the user is not feeling up to it, they can cancel all this and stay on the old model until later.
 
-If you don't have time to answer the questions, don't change the categories.  You will have the option to continue using the old set of categories if it turns out you don't have time.
-
-Typical questions during elicitation of priors
-
-Every question asks for the parameters to a [[https://en.wikipedia.org/wiki/Dirichlet_distribution][Dirichlet distribution]].  It's not complicated, it's kid-level machine learning: one number for each one of your predefined activities, where a bigger number means more likely.  They're called "concentration parameters".  Like with the cost function, the most important thing is the ratio between them, but this time the absolute scale does play a role.  There is a difference between {1, 2, 3} and {2, 4, 6}, the vector with the bigger numbers is more densely concentrated around small loci. (what does this mean?)
-
-, in other words, a list of numbers each corresponding to one of your predefined activities.  These parameters behave such that if you give every one the value 1, every activity is equally likely.  Increase if you think one is more likely than another, decrease if less likely.
-
-- Base rates
-- Probability of sleeping at certain hours
+It's possible that instead of asking for Dirichlet parameters, it's smarter to ask more specific, binary questions like
 - Probability that editing elisp files is yak shaving as opposed to productivity
-- Probabilities of what you're doing while AFK
+- Probability that ...
 
-** For  to help :noexport:
+But this may be a nearly endless list of questions (combinatorial explosion) or may require user to design these questions for themselves and modify the R code, whereas the parameters questions are simple and there are only as many of them as there are buffer kinds.
 
-I'll ship some example datasets in this repo (made with real data), so you can play with it if you like.
+# User-manual version
+
+# Before the auto-clocker starts making any predictions, it will *elicit priors*.  You'll be asked to give your prior beliefs about a wide range of situations. This is a one-time thing in principle, though the questioning will repeat every time you add or remove an activity to =eva-activities=, since that alters the statistical model.  If Emacs should fail to load your initfiles, it'll read =eva-activities= from a backup, but you should keep the =setq= form in your initfiles, in case Emacs fails to load the backup.  Feel free to change the costs at any time, but leave the names alone as it will look like you added a new activity.
+
+# While these questions are necessary, there's no need to overthink your answers.  They serve as a starting point, and sufficient data will overwhelm them eventually, provided you didn't zero out any possibilities nor put them at 100% ([[https://en.wikipedia.org/wiki/Cromwell%27s_rule][Cromwell's rule]]).
+
+# Later when you add a new activity category, we'll repeat the questioning.  All the data up to that point will be discarded to avoid HARK ([[https://en.wikipedia.org/wiki/Hypotheses_suggested_by_the_data][hypothesising after results known]]).  The idea is that you roll up everything you've learned into the new priors.  Exploit the descriptive statistics we make available during questioning, look them over.
+
+# If you don't have time to answer the questions, don't change the categories.  You will have the option to continue using the old set of categories if it turns out you don't have time.
+
+# Typical questions during elicitation of priors
+
+# Every question asks for the parameters to a [[https://en.wikipedia.org/wiki/Dirichlet_distribution][Dirichlet distribution]].  It's not complicated -- this is kid-level stuff for ML people -- one number for each one of your predefined activities, where a bigger number means more likely.  They're called "concentration parameters".  Like with the cost function, the most important thing is the ratio between them, but this time the absolute scale does play a role.  There is a difference between {1, 2, 3} and {2, 4, 6}, the vector with the bigger numbers is more densely concentrated around small loci. (what does this mean?)
+
+# , in other words, a list of numbers each corresponding to one of your predefined activities.  These parameters behave such that if you give every one the value 1, every activity is equally likely.  Increase if you think one is more likely than another, decrease if less likely.
 
 * Stretch wishlist: Extended AI features
-You could consider auto-clocking as not a flagship feature, but a proof-of-concept and initial battle test.  After we have it, there's an exciting side effect.  The model we built of the user could be useful for other things, such as all of the following.
+You could consider auto-clocking as not a flagship feature, but a proof-of-concept and initial battle test.  After we have it, the model we build of the user could be useful for other things, such as all of the following.
 
 ** Procrastination prediction engine
 
 In other words, not just recording the past and guessing the present state of affairs ([[https://en.wikipedia.org/wiki/Nowcasting_(economics)][nowcasting]]), but forecasting what you will spend the next few hours doing or how much work you will get done today!
 
-If these numbers are halfway reliable, the forecasts may well alter what you end up doing, just as a way of rebelling, or because you notice little lifehacks that improve the forecast (perhaps taking a walk in the morning).  Perhaps we could show the user where most of the probability mass is coming from, so they see where they can make the largest difference in their life.  Thus the user doesn't have to analyze their own data, it's indirectly happening anyway.  No longer a bunch of spreadsheets on disk you forget about.
+If these numbers are halfway reliable, the forecasts may well alter what you end up doing, just as a way of rebelling, or because you notice little lifehacks that improve the forecast (even something stupid like taking a walk in the morning).  Perhaps we could show the user where most of the probability mass is coming from, so they see where they can make the largest difference in their life.  Thus the user doesn't have to analyze their own data, it's indirectly happening anyway.  No longer a bunch of spreadsheets on disk you forget about.
 
-With [[https://www.gwern.net/Prediction-markets#predictionbook-nights][PredictionBook]] integration, we could even record the user's own predictions and make a little game of competition between AI guesses and human guesses.
+With [[https://www.gwern.net/Prediction-markets#predictionbook-nights][PredictionBook]] integration, we could even make a game of recording the user's own predictions and pitting them against the AI's guesses.
 
 ** Reading assistant
-While reading an Info manual or ebook, we prompt the user to write flashcards (maybe org-roam nodes) at appropriate points.  We remember from what location a flashcard was created, present related flashcards when revisiting a book/manual, and prompt the user to revisit books they have not visited in a long time.  You could describe it as assisted incremental reading.  Like how you would imagine ebook readers like the Pocketbook if it (1) had a virtual assistant like Siri that (2) knew the latest research on spaced repetition learning.
+While reading an Info manual or ebook, we prompt the user to write flashcards (maybe org-roam nodes) at appropriate points.  We remember from what location a flashcard was created, present related flashcards when revisiting a book/manual, and prompt the user to revisit books they have not visited in a long time.  You could describe it as assisted [[https://en.wikipedia.org/wiki/Incremental_reading][incremental reading]].  Like how you would imagine ebook readers like the Pocketbook if it (1) had a virtual assistant like Siri that (2) knew the latest research on spaced repetition learning.
 
-A commitment to GNU Emacs means we substitute the main apps on every device.  The user runs Emacs on their smartphone (UserLAnd), [[https://old.reddit.com/r/RemarkableTablet/comments/iis4fo/emacs_on_remarkable/][on their e-ink device]] and on their tablet, bringing a fold-down Bluetooth keyboard everywhere they go.  If the init files are kept in sync, it's as if they are all the same instance of Emacs, and we get excellent logs of what's happening on each device.  We can also resume reading any book from any device we like, and obviously use Emacs' various flashcard solutions from any device, with full capabilities (both creation and review) instead an often-limited mobile app frontend.  We'll have all our org-capture templates and so on.
+A love affair with Emacs means we substitute the main apps on every device.  The user runs Emacs on their smartphone (UserLAnd), [[https://old.reddit.com/r/RemarkableTablet/comments/iis4fo/emacs_on_remarkable/][on their e-ink device]] and on their tablet, bringing a fold-down Bluetooth keyboard everywhere they go.  If the init files are kept in sync, it's as if they are all the same instance of Emacs, and we get logs of what's happening on each device.  We can also resume reading any book from any device we like, and obviously use Emacs' various flashcard solutions from any device, with full capabilities (both creation and review) instead an often-limited mobile app frontend.  We'll have all our org-capture templates and so on.
 
-So it makes perfect sense to track all reading the user does in Emacs and help them with it and with consistency.  This also means we may actually be able to */record all that the user has ever even briefly learned/* and therefore measure how much they have forgotten. Perhaps more practically, this info could be used by e.g. evil-tutor to scale the difficulty to what the user already knows.
+So it makes sense to track all reading the user does in Emacs and help them with it and with consistency.
+
+This also means we may actually be able to *record all that the user has ever even briefly learned* and therefore measure how much they have forgotten. Perhaps more practically, this info could be used by aware manuals and "tutors" like evil-tutor to scale the difficulty to what the user already knows.
 
 ** Diet consistency helper
-(We need to log e-receipts to infer diet first.)
+For this, a prerequisite is access to e-receipts.  With a log of receipts, we can infer roughly what the user's diet looks like -- not on a daily basis but a rolling weekly or monthly basis, which is enough.
 
-** Features typical of virtual assistants like Siri
+You could use this to plot a moving average of macronutrients and compare it to your weight graph (which is itself noisy and meaningless for a specific day), or you could summarize how often you eat healthy or unhealthy, or how much you drink or smoke, things which are easy to be mistaken about.
+
+The e-receipts will not be reliable if the user shares food often, so it would require correctione, but it may take less mental activation energy to correct a wrong log than to write them from scratch.
+
+A "fun" effect is that the user will be obligated to log when they throw away e.g. a pack of butter, so it gets correctly subtracted from the year's total calories.  The model has to assume that buying means eating, after all.
+
+** Features typical of smartphone virtual assistants
 - ???
+
+I'm deaf so I have no real idea what they do.
 
 * Stretch wishlist: NLP
 An aspect of AI is natural language parsing and generation.  Using GPT-J or whatever is the latest offline-workable system, we may open up a few quality-of-life boosts:
@@ -470,7 +488,7 @@ The You Tribune could pipe in RSS/feed articles of high likely interest.  Once a
 It could tell you who you're chatting with, have a summary "This day one year ago", and what not.
 
 ** Continuous review
-Many people use human secretaries and "weekly reviews" as a necessary adaptation to the inflexibilities of life, and doing it all at once minimizes context switching later, but some of us may reliably be hacking at the computer many hours every day in one and the same programmable environment. This reliability is an opportunity. We can have a VA that (1) knows things that would be hard for a human assistant to know, and (2) spread out the review process into a more continuous thing, filling in the time gaps anywhere you can with minimal context switching.
+Many people use human assistants and "weekly reviews" as an adaptation to the inflexibilities of life, and doing it all at once minimizes context switching later, but some of us may reliably be at the computer many hours every day in one and the same programmable environment.  This reliability is an opportunity to exploit for as long as the user stays in it.  We can have a VA that (1) knows things that would be hard for a human assistant to know, and (2) spread out the review process into a more continuous thing, filling in the time gaps anywhere you can with little context switching.
 
 We already have parts of such a process.  Every day, =eva-present-diary= exposes you to a selection of your old diary entries, so that the diary works as a "tickler file".
 
@@ -479,6 +497,7 @@ The question is: what else is part of a weekly review:
 - Cleaning up your project lists
   - generating fresh TODOs
   - expunging stale projects
+- ...
 
 # ASIDE: Always compare this package you want to make to a simple extension of your org agenda, with more hotkeys on display for all kinds of interesting commands (like review diary). What does your package have that is special?
 #
