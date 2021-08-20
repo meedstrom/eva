@@ -81,24 +81,24 @@
                         :min-hours-wait 5
                         :lookup-posted-time t)
 
+       (eva-item-create :fn #'eva-present-ledger-report)
+
+       (eva-item-create :fn #'eva-present-org-agenda)
+
+       (eva-item-create :fn #'eva-query-ingredients
+                        :dataset "/home/kept/Self_data/ingredients.tsv"
+                        :min-hours-wait 5)
+
+       (eva-item-create :fn #'eva-query-cold-shower
+                        :dataset "/home/kept/Self_data/cold.tsv"
+                        :max-entries-per-day 1)
+
        ;; you can inline define the functions too
        (eva-item-create
         :fn (eva-defun my-koan ()
               (message (eva-emit (seq-random-elt eva-aphorisms)))
               (sit-for eva-sit-long))
         :min-hours-wait 16)
-
-       (eva-item-create :fn #'eva-present-ledger-report)
-
-       ;; (eva-item-create :fn #'eva-present-org-agenda)
-
-       ;; (eva-item-create :fn #'eva-query-ingredients
-       ;;                  :dataset "/home/kept/Self_data/ingredients.tsv"
-       ;;                  :min-hours-wait 5)
-
-       ;; (eva-item-create :fn #'eva-query-cold-shower
-       ;;                  :dataset "/home/kept/Self_data/cold.tsv"
-       ;;                  :max-entries-per-day 1)
 
        (eva-item-create
         :fn (eva-defun my-bye ()

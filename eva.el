@@ -1556,6 +1556,7 @@ spawned by the functions will be skipped by
   "Run through all enabled items."
   (interactive)
   (eva-dbg "Running eva-session-new-force-all")
+  (named-timer-cancel :eva-excursion)
   (setq eva-date (ts-now))
   (setq eva--queue (eva-enabled-fns))
   (eva-run-queue))
