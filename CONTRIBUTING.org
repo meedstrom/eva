@@ -1,11 +1,11 @@
 * Design goals
-- To never have to disable :: We should never have to disable the package, especially in permanent fashion by commenting out =(secretary-mode)= in our init files.  It carries so many disparate responsibilities that it harms the user to be forced to disable it.  That means:
-  - We should be able to interactively disable a bothersome element.
-    - The means to do this should be discoverable.  Put it in =secretary-dispatch=, and =secretary-chat-mode-map=, name it so it's easy to find in counsel-M-x, helm-M-x etc, and talk about it in documentation.
+- To never have to disable :: We should never have to disable the package, especially in permanent fashion by commenting out =(eva-mode)= in our init files.  It carries so many disparate responsibilities that it harms the user to be forced to disable it.  That means:
   - We should decouple things so that most of the functionality survives when one part breaks.
-  - The errors from the broken part should not recur (spam the user).  For example, a recurring timer or a buffer change hook or find-file hook that emits an error every time.  Minimize the possibility of this!  Consider detecting repeated misbehavior and automatically turning off the offending component.
+  - We should be able to interactively disable a bothersome element.
+    - The means to do this should be discoverable.  Put it in =eva-dispatch=, and =eva-chat-mode-map=, name it so it's easy to find in counsel-M-x, helm-M-x etc, and talk about it in documentation.
+  - The errors from the broken part should not recur (spam the user).  For example, it's terrible when a recurring timer or a buffer change hook emits an error every time.  Minimize the possibility of this!  Consider detecting repeated misbehavior and automatically turning off the offending component.
 
 
-- Don't risk your data :: don't carry out destructive operations on your datasets.
+- Don't risk your data :: Don't carry out destructive operations on your datasets.
   - This is why we use append-only, and when edits are needed we simply print out the file path and let you edit manually.
-    - Exceptions apply to =secretary-memory=, since it's not user data.
+    - Exceptions may apply to =eva-mem= since it's not user data, but it's still a good idea.

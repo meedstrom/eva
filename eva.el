@@ -986,7 +986,7 @@ Referred to by their :fn value.")
   (eva-item-dataset (eva-item-by-fn fn)))
 
 (defun eva-enabled-fns ()
-  "Subset of `secretary-items' not known as disabled.
+  "Subset of `eva-items' not known as disabled.
 Referred to by their :fn value."
   (-difference (-map #'eva-item-fn eva-items) eva-disabled-fns))
 

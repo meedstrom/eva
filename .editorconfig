@@ -4,8 +4,12 @@ root = true
 end_of_line = lf
 charset = utf-8
 
-[*.{el,R}]
+[*.el]
 indent_style = space
+
+[*.R]
+indent_style = space
+indent_size = 2
 
 [Makefile]
 indent_style = tab
