@@ -2,15 +2,17 @@
 .eshell-command-history
 *.pdf
 *.tex
+*.texi
 *.log
 *.html
+*.elc
 *~
 \#*\#
 .\#*
 
 
-/mothball*
 /*-old*
 /BRAINSTORM.org*
-/wip*.el
+/wip.el
 /deps/
+/mothball/

@@ -1,0 +1,400 @@
+#+TITLE: Eva's User Manual
+:PREAMBLE:
+#+AUTHOR: Martin Edström
+#+EMAIL: meedstrom@teknik.io
+#+DATE: 2020-2021
+#+LANGUAGE: en
+
+#+TEXINFO_DIR_CATEGORY: Emacs
+#+TEXINFO_DIR_TITLE: va: (va).
+#+TEXINFO_DIR_DESC: Virtual assistant for Emacs.
+#+SUBTITLE: for version 0.1.0
+
+#+TEXINFO_DEFFN: t
+#+OPTIONS: H:4 num:4 toc:2
+#+PROPERTY: header-args :eval never
+#+BIND: ox-texinfo+-before-export-hook ox-texinfo+-update-copyright-years
+#+BIND: ox-texinfo+-before-export-hook ox-texinfo+-update-version-strings
+
+#+TEXINFO: @noindent
+This manual is for Eva version 0.1.0.
+
+#+BEGIN_QUOTE
+Copyright (C) 2020-2021 Martin Edström <meedstrom@teknik.io>
+
+You can redistribute this document and/or modify it under the terms
+of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any
+later version.
+
+This document is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+#+END_QUOTE
+:END:
+* Requirements
+- An Unix-like system, probably
+- GNU Emacs 27+
+- GNU R
+- gnuplot
+- On X: =xprintidle= or =x11idle=, or to run under Mutter (GNOME's window manager).
+- On Wayland: to run under Mutter (GNOME's window manager).
+  - Not sure how to use =kidletime= or =swayidle=, please open issue.
+
+* Soft requirements
+You should let Emacs always run: add it to =xinitrc=, Startup Applications or so.  In principle, we could spin out some functionality as a separate program in Python or Scheme that always runs like your hundred other background processes, but such separation would be overengineering because the package is targeting those who always run Emacs anyway.  Every time the program would be scheduled to do something, it'd have to emit a notification, possibly an OS dialog, and start up Emacs anyway.  We'd be relying on a functional notification daemon and dbus (brittle assumption), gtk/qt toolkits (brittle assumption), access to executables (brittle assumption, NixOS anyone?), POSIX scripts (unportable without extreme effort), service declarations (which service manager?), synced config files (brittle) and on and on.  One of the raisons d'etre for Emacs is to make app development both fast and solid by just ignoring the OS.
+
+-------
+
+We use =run-ess-r= from [[https://github.com/emacs-ess/ess][ESS]] because it has sanity checks and handles encoding issues well, but the flip side is that user configuration can cause it to return errors on startup (e.g. =ess-history-file= at an unreadable location) and stop =eva-mode= from turning on.  It's your responsibility to have a functional ESS.
+
+* Set-up
+** Initial
+
+If you have [[https://github.com/raxod502/straight.el][straight.el]], you can install the package like so:
+#+begin_src elisp
+(use-package eva
+  :straight (eva :type git :host github :repo "meedstrom/eva"))
+#+end_src
+
+Alternatively with Doom Emacs, this goes in =packages.el=:
+#+begin_src elisp
+(package! eva
+  :recipe (:host github :repo "meedstrom/eva"))
+#+end_src
+
+The package syncs a lot of data to disk, because its data is of interest across sessions, so if you customize =eva-cache-dir-path= or =eva-mem-history-path=, try to keep it correct.  If you have multiple inits via [[https://github.com/plexus/chemacs2][chemacs]], have them set one absolute path for these (chemacs can actually help with this so it needn't be repeated inside each of the inits).
+
+You should activate =eva-mode= upon init or soon after. The reasons are:
+
+1. To bring the buffer logger online, which is necessary for the automatic org-clocker to guess what is going on.  Even if it's not important, it's useful to have data on what "not important" looks like.
+2. To calculate idleness correctly.  We count idleness from the last time Emacs was running and this mode was on, so any stretch of time you use Emacs without enabling the mode, we assume you just weren't at the computer.
+
+** Choose what to track
+
+#+begin_export texi
+You'll want to set @samp{eva-items} in your init.  Please see eva-config.el (@samp{M-x find-library eva-config}) for full example, but here's a subset:
+#+end_export
+#+begin_export html
+You'll want to set <code>eva-items</code> in your init.  Please see <a href="../eva-config.el">eva-config.el</a> (<code>M-x find-library eva-config</code>) for full example, but here's a subset:
+#+end_export
+
+#+BEGIN_SRC elisp
+(setq eva-items
+      (list (eva-item-create :fn #'eva-query-sleep
+                             :dataset "/home/kept/Self_data/sleep.tsv"
+                             :min-hours-wait 5
+                             :lookup-posted-time t)
+
+            (eva-item-create :fn #'eva-query-weight
+                             :dataset "/home/kept/Self_data/weight.tsv"
+                             :max-entries-per-day 1)
+
+            (eva-item-create :fn #'eva-query-mood
+                             :dataset "/home/kept/Self_data/mood.tsv")))
+#+END_SRC
+
+Here we expose one of the main customization targets.  As I explain in the next section, I expect you to eventually write your own defuns to replace =#'eva-query-weight= et al here, so you'd change the =:fn= value to some =#'my-query-weight=.  I also expect you'll create new items for whatever bizarre stuff you want to track.  When you do, see the source of the existing functions for how it's done.
+
+You shouldn't need to read up on the built-in queries, try them out and hopefully you find them intuitive.
+
+The arguments to =eva-item-create= are as follows:
+
+- =:fn= - the function to call that will query user for this info
+- =:dataset= - where to save the info
+- =:min-hours-wait= - the minimum amount of hours to wait before it is ok to query you for this info again
+- =:max-entries-per-day= - max amount of entries to make in a given day; this makes sense for some kinds of info
+
+It also has =:last-called= and =:dismissals= for internal use.
+
+The order in which the items come in this list reflects the order in which you will be asked.  To disable one of them, it is not necessary to remove it from this list, just cancel the query a few times with C-g and the VA will ask you if (s)he should disable it, which is recorded separately in =eva-mem=.  To reenable, try =M-x eva-reenable-fn= and enter the name of that function, or simply edit =eva-disabled-fns=.
+
+* Extending your VA
+** Writing a new function
+You'll customize this package primarily by creating defuns.  It's so personal what people want a VA for, that simple user options (variables) would not scale.  I would do you no service by making variable references all over the place.  Better you get started with the defuns and we both save energy.  As a plus, it gives our code more clarity.
+
+Some premade functions are listed as follows.  Read their source to see how to write your own.
+
+- Queries
+  - =eva-query-weight=
+  - =eva-query-mood=
+  - =eva-query-sleep=
+  - =eva-query-activity=
+- Excursions
+  - =eva-plot-weight=
+  - =eva-present-ledger-report=
+  - =eva-present-diary=
+- Misc
+  - =eva-greet=
+
+Now, there are two main kinds of functions: queries and excursions, and a function can be both at the same time.  The distinction is:
+
+- Pure queries are simple: they prompt for user input, do something with it (usually write something to disk), and finish, letting the next item in the queue take over.
+- Excursions send you away from the chat buffer and quit the interactive session with the VA.  For example, it may send you to a ledger report (=eva-present-ledger-report=).  The VA has, so to speak, lost control of the conversation.  To proceed to the next item, it waits for the user to either kill every buffer spawned by the excursion, or manually resume the session with =eva-resume=.
+  - To be an excursion, the function must push each spawned buffer onto =eva-excursion-buffers= and then call =keyboard-quit=.
+
+** Composing a custom session
+
+By default, your entry point is =eva-run-queue= (called automatically throughout the day via =eva-session-butt-in-gently=). It tries to go through every currently relevant item in =eva-items=. To force a new session, you can also call =M-x eva-session-new=.
+
+To understand better how the package works, you can make a different entry point.  The sky's the limit.  This snippet contains a fairly "dumb" approach:
+
+#+begin_src elisp
+(defun my-custom-session ()
+  (setq eva-date (ts-now))
+  (let ((just-idled))
+    (and just-idled
+         (eva-ynp "Have you slept?")
+         (eva-query-sleep))
+    (unless (eva-logged-today-p "/home/kept/Self_data/weight.tsv")
+      (eva-query-weight))
+    (eva-query-mood)
+    (and (eva-ynp "Up to reflect?")
+         (eva-ynp "Have you learned something?")
+         (org-capture nil "s")) ;; say you have a capture template on "s"
+    (if (eva-ynp (concat "How about some flashcards?"))
+        (org-drill))
+    (if (eva-ynp "Have you stretched today?")
+        nil
+      (if (eva-ynp "Do you want reminders for why?")
+          nil
+        nil))
+    (if (eva-ynp "Did you photographe your face today?")
+        nil)
+    (unless (eva-logged-today "/home/kept/Self_data/meditation.csv")
+      (eva-query-meditation eva-date))
+    (unless (eva-logged-today "/home/kept/Self_data/cold.csv")
+      (when (eva-ynp "Have you had a cold shower yet?")
+        (eva-query-cold-shower)))
+    (if (eva-ynp "Have you paid for anything since yesterday?")
+        (eva-present-ledger-file))
+    (if (eva-ynp "Shall I remind you of your life goals? Don't be shy.")
+        (view-file "/home/kept/Journal/gtd.org"))
+    (and (> 2 (eva-query-mood))
+         (doctor))
+    (eva-present-plots)
+    (eva-present-diary)
+    (and (-all-p #'null (-map #'eva-logged-today-p
+                              (-map #'eva-item-dataset eva-items)))
+         (eva-ynp "Shall I come back in an hour?")
+         (run-with-timer 3600 nil #'eva-session-from-idle))))
+#+end_src
+
+If you want a more intelligent session, populate =eva--queue= and then call =eva-run-queue= -- see the source for the =session-= functions.
+
+* Synergistic programs
+** Memacs
+You can enrich your agenda log (=l= hotkey in the agenda view) with Git commit history so they show up like this:
+
+#+begin_example
+Week-agenda (W33):
+Monday     16 August 2021 W33
+  eva:        9:04......  Martin Edström: fix                                                  :Memacs:git::
+Tuesday    17 August 2021
+  eva:        10:40...... Martin Edström: Comply with checkdoc, flycheck, package-lint         :Memacs:git::
+  eva:        11:06...... Martin Edström: style                                                :Memacs:git::
+  eva:        11:06...... Martin Edström: Hopefully fixed bug nulling mood-alist               :Memacs:git::
+  eva:        11:37...... Martin Edström: Post design goals                                    :Memacs:git::
+  eva:        12:20...... Martin Edström: minor                                                :Memacs:git::
+  eva:        20:38...... Martin Edström: Add makem.sh as submodule                            :Memacs:git::
+  eva:        21:55...... Martin Edström: Move code around and rename                          :Memacs:git::
+  eva:        23:21...... Martin Edström: Fix bug that ran mode turn-off code on init          :Memacs:git::
+Wednesday  18 August 2021
+  eva:        0:41......  Martin Edström: simplify                                             :Memacs:git::
+  eva:        0:42......  Martin Edström: had corrupt dataset, add a check for next time       :Memacs:git::
+  eva:        0:42......  Martin Edström: missed a rename                                      :Memacs:git::
+  eva:        0:42......  Martin Edström: care and feeding of rg                               :Memacs:git::
+  eva:        0:47......  Martin Edström: fix                                                  :Memacs:git::
+  eva:        2:19......  Martin Edström: Improve sleep query                                  :Memacs:git::
+  eva:        2:19......  Martin Edström: Make R take user-supplied dataset path               :Memacs:git::
+  eva:        2:20......  Martin Edström: style                                                :Memacs:git::
+  eva:        3:09......  Martin Edström: fixes                                                :Memacs:git::
+  eva:        3:11......  Martin Edström: Better guard clauses                                 :Memacs:git::
+  eva:        3:56......  Martin Edström: Remove test obsoleted by emacs-lisp-macroexpand      :Memacs:git::
+  eva:        4:31......  Martin Edström: Renames for brevity                                  :Memacs:git::
+  eva:        4:33......  Martin Edström: Rename test.el                                       :Memacs:git::
+  eva:        5:01......  Martin Edström: Add license on sound files                           :Memacs:git::
+  eva:        5:01......  Martin Edström: alignment                                            :Memacs:git::
+  eva:        5:33......  Martin Edström: Fix wrap                                             :Memacs:git::
+  eva:        5:35......  Martin Edström: Always track query successes                         :Memacs:git::
+  eva:        5:36......  Martin Edström: Use more s.el f.el                                   :Memacs:git::
+  eva:        5:50......  Martin Edström: minor                                                :Memacs:git::
+  eva:        16:27...... Martin Edström: Settle on a single boilerplate macro                 :Memacs:git::
+  eva:        16:30...... Martin Edström: Add debug messages                                   :Memacs:git::
+  eva:        16:31...... Martin Edström: fix                                                  :Memacs:git::
+  eva:        16:31...... Martin Edström: formatting                                           :Memacs:git::
+  eva:        16:35...... Martin Edström: Rename (stage 1)                                     :Memacs:git::
+  eva:        16:36...... Martin Edström: Rename (stage 2 and done)                            :Memacs:git::
+  eva:        17:40...... Martin Edström: style                                                :Memacs:git::
+  eva:        17:40...... Martin Edström: renames                                              :Memacs:git::
+  eva:        18:03...... Martin Edström: Clearer init                                         :Memacs:git::
+  eva:        20:21...... Martin Edström: cleanup and document                                 :Memacs:git::
+  eva:        20:38...... Martin Edström: Update licensing                                     :Memacs:git::
+Thursday   19 August 2021
+Friday     20 August 2021
+Saturday   21 August 2021
+Sunday     22 August 2021
+#+end_example
+
+That's especially nice when you are regularly reviewing the past.
+
+When I first read about [[https://github.com/novoid/Memacs][Memacs]], I thought it would be a beast to set up and get working, but it's just a collection of independent Python scripts.  So let's use one of them to achieve the above.
+
+First, download all its scripts with something like =pip3 install --user memacs=, which will put the executable =memacs_git=, among other =memacs_*= executables, into =~/.local/bin/=. Path may vary depending on your OS.
+
+Then set up a regular job that collects your Git histories. Here's a way to do that from your initfiles. Edit paths as necessary. I apologize for mixing shell commands with lisp.
+
+#+begin_src elisp
+(defun my-file-size (file)
+  "Returns the size of FILE in bytes."
+  (unless (file-readable-p file)
+    (error "File %S is unreadable; can't acquire its filesize"
+           file))
+  (nth 7 (file-attributes file)))
+
+(setq my-all-git-repos
+      (seq-filter (lambda (x)
+                    (and (file-directory-p x)
+                         (member ".git" (directory-files x))))
+                  ;; Paths to specific git repos
+                  (append '("/home/kept/Knowledge_base"
+                            "/home/kept/Journal/Finances"
+                            "/home/kept/Guix channel"
+                            "/home/kept/Fiction"
+                            "/home/kept/Dotfiles")
+                          ;; Paths to parent dirs of many git repos
+                          (directory-files "/home/kept/code" t)
+                          (directory-files "/home/kept/Coursework" t))))
+
+(defun my-memacs-scan-git ()
+  (require 'f)
+  (require 'cl-lib)
+  (let ((my-archive-dir (shell-quote-argument "/home/kept/Archive/memacs/git/")))
+    (make-directory "/tmp/rev-lists" t)
+    (and
+     (executable-find "git")
+     (executable-find "memacs_git")
+     (bound-and-true-p my-all-git-repos)
+     (dolist (dir my-all-git-repos t)
+       (let ((default-directory dir))
+         (start-process-shell-command
+          "Memacs_Job_Git_1"
+          nil
+          (concat "git rev-list --all --pretty=raw > /tmp/rev-lists/"
+                  (shell-quote-argument (file-name-nondirectory dir))))))
+     (file-exists-p my-archive-dir)
+     (run-with-timer
+      5 nil (lambda ()
+              (dolist (repo-history (directory-files "/tmp/rev-lists" t
+                                                (rx bol (not (any "." "..")))))
+                (unless (= 0 (my-file-size repo-history))
+                  (let ((basename (shell-quote-argument (file-name-nondirectory repo-history))))
+                    (start-process
+                     "Memacs_Job_Git_2" nil
+                     "memacs_git" "-f" repo-history "-o"
+                     (concat my-archive-dir basename ".org_archive"))
+                    (f-touch (concat my-archive-dir basename ".org"))
+                    (cl-pushnew my-archive-dir org-agenda-files))))))))
+  ;; Re-run myself in an hour.
+  (run-with-timer (* 60 60) nil #'my-memacs-scan-git))
+
+(my-memacs-scan-git)
+#+end_src
+
+You may have to restart Emacs for the agenda to properly update. Anyway, now when you type =v A= in the agenda, these Git commits will show up.  You will also be shown that view by the builtin =eva-present-org-agenda=.
+** Org configuration
+*** Reminder of clocked task
+Do you want to be reminded every 10 minutes of the currently clocked task?  A trivial timer can do it:
+
+#+begin_src elisp
+(require 'named-timer) ;; an indispensable 70-line library
+(with-eval-after-load 'org
+  (named-timer-run :my-clock-reminder nil 600
+                   (defun my-clock-remind ()
+                     (require 'notifications) ;; built-in
+                     (when (org-clock-is-active)
+                       ;; NOTE: will error if you don't have dbus
+                       (notifications-notify :title eva-ai-name
+                                             :body (concat "Currently working on: "
+                                                           org-clock-current-task))))))
+#+end_src
+
+*** Dangling clocks
+
+To remind you of dangling clocks after a restart, Org's builtin way is as follows.
+
+#+begin_src elisp
+(setq org-clock-persist t)
+(setq org-clock-auto-clock-resolution 'always)
+(org-clock-persistence-insinuate)
+;; (org-clock-auto-clockout-insinuate) ;; unrelated but nice?
+(add-hook 'org-clock-in-hook #'org-clock-save) ;; in case of a crash
+#+end_src
+
+With those settings, whenever opening an Org buffer (thus autoloading Org) it will scan agenda files (I think (FIXME)).  Alternatively, =(add-hook 'org-mode-hook #'=org-resolve-clocks=)= can help you.
+
+However, Eva also keeps track of the active clock, so if you *don't want to load Org on every Emacs startup*, that's where Eva can help you.  The following hook will ask about turning on Org if and only if it remembers an unfinished clock from last session.  After thus loading Org, your Org config will react to the dangling clock and can take it from there.
+
+#+begin_src elisp
+(require 'eva-builtin)
+(add-hook 'eva-after-load-vars-hook #'eva-check-dangling-clock)
+#+end_src
+
+* Notes on built-ins
+** eva-query-sleep
+eva-query-sleep is made to be flexible. It can log either or both of two variables: wake-up time, and sleep quantity.  Thus, its log file doesn't have the usual full date/time stamp, instead tracking date and wake-up time separately.  The wake-up time can be left blank if you don't know when you woke up (or don't consider it important), you can still enter the approximate sleep quantity.  What's important is to realize that each row in this dataset is supposed to represent one sleep block.  Thus, if you later recall when it was you woke up, you shouldn't just add a new line, but edit the dataset.
+
+** eva-present-diary
+This does diary backlook; shows you past entries on this date last month, the month before that, and so on.  I've found it good in so many ways.
+
+Currently this works best with daily diary files in the org-journal style (no need for org-journal installed), i.e. when you have a folder somewhere that contains files named =2020-01-01.org=, =2020-01-02.org=, =2020-01-03.org= and so on.  If you do have org-journal, it also checks =org-journal-file-format= in case of a custom file-name format, but =org-journal-file-type= must be ='daily= (the default).
+
+The presenter also looks for a datetree file set at =eva-main-datetree-path=.  This is for those of you who capture writings to a datetree, by way of a member of =org-capture-templates= targeting something like =(file+olp+datetree "~/diary.org")=.
+
+** eva--log-buffer
+(This is fully automated and not something you'd add to =eva-items=.)
+
+The buffer logger writes two files, buffer-focus.tsv and buffer-info.tsv (or whatever you rename them to).  If you are familiar with the notion of normalized databases, it's self-explanatory: buffer-focus.tsv associates timestamps with buffers, identified by an UUID, and buffer-info.tsv associates those UUIDs with various facts about those buffers, such as title, file (if any) and major mode.
+# FIXME: TBD
+# When any of these facts change, it's considered an entirely new buffer, with a new UUID, although its previous ID is recorded as an additional fact.
+
+It's possible you'll want the buffer logger to record something more. A good example is to record eww-current-url of an eww buffer. Your options are to redefine eva--log-buffer (in which case please open an issue), or simply tell eww to change its buffer title to match the URL.  However, this relies on the TBD feature that considers each new title a new buffer with new UUID.
+
+** eva--log-idle
+(This is fully automated and not something you'd add to =eva-items=.)
+
+The idleness logger is a byproduct of essential functionality. It's not much of an assistant without idle awareness, so you get this log for free.
+
+* Surgery
+** Changing dataset file names
+Since we have append-only datasets, you don't need to worry if you inadvertently create two files -- you can cut and paste the contents from the old file at any time.
+
+** Editing datasets manually
+
+Want to add a lot of rows at once? You can edit the =.tsv= file directly. When you do, you'll see it has Unix timestamps for each row. They represent the /posted/ time (time-this-row-was-added) and are a typical feature of append-only databases. Just eval-print =(float-time)= to get a new timestamp and reuse that for every row you're adding, even though they may be observations from the past. If relevant, date/time goes in a separate field, you don't abuse the posted-time for this.
+
+Take an example. Suppose you currently have only three datapoints in the log, looking like this:
+#+begin_example
+1612431985.7806770	2021-02-04 10:46:22 +0100	87
+1612521756.8125120	2021-02-05 11:42:32 +0100	86.8
+1613462960.1966035	2021-02-16 09:09:14 +0100	85
+#+end_example
+
+and you have a bunch of older observations on the same topic you wrote on a piece of paper, from January.  Expand it to this:
+
+#+begin_example
+1612431985.7806770	2021-02-04 10:46:22 +0100	87
+1612521756.8125120	2021-02-05 11:42:32 +0100	86.8
+1613462960.1966035	2021-02-16 09:09:14 +0100	85
+1613963000.0000000	2021-01-11 00:00:00 +0100	85.1
+1613963000.0000000	2021-01-12 00:00:00 +0100	84
+1613963000.0000000	2021-01-14 00:00:00 +0100	85
+#+end_example
+
+As long as the Unix timestamps are always greater or equal to the ones above, it's valid. Nothing bad will happen if they're not in order, as it stands, but that data could come into use at some point (for sanity checks if not a matter for analysis in its own right) so it's a matter of hygiene.
+
+* Known issues
+After an excursion, we do not currently detect that the user is done (we had this functionality, but it broke).  So, to resume going through the rest of =eva-items=, you either have to wait until the next time the VA butts in, or call =eva-resume= via =M-x= or by typing =r= in the chat buffer.
+
+This also means it's possible to never get to the end of the list, if the excursions don't have a high enough =:min-hours-wait= or a low =:max-successes-per-day=.
