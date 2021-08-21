@@ -6,7 +6,7 @@
 #+LANGUAGE: en
 
 #+TEXINFO_DIR_CATEGORY: Emacs
-#+TEXINFO_DIR_TITLE: va: (va).
+#+TEXINFO_DIR_TITLE: eva: (eva).
 #+TEXINFO_DIR_DESC: Virtual assistant for Emacs.
 #+SUBTITLE: for version 0.1.0
 
@@ -111,6 +111,120 @@ The arguments to =eva-item-create= are as follows:
 It also has =:last-called= and =:dismissals= for internal use.
 
 The order in which the items come in this list reflects the order in which you will be asked.  To disable one of them, it is not necessary to remove it from this list, just cancel the query a few times with C-g and the VA will ask you if (s)he should disable it, which is recorded separately in =eva-mem=.  To reenable, try =M-x eva-reenable-fn= and enter the name of that function, or simply edit =eva-disabled-fns=.
+
+* Full set-up example
+#+begin_src elisp
+(use-package eva
+  :init
+  ;; must be set early
+  (setq eva-ai-name "Alfred")
+  (setq eva-fallback-to-emacs-idle t)
+
+  ;; best set early, but not strictly breaking if not
+  (setq eva-user-name "Bruce")
+  (setq eva-user-birthday "1963-02-19")
+  (setq eva-user-short-title "sir")
+  (setq eva-idle-log-path         "/home/kept/Self_data/idle.tsv")
+  (setq eva-buffer-focus-log-path "/home/kept/Self_data/buffer-focus.tsv")
+  (setq eva-buffer-info-path      "/home/kept/Self_data/buffer-info.tsv")
+  (setq eva-main-ledger-path      "/home/kept/Journal/Finances/l.ledger")
+  (setq eva-main-datetree-path    "/home/kept/Journal/diary.org")
+
+  :config
+  (require 'eva-builtin)
+  (require 'eva-activity)
+
+  ;; these are used by `eva-present-diary'; org-journal not needed
+  (setq org-journal-dir "/home/kept/Diary")
+  (setq org-journal-file-format "%F.org")
+
+  (add-hook 'eva-after-load-vars-hook #'eva-check-dangling-clock)
+  (add-hook 'eva-after-load-vars-hook #'eva-check-org-variables)
+
+  ;; HINT: you can even use the same object multiple times in the queue, you'll
+  ;; just have to assign the output of (eva-item-create) to an external
+  ;; variable and refer to it.
+  (setq eva-items
+        (list
+         (eva-item-create :fn #'eva-greet
+                          :min-hours-wait 1)
+
+         (eva-item-create :fn #'eva-query-mood
+                          :dataset "/home/kept/Self_data/mood.tsv"
+                          :min-hours-wait 1)
+
+         (eva-item-create :fn #'eva-query-activity
+                          :dataset "/home/kept/Self_data/activities.tsv"
+                          :min-hours-wait 1)
+
+         (eva-item-create :fn #'eva-present-diary
+                          :max-successes-per-day 1)
+
+         (eva-item-create :fn #'eva-query-weight
+                          :dataset "/home/kept/Self_data/weight.tsv"
+                          :max-entries-per-day 1)
+
+         (eva-item-create :fn #'eva-plot-weight
+                          :max-entries-per-day 1)
+
+         (eva-item-create :fn #'eva-query-sleep
+                          :dataset "/home/kept/Self_data/sleep.tsv"
+                          :min-hours-wait 5
+                          :lookup-posted-time t)
+
+         (eva-item-create :fn #'eva-present-ledger-report)
+
+         (eva-item-create :fn #'eva-present-org-agenda)
+
+         (eva-item-create :fn #'eva-query-ingredients
+                          :dataset "/home/kept/Self_data/ingredients.tsv"
+                          :min-hours-wait 5)
+
+         (eva-item-create :fn #'eva-query-cold-shower
+                          :dataset "/home/kept/Self_data/cold.tsv"
+                          :max-entries-per-day 1)
+
+         ;; you can inline define the functions too
+         (eva-item-create
+          :fn (eva-defun my-bye ()
+                (message (eva-emit "All done for now."))
+                (bury-buffer (eva-buffer-chat)))
+          :min-hours-wait 0)))
+
+  ;; Add hotkeys
+
+  (transient-replace-suffix 'eva-dispatch '(0)
+    '["General actions"
+      ("q" "Quit" bury-buffer)
+      ("l" "View Ledger report" eva-present-ledger-report)
+      ("f" "View Ledger file" eva-present-ledger-file)
+      ("a" "View Org agenda" org-agenda-list)])
+
+  (define-key eva-chat-mode-map (kbd "l") #'eva-present-ledger-report)
+  (define-key eva-chat-mode-map (kbd "a") #'org-agenda-list)
+
+  ;; Activities
+  (setq eva-activity-list
+        (list (eva-activity-create :name "sleep"
+                                   :cost-false-pos 3
+                                   :cost-false-neg 3)
+
+              (eva-activity-create :name "studying"
+                                   :cost-false-pos 8
+                                   :cost-false-neg 8)
+
+              (eva-activity-create :name "coding"
+                                   :cost-false-pos 5
+                                   :cost-false-neg 5)
+
+              (eva-activity-create :name "unknown"
+                                   :cost-false-pos 0
+                                   :cost-false-neg 0)))
+
+  (eva-mode))
+#+end_src
+
+Note that when you re-eval =(setq eva-items ...)=, it will reset the items' keys =:last-called= and =:dismissals=. This doesn't matter much while you are experimenting. but if you care then it's a good idea to immediately eval =(eva--mem-restore-items-values)= before the reset values are written to disk (a timer that runs every minute does this).
 
 * Extending your VA
 ** Writing a new function
