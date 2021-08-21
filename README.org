@@ -125,7 +125,7 @@ One of the end products should be presentable as something like this badly simul
 \\
 Figure 1: Categorical distributions over 96 quarter-hours (24 hours)
 
-Figure 1 shows a time series over a day.  See how at any point in time, we have a set of probabilities -- a [[https://en.wikipedia.org/wiki/Categorical_distribution][categorical distribution]] -- for each of the 4 different possible activities (Is this a Dirichlet process?).  This is one component of the full model (see [[#DAG][DAG]]), showing you our guesses based only on the time, presumably from past data on what the user was doing at those times.
+Figure 1 shows a time series over a day.  See how at any point in time, we have a set of probabilities -- a [[https://en.wikipedia.org/wiki/Categorical_distribution][categorical distribution]] -- for each of the 4 different possible activities (Is this a Dirichlet process?).  This is one component of the full model (see [[#DAG]]), showing you our guesses based only on the time, presumably from past data on what the user was doing at those times.
 
 Priors would be [[#elicitation-of-priors][elicited]] from the user as probably a set of 4 separate distributions (one for each activity) spread over a time span of 24 hours.  The methods of answer could be:
 

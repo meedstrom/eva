@@ -8,7 +8,7 @@
 #+TEXINFO_DIR_CATEGORY: Emacs
 #+TEXINFO_DIR_TITLE: eva: (eva).
 #+TEXINFO_DIR_DESC: Virtual assistant for Emacs.
-#+SUBTITLE: for version 0.1.0
+#+SUBTITLE: for version 0.2.0
 
 #+TEXINFO_DEFFN: t
 #+OPTIONS: H:4 num:4 toc:2
@@ -17,7 +17,7 @@
 #+BIND: ox-texinfo+-before-export-hook ox-texinfo+-update-version-strings
 
 #+TEXINFO: @noindent
-This manual is for Eva version 0.1.0.
+This manual is for Eva version 0.2.0.
 
 #+BEGIN_QUOTE
 Copyright (C) 2020-2021 Martin Edström <meedstrom@teknik.io>
