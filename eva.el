@@ -4,7 +4,7 @@
 
 ;; Author: Martin Edström <meedstrom@teknik.io>
 ;; URL: https://github.com/meedstrom/eva
-;; Version: 0.1.0
+;; Version: 0.2.0
 ;; Created: 2020-12-03
 ;; Keywords: convenience
 ;; Package-Requires: ((emacs "27.1") (ts "0.3-pre") (s "1.12") (dash "2.19") (f "0.20.0") (ess "18.10.2") (pfuture "1.9") (named-timer "0.1") (transient "0.3.6"))
@@ -1025,7 +1025,7 @@ Return non-nil on yes, and nil on no."
 (defvar eva-excursion-buffers nil
   "Buffers included in the current or last excursion.")
 
-;; "Success"
+;; "Success" excursion
 (defun eva--check-return-from-excursion ()
   "If the current excursion appears done, do things."
   (eva-dbg "Running eva--check-return-from-excursion")
@@ -1046,7 +1046,7 @@ Return non-nil on yes, and nil on no."
       ;; don't need this timer.
       (run-with-timer .2 nil #'eva-resume))))
 
-;; "Fail"
+;; "Fail" excursion
 (defun eva-stop-watching-excursion ()
   "Called after some time on an excursion."
   (eva-dbg "Running eva-stop-watching-excursion")
@@ -1067,14 +1067,15 @@ Return non-nil on yes, and nil on no."
   (cl-pushnew eva-curr-fn eva--queue))
 
 ;; Ok, here's the shenanigans.  Observe that keyboard-quit and
-;; abort-recursive-edit are distinct.  When the user cancels a "query" by
-;; typing C-g, they were in the minibuffer, so it calls abort-recursive-edit.
-;; You can define an "excursion" by putting a keyboard-quit in BODY.  With
-;; this, we ensure different behavior for queries and excursions.  How?  We
-;; advise abort-recursive-edit to do things that we only want when a query is
-;; cancelled.  In this macro, pay attention to the placement of NEW-BODY, since
-;; it may contain a keyboard-quit.  Thus, everything coming after NEW-BODY will
-;; never be called for excursions, unless of course you use unwind-protect.
+;; abort-recursive-edit are distinct commands.  When the user cancels a "query"
+;; by typing C-g, they were in the minibuffer, so it calls abort-recursive-edit
+;; (at least under selectrum-mode).  You can define an "excursion" by putting a
+;; keyboard-quit in BODY.  With this, we ensure different behavior for queries
+;; and excursions.  How?  We advise abort-recursive-edit to do things that we
+;; only want when a query is cancelled.  In this macro, pay attention to the
+;; placement of NEW-BODY, since it may contain a keyboard-quit.  Thus,
+;; everything coming after NEW-BODY will never be called for excursions, unless
+;; of course you use unwind-protect.
 (defmacro eva-defun (name args &rest body)
   "Boilerplate wrapper for `cl-defun'.
 NAME, ARGS and BODY are as in `cl-defun'.

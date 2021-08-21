@@ -2,7 +2,7 @@ This is eva.info, produced by makeinfo version 6.7 from eva.texi.
 
 INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
-* va: (va).             Virtual assistant for Emacs.
+* eva: (eva).           Virtual assistant for Emacs.
 END-INFO-DIR-ENTRY
 
 
@@ -30,6 +30,7 @@ This manual is for Eva version 0.1.0.
 * Requirements::
 * Soft requirements::
 * Set-up::
+* Full set-up example::
 * Extending your VA::
 * Synergistic programs::
 * Notes on built-ins::
@@ -117,7 +118,7 @@ startup (e.g.  ‘ess-history-file’ at an unreadable location) and stop
 functional ESS.
 
 
-File: eva.info,  Node: Set-up,  Next: Extending your VA,  Prev: Soft requirements,  Up: Top
+File: eva.info,  Node: Set-up,  Next: Full set-up example,  Prev: Soft requirements,  Up: Top
 
 3 Set-up
 ********
@@ -167,6 +168,9 @@ File: eva.info,  Node: Choose what to track,  Prev: Initial,  Up: Set-up
 3.2 Choose what to track
 ========================
 
+You’ll want to set ‘eva-items’ in your init.  Please see eva-config.el
+(‘M-x find-library eva-config’) for a full example, but here’s a subset:
+
      (setq eva-items
            (list (eva-item-create :fn #'eva-query-sleep
                                   :dataset "/home/kept/Self_data/sleep.tsv"
@@ -209,9 +213,130 @@ separately in ‘eva-mem’.  To reenable, try ‘M-x eva-reenable-fn’ and
 enter the name of that function, or simply edit ‘eva-disabled-fns’.
 
 
-File: eva.info,  Node: Extending your VA,  Next: Synergistic programs,  Prev: Set-up,  Up: Top
+File: eva.info,  Node: Full set-up example,  Next: Extending your VA,  Prev: Set-up,  Up: Top
 
-4 Extending your VA
+4 Full set-up example
+*********************
+
+     (use-package eva
+       :init
+       ;; must be set early
+       (setq eva-ai-name "Alfred")
+       (setq eva-fallback-to-emacs-idle t)
+
+       ;; best set early, but not strictly breaking if not
+       (setq eva-user-name "Bruce")
+       (setq eva-user-birthday "1963-02-19")
+       (setq eva-user-short-title "sir")
+       (setq eva-idle-log-path         "/home/kept/Self_data/idle.tsv")
+       (setq eva-buffer-focus-log-path "/home/kept/Self_data/buffer-focus.tsv")
+       (setq eva-buffer-info-path      "/home/kept/Self_data/buffer-info.tsv")
+       (setq eva-main-ledger-path      "/home/kept/Journal/Finances/l.ledger")
+       (setq eva-main-datetree-path    "/home/kept/Journal/diary.org")
+
+       :config
+       (require 'eva-builtin)
+       (require 'eva-activity)
+
+       ;; these are used by `eva-present-diary'; org-journal not needed
+       (setq org-journal-dir "/home/kept/Diary")
+       (setq org-journal-file-format "%F.org")
+
+       (add-hook 'eva-after-load-vars-hook #'eva-check-dangling-clock)
+       (add-hook 'eva-after-load-vars-hook #'eva-check-org-variables)
+
+       ;; HINT: you can even use the same object multiple times in the queue, you'll
+       ;; just have to assign the output of (eva-item-create) to an external
+       ;; variable and refer to it.
+       (setq eva-items
+             (list
+              (eva-item-create :fn #'eva-greet
+                               :min-hours-wait 1)
+
+              (eva-item-create :fn #'eva-query-mood
+                               :dataset "/home/kept/Self_data/mood.tsv"
+                               :min-hours-wait 1)
+
+              (eva-item-create :fn #'eva-query-activity
+                               :dataset "/home/kept/Self_data/activities.tsv"
+                               :min-hours-wait 1)
+
+              (eva-item-create :fn #'eva-present-diary
+                               :max-successes-per-day 1)
+
+              (eva-item-create :fn #'eva-query-weight
+                               :dataset "/home/kept/Self_data/weight.tsv"
+                               :max-entries-per-day 1)
+
+              (eva-item-create :fn #'eva-plot-weight
+                               :max-entries-per-day 1)
+
+              (eva-item-create :fn #'eva-query-sleep
+                               :dataset "/home/kept/Self_data/sleep.tsv"
+                               :min-hours-wait 5
+                               :lookup-posted-time t)
+
+              (eva-item-create :fn #'eva-present-ledger-report)
+
+              (eva-item-create :fn #'eva-present-org-agenda)
+
+              (eva-item-create :fn #'eva-query-ingredients
+                               :dataset "/home/kept/Self_data/ingredients.tsv"
+                               :min-hours-wait 5)
+
+              (eva-item-create :fn #'eva-query-cold-shower
+                               :dataset "/home/kept/Self_data/cold.tsv"
+                               :max-entries-per-day 1)
+
+              ;; you can inline define the functions too
+              (eva-item-create
+               :fn (eva-defun my-bye ()
+                     (message (eva-emit "All done for now."))
+                     (bury-buffer (eva-buffer-chat)))
+               :min-hours-wait 0)))
+
+       ;; Add hotkeys
+
+       (transient-replace-suffix 'eva-dispatch '(0)
+         '["General actions"
+           ("q" "Quit" bury-buffer)
+           ("l" "View Ledger report" eva-present-ledger-report)
+           ("f" "View Ledger file" eva-present-ledger-file)
+           ("a" "View Org agenda" org-agenda-list)])
+
+       (define-key eva-chat-mode-map (kbd "l") #'eva-present-ledger-report)
+       (define-key eva-chat-mode-map (kbd "a") #'org-agenda-list)
+
+       ;; Activities
+       (setq eva-activity-list
+             (list (eva-activity-create :name "sleep"
+                                        :cost-false-pos 3
+                                        :cost-false-neg 3)
+
+                   (eva-activity-create :name "studying"
+                                        :cost-false-pos 8
+                                        :cost-false-neg 8)
+
+                   (eva-activity-create :name "coding"
+                                        :cost-false-pos 5
+                                        :cost-false-neg 5)
+
+                   (eva-activity-create :name "unknown"
+                                        :cost-false-pos 0
+                                        :cost-false-neg 0)))
+
+       (eva-mode))
+
+   Note that when you re-eval ‘(setq eva-items ...)’, it will reset the
+items’ keys ‘:last-called’ and ‘:dismissals’.  This doesn’t matter much
+while you are experimenting.  but if you care then it’s a good idea to
+immediately eval ‘(eva--mem-restore-items-values)’ before the reset
+values are written to disk (a timer that runs every minute does this).
+
+
+File: eva.info,  Node: Extending your VA,  Next: Synergistic programs,  Prev: Full set-up example,  Up: Top
+
+5 Extending your VA
 *******************
 
 * Menu:
@@ -222,7 +347,7 @@ File: eva.info,  Node: Extending your VA,  Next: Synergistic programs,  Prev: Se
 
 File: eva.info,  Node: Writing a new function,  Next: Composing a custom session,  Up: Extending your VA
 
-4.1 Writing a new function
+5.1 Writing a new function
 ==========================
 
 You’ll customize this package primarily by creating defuns.  It’s so
@@ -264,7 +389,7 @@ and a function can be both at the same time.  The distinction is:
 
 File: eva.info,  Node: Composing a custom session,  Prev: Writing a new function,  Up: Extending your VA
 
-4.2 Composing a custom session
+5.2 Composing a custom session
 ==============================
 
 By default, your entry point is ‘eva-run-queue’ (called automatically
@@ -276,44 +401,37 @@ session, you can also call ‘M-x eva-session-new’.
 entry point.  The sky’s the limit.  This snippet contains a fairly
 "dumb" approach:
 
-     (defun my-custom-session ()
+     (defun my-custom-session (&optional just-idled)
        (setq eva-date (ts-now))
-       (let ((just-idled))
-         (and just-idled
-              (eva-ynp "Have you slept?")
-              (eva-query-sleep))
-         (unless (eva-logged-today-p "/home/kept/Self_data/weight.tsv")
-           (eva-query-weight))
-         (eva-query-mood)
-         (and (eva-ynp "Up to reflect?")
-              (eva-ynp "Have you learned something?")
-              (org-capture nil "s")) ;; say you have a capture template on "s"
-         (if (eva-ynp (concat "How about some flashcards?"))
-             (org-drill))
-         (if (eva-ynp "Have you stretched today?")
-             nil
-           (if (eva-ynp "Do you want reminders for why?")
-               nil
-             nil))
-         (if (eva-ynp "Did you photographe your face today?")
-             nil)
-         (unless (eva-logged-today "/home/kept/Self_data/meditation.csv")
-           (eva-query-meditation eva-date))
-         (unless (eva-logged-today "/home/kept/Self_data/cold.csv")
-           (when (eva-ynp "Have you had a cold shower yet?")
-             (eva-query-cold-shower)))
-         (if (eva-ynp "Have you paid for anything since yesterday?")
-             (eva-present-ledger-file))
-         (if (eva-ynp "Shall I remind you of your life goals? Don't be shy.")
-             (view-file "/home/kept/Journal/gtd.org"))
-         (and (> 2 (eva-query-mood))
-              (doctor))
-         (eva-present-plots)
-         (eva-present-diary)
-         (and (-all-p #'null (-map #'eva-logged-today-p
-                                   (-map #'eva-item-dataset eva-items)))
-              (eva-ynp "Shall I come back in an hour?")
-              (run-with-timer 3600 nil #'eva-session-from-idle))))
+       (and just-idled
+            (eva-ynp "Have you slept?")
+            (eva-query-sleep))
+       (unless (eva-logged-today-p "/home/kept/Self_data/weight.tsv")
+         (eva-query-weight))
+       (eva-query-mood)
+       (and (eva-ynp "Up to reflect?")
+            (eva-ynp "Have you learned something?")
+            (org-capture nil "s")) ;; let's say you have a capture template on "s"
+       (if (eva-ynp "How about some flashcards?")
+           (org-drill))
+       (unless (eva-logged-today "/home/kept/Self_data/meditation.csv")
+         (eva-query-meditation eva-date))
+       (unless (eva-logged-today "/home/kept/Self_data/cold.csv")
+         (when (eva-ynp "Have you had a cold shower yet?")
+           (eva-query-cold-shower)))
+       (if (eva-ynp "Have you paid for anything since yesterday?")
+           (eva-present-ledger-file))
+       (if (eva-ynp "Shall I remind you of your life goals? Don't be shy.")
+           (view-file "/home/kept/Journal/gtd.org"))
+       (and (> 2 (eva-query-mood))
+            (doctor))
+       (eva-plot-weight)
+       (eva-plot-mood)
+       (eva-present-diary)
+       (and (-all-p #'null (-map #'eva-logged-today-p
+                                 (-map #'eva-item-dataset eva-items)))
+            (eva-ynp "Shall I come back in an hour?")
+            (run-with-timer 3600 nil #'eva-session-from-idle)))
 
    If you want a more intelligent session, populate ‘eva--queue’ and
 then call ‘eva-run-queue’ – see the source for the ‘session-’ functions.
@@ -321,7 +439,7 @@ then call ‘eva-run-queue’ – see the source for the ‘session-’ function
 
 File: eva.info,  Node: Synergistic programs,  Next: Notes on built-ins,  Prev: Extending your VA,  Up: Top
 
-5 Synergistic programs
+6 Synergistic programs
 **********************
 
 * Menu:
@@ -332,7 +450,7 @@ File: eva.info,  Node: Synergistic programs,  Next: Notes on built-ins,  Prev: E
 
 File: eva.info,  Node: Memacs,  Next: Org configuration,  Up: Synergistic programs
 
-5.1 Memacs
+6.1 Memacs
 ==========
 
 You can enrich your agenda log (‘l’ hotkey in the agenda view) with Git
@@ -343,7 +461,6 @@ commit history so they show up like this:
        eva:        9:04......  Martin Edström: fix                                                  :Memacs:git::
      Tuesday    17 August 2021
        eva:        10:40...... Martin Edström: Comply with checkdoc, flycheck, package-lint         :Memacs:git::
-       eva:        11:06...... Martin Edström: style                                                :Memacs:git::
        eva:        11:06...... Martin Edström: Hopefully fixed bug nulling mood-alist               :Memacs:git::
        eva:        11:37...... Martin Edström: Post design goals                                    :Memacs:git::
        eva:        12:20...... Martin Edström: minor                                                :Memacs:git::
@@ -353,31 +470,20 @@ commit history so they show up like this:
      Wednesday  18 August 2021
        eva:        0:41......  Martin Edström: simplify                                             :Memacs:git::
        eva:        0:42......  Martin Edström: had corrupt dataset, add a check for next time       :Memacs:git::
-       eva:        0:42......  Martin Edström: missed a rename                                      :Memacs:git::
-       eva:        0:42......  Martin Edström: care and feeding of rg                               :Memacs:git::
        eva:        0:47......  Martin Edström: fix                                                  :Memacs:git::
-       eva:        2:19......  Martin Edström: Improve sleep query                                  :Memacs:git::
        eva:        2:19......  Martin Edström: Make R take user-supplied dataset path               :Memacs:git::
-       eva:        2:20......  Martin Edström: style                                                :Memacs:git::
        eva:        3:09......  Martin Edström: fixes                                                :Memacs:git::
        eva:        3:11......  Martin Edström: Better guard clauses                                 :Memacs:git::
        eva:        3:56......  Martin Edström: Remove test obsoleted by emacs-lisp-macroexpand      :Memacs:git::
-       eva:        4:31......  Martin Edström: Renames for brevity                                  :Memacs:git::
        eva:        4:33......  Martin Edström: Rename test.el                                       :Memacs:git::
-       eva:        5:01......  Martin Edström: Add license on sound files                           :Memacs:git::
        eva:        5:01......  Martin Edström: alignment                                            :Memacs:git::
        eva:        5:33......  Martin Edström: Fix wrap                                             :Memacs:git::
        eva:        5:35......  Martin Edström: Always track query successes                         :Memacs:git::
-       eva:        5:36......  Martin Edström: Use more s.el f.el                                   :Memacs:git::
        eva:        5:50......  Martin Edström: minor                                                :Memacs:git::
        eva:        16:27...... Martin Edström: Settle on a single boilerplate macro                 :Memacs:git::
        eva:        16:30...... Martin Edström: Add debug messages                                   :Memacs:git::
        eva:        16:31...... Martin Edström: fix                                                  :Memacs:git::
-       eva:        16:31...... Martin Edström: formatting                                           :Memacs:git::
-       eva:        16:35...... Martin Edström: Rename (stage 1)                                     :Memacs:git::
-       eva:        16:36...... Martin Edström: Rename (stage 2 and done)                            :Memacs:git::
        eva:        17:40...... Martin Edström: style                                                :Memacs:git::
-       eva:        17:40...... Martin Edström: renames                                              :Memacs:git::
        eva:        18:03...... Martin Edström: Clearer init                                         :Memacs:git::
        eva:        20:21...... Martin Edström: cleanup and document                                 :Memacs:git::
        eva:        20:38...... Martin Edström: Update licensing                                     :Memacs:git::
@@ -465,7 +571,7 @@ show up.  You will also be shown that view by the builtin
 
 File: eva.info,  Node: Org configuration,  Prev: Memacs,  Up: Synergistic programs
 
-5.2 Org configuration
+6.2 Org configuration
 =====================
 
 * Menu:
@@ -476,11 +582,11 @@ File: eva.info,  Node: Org configuration,  Prev: Memacs,  Up: Synergistic progra
 
 File: eva.info,  Node: Reminder of clocked task,  Next: Dangling clocks,  Up: Org configuration
 
-5.2.1 Reminder of clocked task
+6.2.1 Reminder of clocked task
 ------------------------------
 
 Do you want to be reminded every 10 minutes of the currently clocked
-task?  A trivial timer can do it:
+task?  A timer can do it:
 
      (require 'named-timer) ;; an indispensable 70-line library
      (with-eval-after-load 'org
@@ -496,7 +602,7 @@ task?  A trivial timer can do it:
 
 File: eva.info,  Node: Dangling clocks,  Prev: Reminder of clocked task,  Up: Org configuration
 
-5.2.2 Dangling clocks
+6.2.2 Dangling clocks
 ---------------------
 
 To remind you of dangling clocks after a restart, Org’s builtin way is
@@ -510,7 +616,7 @@ as follows.
 
    With those settings, whenever opening an Org buffer (thus autoloading
 Org) it will scan agenda files (I think (FIXME)). Alternatively,
-‘(add-hook 'org-mode-hook #'=org-resolve-clocks’)= can help you.
+‘(add-hook 'org-mode-hook #'org-resolve-clocks’) can help you.
 
    However, Eva also keeps track of the active clock, so if you *don’t
 want to load Org on every Emacs startup*, that’s where Eva can help you.
@@ -525,7 +631,7 @@ from there.
 
 File: eva.info,  Node: Notes on built-ins,  Next: Surgery,  Prev: Synergistic programs,  Up: Top
 
-6 Notes on built-ins
+7 Notes on built-ins
 ********************
 
 * Menu:
@@ -538,24 +644,24 @@ File: eva.info,  Node: Notes on built-ins,  Next: Surgery,  Prev: Synergistic pr
 
 File: eva.info,  Node: eva-query-sleep,  Next: eva-present-diary,  Up: Notes on built-ins
 
-6.1 eva-query-sleep
-===================
+7.1 ‘eva-query-sleep’
+=====================
 
-eva-query-sleep is made to be flexible.  It can log either or both of
+‘eva-query-sleep’ is made to be flexible.  It can log either or both of
 two variables: wake-up time, and sleep quantity.  Thus, its log file
 doesn’t have the usual full date/time stamp, instead tracking date and
 wake-up time separately.  The wake-up time can be left blank if you
 don’t know when you woke up (or don’t consider it important), you can
 still enter the approximate sleep quantity.  What’s important is to
-realize that each row in this dataset is supposed to represent one sleep
-block.  Thus, if you later recall when it was you woke up, you shouldn’t
-just add a new line, but edit the dataset.
+realize that it’s best for each row in this dataset to represent one
+sleep block.  Thus, if you later recall when it was you woke up, you
+shouldn’t just add a new line, but edit the dataset.
 
 
 File: eva.info,  Node: eva-present-diary,  Next: eva--log-buffer,  Prev: eva-query-sleep,  Up: Notes on built-ins
 
-6.2 eva-present-diary
-=====================
+7.2 ‘eva-present-diary’
+=======================
 
 This does diary backlook; shows you past entries on this date last
 month, the month before that, and so on.  I’ve found it good in so many
@@ -576,21 +682,21 @@ something like ‘(file+olp+datetree "~/diary.org")’.
 
 File: eva.info,  Node: eva--log-buffer,  Next: eva--log-idle,  Prev: eva-present-diary,  Up: Notes on built-ins
 
-6.3 eva–log-buffer
-==================
+7.3 ‘eva--log-buffer’
+=====================
 
 (This is fully automated and not something you’d add to ‘eva-items’.)
 
-   The buffer logger writes two files, buffer-focus.tsv and
-buffer-info.tsv (or whatever you rename them to).  If you are familiar
+   The buffer logger writes two files, ‘buffer-focus.tsv’ and
+‘buffer-info.tsv’ (or whatever you rename them to).  If you are familiar
 with the notion of normalized databases, it’s self-explanatory:
-buffer-focus.tsv associates timestamps with buffers, identified by an
-UUID, and buffer-info.tsv associates those UUIDs with various facts
+‘buffer-focus.tsv’ associates timestamps with buffers, identified by an
+UUID, and ‘buffer-info.tsv’ associates those UUIDs with various facts
 about those buffers, such as title, file (if any) and major mode.
 
    It’s possible you’ll want the buffer logger to record something more.
-A good example is to record eww-current-url of an eww buffer.  Your
-options are to redefine eva–log-buffer (in which case please open an
+A good example is to record ‘eww-current-url’ of an eww buffer.  Your
+options are to redefine ‘eva--log-buffer’ (in which case please open an
 issue), or simply tell eww to change its buffer title to match the URL.
 However, this relies on the TBD feature that considers each new title a
 new buffer with new UUID.
@@ -598,8 +704,8 @@ new buffer with new UUID.
 
 File: eva.info,  Node: eva--log-idle,  Prev: eva--log-buffer,  Up: Notes on built-ins
 
-6.4 eva–log-idle
-================
+7.4 ‘eva--log-idle’
+===================
 
 (This is fully automated and not something you’d add to ‘eva-items’.)
 
@@ -610,7 +716,7 @@ free.
 
 File: eva.info,  Node: Surgery,  Next: Known issues,  Prev: Notes on built-ins,  Up: Top
 
-7 Surgery
+8 Surgery
 *********
 
 * Menu:
@@ -621,7 +727,7 @@ File: eva.info,  Node: Surgery,  Next: Known issues,  Prev: Notes on built-ins, 
 
 File: eva.info,  Node: Changing dataset file names,  Next: Editing datasets manually,  Up: Surgery
 
-7.1 Changing dataset file names
+8.1 Changing dataset file names
 ===============================
 
 Since we have append-only datasets, you don’t need to worry if you
@@ -631,7 +737,7 @@ the old file at any time.
 
 File: eva.info,  Node: Editing datasets manually,  Prev: Changing dataset file names,  Up: Surgery
 
-7.2 Editing datasets manually
+8.2 Editing datasets manually
 =============================
 
 Want to add a lot of rows at once?  You can edit the ‘.tsv’ file
@@ -668,7 +774,7 @@ it’s a matter of hygiene.
 
 File: eva.info,  Node: Known issues,  Prev: Surgery,  Up: Top
 
-8 Known issues
+9 Known issues
 **************
 
 After an excursion, we do not currently detect that the user is done (we
@@ -685,28 +791,29 @@ the excursions don’t have a high enough ‘:min-hours-wait’ or a low
 
 Tag Table:
 Node: Top184
-Node: Requirements1508
-Node: Soft requirements1980
-Node: Set-up3422
-Node: Initial3583
-Node: Choose what to track4974
-Node: Extending your VA7167
-Node: Writing a new function7374
-Node: Composing a custom session9217
-Node: Synergistic programs11707
-Node: Memacs11907
-Node: Org configuration20437
-Node: Reminder of clocked task20627
-Node: Dangling clocks21530
-Node: Notes on built-ins22698
-Node: eva-query-sleep22931
-Node: eva-present-diary23681
-Node: eva--log-buffer24691
-Node: eva--log-idle25713
-Node: Surgery26070
-Node: Changing dataset file names26255
-Node: Editing datasets manually26593
-Node: Known issues28339
+Node: Requirements1532
+Node: Soft requirements2004
+Node: Set-up3446
+Node: Initial3609
+Node: Choose what to track5000
+Node: Full set-up example7350
+Node: Extending your VA12309
+Node: Writing a new function12529
+Node: Composing a custom session14372
+Node: Synergistic programs16572
+Node: Memacs16772
+Node: Org configuration23922
+Node: Reminder of clocked task24112
+Node: Dangling clocks25007
+Node: Notes on built-ins26173
+Node: eva-query-sleep26406
+Node: eva-present-diary27174
+Node: eva--log-buffer28192
+Node: eva--log-idle29257
+Node: Surgery29622
+Node: Changing dataset file names29807
+Node: Editing datasets manually30145
+Node: Known issues31891
 
 End Tag Table
 
