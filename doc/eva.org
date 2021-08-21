@@ -73,12 +73,14 @@ You should activate =eva-mode= upon init or soon after. The reasons are:
 
 ** Choose what to track
 
-#+begin_export texi
-You'll want to set @samp{eva-items} in your init.  Please see eva-config.el (@samp{M-x find-library eva-config}) for full example, but here's a subset:
-#+end_export
-#+begin_export html
-You'll want to set <code>eva-items</code> in your init.  Please see <a href="../eva-config.el">eva-config.el</a> (<code>M-x find-library eva-config</code>) for full example, but here's a subset:
-#+end_export
+# #+begin_export texi
+# You'll want to set @samp{eva-items} in your init.  Please see eva-config.el (@samp{M-x find-library eva-config}) for full example, but here's a subset:
+# #+end_export
+# #+begin_export html
+# You'll want to set <code>eva-items</code> in your init.  Please see <a href="../eva-config.el">eva-config.el</a> (<code>M-x find-library eva-config</code>) for full example, but here's a subset:
+# #+end_export
+
+You'll want to set =eva-items= in your init.  Please see eva-config.el (=M-x find-library eva-config=) for a full example, but here's a subset:
 
 #+BEGIN_SRC elisp
 (setq eva-items
@@ -151,8 +153,8 @@ To understand better how the package works, you can make a different entry point
   (eva-query-mood)
   (and (eva-ynp "Up to reflect?")
        (eva-ynp "Have you learned something?")
-       (org-capture nil "s")) ;; say you have a capture template on "s"
-  (if (eva-ynp (concat "How about some flashcards?"))
+       (org-capture nil "s")) ;; let's say you have a capture template on "s"
+  (if (eva-ynp "How about some flashcards?")
       (org-drill))
   (unless (eva-logged-today "/home/kept/Self_data/meditation.csv")
     (eva-query-meditation eva-date))
