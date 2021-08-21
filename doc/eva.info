@@ -2,7 +2,7 @@ This is eva.info, produced by makeinfo version 6.7 from eva.texi.
 
 INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
-* eva: (eva).           Virtual assistant for Emacs.
+* Eva: (eva).           Virtual assistant for Emacs.
 END-INFO-DIR-ENTRY
 
 
@@ -136,12 +136,16 @@ File: eva.info,  Node: Initial,  Next: Choose what to track,  Up: Set-up
 
 If you have straight.el (https://github.com/raxod502/straight.el), you
 can install the package like so:
+
      (use-package eva
-       :straight (eva :type git :host github :repo "meedstrom/eva"))
+       :straight (eva :type git :host github :repo "meedstrom/eva"
+                      :files (:defaults "assets" "*.R" "*.gnuplot"))
 
    Alternatively with Doom Emacs, this goes in ‘packages.el’:
+
      (package! eva
-       :recipe (:host github :repo "meedstrom/eva"))
+       :recipe (:host github :repo "meedstrom/eva"
+                :files (:defaults "assets" "*.R" "*.gnuplot")))
 
    The package syncs a lot of data to disk, because its data is of
 interest across sessions, so if you customize ‘eva-cache-dir-path’ or
@@ -423,7 +427,7 @@ entry point.  The sky’s the limit.  This snippet contains a fairly
            (eva-present-ledger-file))
        (if (eva-ynp "Shall I remind you of your life goals? Don't be shy.")
            (view-file "/home/kept/Journal/gtd.org"))
-       (and (> 2 (eva-query-mood))
+       (and (>= 1 (eva-query-mood))
             (doctor))
        (eva-plot-weight)
        (eva-plot-mood)
@@ -795,25 +799,25 @@ Node: Requirements1532
 Node: Soft requirements2004
 Node: Set-up3446
 Node: Initial3609
-Node: Choose what to track5000
-Node: Full set-up example7350
-Node: Extending your VA12309
-Node: Writing a new function12529
-Node: Composing a custom session14372
-Node: Synergistic programs16572
-Node: Memacs16772
-Node: Org configuration23922
-Node: Reminder of clocked task24112
-Node: Dangling clocks25007
-Node: Notes on built-ins26173
-Node: eva-query-sleep26406
-Node: eva-present-diary27174
-Node: eva--log-buffer28192
-Node: eva--log-idle29257
-Node: Surgery29622
-Node: Changing dataset file names29807
-Node: Editing datasets manually30145
-Node: Known issues31891
+Node: Choose what to track5131
+Node: Full set-up example7481
+Node: Extending your VA12440
+Node: Writing a new function12660
+Node: Composing a custom session14503
+Node: Synergistic programs16704
+Node: Memacs16904
+Node: Org configuration24054
+Node: Reminder of clocked task24244
+Node: Dangling clocks25139
+Node: Notes on built-ins26305
+Node: eva-query-sleep26538
+Node: eva-present-diary27306
+Node: eva--log-buffer28324
+Node: eva--log-idle29389
+Node: Surgery29754
+Node: Changing dataset file names29939
+Node: Editing datasets manually30277
+Node: Known issues32023
 
 End Tag Table
 

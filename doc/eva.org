@@ -283,7 +283,7 @@ To understand better how the package works, you can make a different entry point
       (eva-present-ledger-file))
   (if (eva-ynp "Shall I remind you of your life goals? Don't be shy.")
       (view-file "/home/kept/Journal/gtd.org"))
-  (and (> 2 (eva-query-mood))
+  (and (>= 1 (eva-query-mood))
        (doctor))
   (eva-plot-weight)
   (eva-plot-mood)
