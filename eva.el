@@ -1402,14 +1402,12 @@ You should quote VAR, like with `set', not `setq'."
 
 (defvar eva--buffer-focus-log-buffer
   (get-buffer-create
-   (concat (unless eva-debug " ") "*Eva: Buffer focus log*")
-   (not eva-debug))
+   (concat (unless eva-debug " ") "*Eva: Buffer focus log*"))
   "Buffer for not-yet-saved log lines.")
 
 (defvar eva--buffer-info-buffer
   (get-buffer-create
-   (concat (unless eva-debug " ") "*Eva: Buffer info*")
-   (not eva-debug))
+   (concat (unless eva-debug " ") "*Eva: Buffer info*"))
   "Buffer for not-yet-saved log lines.")
 
 (defun eva--new-uuid ()
