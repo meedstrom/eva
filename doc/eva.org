@@ -128,14 +128,14 @@ The order in which the items come in this list reflects the order in which you w
   (setq eva-user-name "Bruce")
   (setq eva-user-birthday "1963-02-19")
   (setq eva-user-short-title "sir")
-  (setq eva-idle-log-path         "/home/kept/Self_data/idle.tsv")
-  (setq eva-buffer-focus-log-path "/home/kept/Self_data/buffer-focus.tsv")
-  (setq eva-buffer-info-path      "/home/kept/Self_data/buffer-info.tsv")
-  (setq eva-main-ledger-path      "/home/kept/Journal/Finances/l.ledger")
-  (setq eva-main-datetree-path    "/home/kept/Journal/diary.org")
+  (setq eva-idle-log-path         "~/self-data/idle.tsv")
+  (setq eva-buffer-focus-log-path "~/self-data/buffer-focus.tsv")
+  (setq eva-buffer-info-path      "~/self-data/Self_data/buffer-info.tsv")
+  (setq eva-main-ledger-path      "~/l.ledger")
+  (setq eva-main-datetree-path    "~/org/diary.org")
 
   ;; prevent annoying ess prompt
-  (setc ess-ask-for-ess-directory nil)
+  (setq ess-ask-for-ess-directory nil)
 
   :config
   (require 'eva-builtin)
@@ -157,25 +157,25 @@ The order in which the items come in this list reflects the order in which you w
                           :min-hours-wait 1)
 
          (eva-item-create :fn #'eva-query-mood
-                          :dataset "/home/kept/Self_data/mood.tsv"
+                          :dataset "~/self-data/mood.tsv"
                           :min-hours-wait 1)
 
          (eva-item-create :fn #'eva-query-activity
-                          :dataset "/home/kept/Self_data/activities.tsv"
+                          :dataset "~/self-data/activities.tsv"
                           :min-hours-wait 1)
 
          (eva-item-create :fn #'eva-present-diary
                           :max-successes-per-day 1)
 
          (eva-item-create :fn #'eva-query-weight
-                          :dataset "/home/kept/Self_data/weight.tsv"
+                          :dataset "~/self-data/weight.tsv"
                           :max-entries-per-day 1)
 
          (eva-item-create :fn #'eva-plot-weight
                           :max-entries-per-day 1)
 
          (eva-item-create :fn #'eva-query-sleep
-                          :dataset "/home/kept/Self_data/sleep.tsv"
+                          :dataset "~/self-data/sleep.tsv"
                           :min-hours-wait 5
                           :lookup-posted-time t)
 
@@ -184,11 +184,11 @@ The order in which the items come in this list reflects the order in which you w
          (eva-item-create :fn #'eva-present-org-agenda)
 
          (eva-item-create :fn #'eva-query-ingredients
-                          :dataset "/home/kept/Self_data/ingredients.tsv"
+                          :dataset "~/self-data/ingredients.tsv"
                           :min-hours-wait 5)
 
          (eva-item-create :fn #'eva-query-cold-shower
-                          :dataset "/home/kept/Self_data/cold.tsv"
+                          :dataset "~/self-data/cold.tsv"
                           :max-entries-per-day 1)
 
          ;; you can inline define the functions too
@@ -269,7 +269,7 @@ To understand better how the package works, you can make a different entry point
   (and just-idled
        (eva-ynp "Have you slept?")
        (eva-query-sleep))
-  (unless (eva-logged-today-p "/home/kept/Self_data/weight.tsv")
+  (unless (eva-logged-today-p "~/self-data/weight.tsv")
     (eva-query-weight))
   (eva-query-mood)
   (and (eva-ynp "Up to reflect?")
@@ -277,9 +277,9 @@ To understand better how the package works, you can make a different entry point
        (org-capture nil "s")) ;; let's say you have a capture template on "s"
   (if (eva-ynp "How about some flashcards?")
       (org-drill))
-  (unless (eva-logged-today "/home/kept/Self_data/meditation.csv")
+  (unless (eva-logged-today "~/self-data/meditation.csv")
     (eva-query-meditation eva-date))
-  (unless (eva-logged-today "/home/kept/Self_data/cold.csv")
+  (unless (eva-logged-today "~/self-data/cold.csv")
     (when (eva-ynp "Have you had a cold shower yet?")
       (eva-query-cold-shower)))
   (if (eva-ynp "Have you paid for anything since yesterday?")
