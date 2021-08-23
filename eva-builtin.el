@@ -87,6 +87,23 @@
                    (s-join ", ")
                    (s-replace ",," ",")))))
 
+(eva-defun eva-query-mood-numeric ()
+  "Ask user about their mood."
+  (let* ((score (eva-read-string "How do you feel? (score from 1-10): "))
+         (score-num (string-to-number score)))
+    (eva-tsv-append eva-curr-dataset
+      (ts-format)
+      (s-replace "," "." score)
+      nil) ;; use the same dataset
+    (when (and (<= score-num 1)
+               (eva-ynp "Do you want to talk?")
+               (eva-ynp "I can direct you to my colleague ELIZA, though"
+                        " she's not too bright.  Will that do?"))
+      (doctor)
+      (eva-stop-watching-excursion)
+      (keyboard-quit))
+    score-num))
+
 (eva-defun eva-present-org-agenda ()
   "Send the user to an Org agenda log with archives enabled.
 Near equivalent to typing l v A after entering `org-agenda-list'."
@@ -98,7 +115,6 @@ Near equivalent to typing l v A after entering `org-agenda-list'."
   (org-agenda-log-mode t)
   (org-agenda-archives-mode t)
   (push (current-buffer) eva-excursion-buffers)
-  (keyboard-quit)
   (keyboard-quit))
 
 
@@ -508,8 +524,6 @@ Note that org-journal is not needed."
                                              template))))
                 (eva-mem-pushnew-alt transformed-org-templates)))))
 
-(defvar eva--org-vars-checked nil)
-
 (defun eva-check-org-variables ()
   "Alert user if certain Org settings have changed.
 Suitable on `eva-after-load-vars-hook'."
@@ -530,6 +544,8 @@ Suitable on `eva-after-load-vars-hook'."
         (if (equal restored-agenda-files org-agenda-files)
             (message (eva-emit "org-agenda-files unchanged."))
           (message (eva-emit "org-agenda-files changed!")))))))
+
+;; (defvar eva--org-vars-checked nil)
 
 ;; (defun eva-check-org-variables ()
 ;;   "Alert user if certain Org settings have changed.
