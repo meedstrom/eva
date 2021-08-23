@@ -40,7 +40,7 @@ General Public License for more details.
 - gnuplot
 - On X: =xprintidle= or =x11idle=, or to run under Mutter (GNOME's window manager).
 - On Wayland: to run under Mutter (GNOME's window manager).
-  - Not sure how to use =kidletime= or =swayidle=, please open issue.
+  - For other WMs than Mutter, =kidletime= or =swayidle= might work, please open issue.
 
 * Soft requirements
 You should let Emacs always run: add it to =xinitrc=, Startup Applications or so.  In principle, we could spin out some functionality as a separate program in Python or Scheme that always runs like your hundred other background processes, but such separation would be overengineering because the package is targeting those who always run Emacs anyway.  Every time the program would be scheduled to do something, it'd have to emit a notification, possibly an OS dialog, and start up Emacs anyway.  We'd be relying on a functional notification daemon and dbus (brittle assumption), gtk/qt toolkits (brittle assumption), access to executables (brittle assumption, NixOS anyone?), POSIX scripts (unportable without extreme effort), service declarations (which service manager?), synced config files (brittle) and on and on.  One of the raisons d'etre for Emacs is to make app development both fast and solid by just ignoring the OS.

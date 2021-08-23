@@ -16,6 +16,10 @@
 # TODO: A bit less "self-focused" throughout: how can you apply this to your friends?
 # TODO: go over the usage of "we" vs. "it"
 
+* Recent changes
+1. Git happened. If Straight asks you about merge conflicts on your next sync, just reset to origin/master. Sorry about that.
+2. The installation recipe was missing a few items.  Please see the updated version in [[#Installation]].
+3. It came to my attention that ESS asks about the R directory on every startup. I suggest setting =(setq ess-ask-for-ess-directory nil)=.
 * Introduction
 
 This is an Emacs-based virtual assistant: Eva for short.  It helps you with
@@ -24,7 +28,7 @@ This is an Emacs-based virtual assistant: Eva for short.  It helps you with
 - presenting some of it back to you,
 - and getting you to do things.
 
-My goal is an extensible toolbox for making a virtual assistant (VA) that meets your needs, rather than a monolith.  Thus writing new functions is the primary means of configuring this thing.  I ship a lot of premade functions in [[file:eva-builtin.el]], and it's hopefully easy to make your own.  I'll be happy to mainline your suggestion; please, open an issue!
+My goal is an extensible toolbox for making a virtual assistant VA that meets your needs, rather than a monolith.  Thus writing new functions is the primary means of configuring this thing.  I ship a lot of premade functions in [[file:eva-builtin.el]], and it's hopefully easy to make your own.  I'll be happy to mainline your suggestion; please, open an issue!
 
 As part of data tracking, it also has some automatic loggers:
 - Idle logger:  Record all time when you were idle or the VA was off (like when the computer was off).
