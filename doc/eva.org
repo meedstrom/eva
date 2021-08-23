@@ -134,6 +134,9 @@ The order in which the items come in this list reflects the order in which you w
   (setq eva-main-ledger-path      "/home/kept/Journal/Finances/l.ledger")
   (setq eva-main-datetree-path    "/home/kept/Journal/diary.org")
 
+  ;; prevent annoying ess prompt
+  (setc ess-ask-for-ess-directory nil)
+
   :config
   (require 'eva-builtin)
   (require 'eva-activity)
