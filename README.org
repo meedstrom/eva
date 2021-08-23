@@ -80,14 +80,14 @@ If you have [[https://github.com/raxod502/straight.el][straight.el]], you can in
 #+begin_src elisp
 (use-package eva
   :straight (eva :type git :host github :repo "meedstrom/eva"
-                 :files (:defaults "assets" "*.R" "*.gnuplot")))
+                 :files (:defaults "assets" "renv" "*.R" "*.gnuplot")))
 #+end_src
 
 Alternatively with Doom Emacs, this goes in =packages.el=:
 #+begin_src elisp
 (package! eva
   :recipe (:host github :repo "meedstrom/eva"
-           :files (:defaults "assets" "*.R" "*.gnuplot")))
+           :files (:defaults "assets"  "renv" "*.R" "*.gnuplot")))
 #+end_src
 
 For set-up, please see [[file:doc/eva.org][the user manual]] (also available as Info manual after installation, type ~C-h i d m eva~) and the full setup example at [[file:eva-config.el][eva-config.el]].

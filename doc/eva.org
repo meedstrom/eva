@@ -57,7 +57,7 @@ If you have [[https://github.com/raxod502/straight.el][straight.el]], you can in
 #+begin_src elisp
 (use-package eva
   :straight (eva :type git :host github :repo "meedstrom/eva"
-                 :files (:defaults "assets" "*.R" "*.gnuplot"))
+                 :files (:defaults "assets" "renv" "*.R" "*.gnuplot"))
 #+end_src
 
 Alternatively with Doom Emacs, this goes in =packages.el=:
@@ -65,7 +65,7 @@ Alternatively with Doom Emacs, this goes in =packages.el=:
 #+begin_src elisp
 (package! eva
   :recipe (:host github :repo "meedstrom/eva"
-           :files (:defaults "assets" "*.R" "*.gnuplot")))
+           :files (:defaults "assets" "renv" "*.R" "*.gnuplot")))
 #+end_src
 
 The package syncs a lot of data to disk, because its data is of interest across sessions, so if you customize =eva-cache-dir-path= or =eva-mem-history-path=, try to keep it correct.  If you have multiple inits via [[https://github.com/plexus/chemacs2][chemacs]], have them set one absolute path for these (chemacs can actually help with this so it needn't be repeated inside each of the inits).
