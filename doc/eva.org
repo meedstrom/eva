@@ -89,16 +89,16 @@ You'll want to set =eva-items= in your init.  Please see eva-config.el (=M-x fin
 #+BEGIN_SRC elisp
 (setq eva-items
       (list (eva-item-create :fn #'eva-query-sleep
-                             :dataset "/home/kept/Self_data/sleep.tsv"
+                             :dataset "~/self-data/sleep.tsv"
                              :min-hours-wait 5
                              :lookup-posted-time t)
 
             (eva-item-create :fn #'eva-query-weight
-                             :dataset "/home/kept/Self_data/weight.tsv"
+                             :dataset "~/self-data/weight.tsv"
                              :max-entries-per-day 1)
 
             (eva-item-create :fn #'eva-query-mood
-                             :dataset "/home/kept/Self_data/mood.tsv")))
+                             :dataset "~/self-data/mood.tsv")))
 #+END_SRC
 
 Here we expose one of the main customization targets.  As I explain in the next section, I expect you to eventually write your own defuns to replace =#'eva-query-weight= et al here, so you'd change the =:fn= value to some =#'my-query-weight=.  I also expect you'll create new items for whatever bizarre stuff you want to track.  When you do, see the source of the existing functions for how it's done.
@@ -368,7 +368,7 @@ Then set up a regular job that collects your Git histories. Here's a way to do t
                             "/home/kept/Fiction"
                             "/home/kept/Dotfiles")
                           ;; Paths to parent dirs of many git repos
-                          (directory-files "/home/kept/code" t)
+                          (directory-files "/home/kept/Code" t)
                           (directory-files "/home/kept/Coursework" t))))
 
 (defun my-memacs-scan-git ()
