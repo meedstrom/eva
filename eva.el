@@ -1085,11 +1085,7 @@ Manages the external variables `eva-curr-fn' and
 `eva--queue', zeroes `-item-dismissals' on success, advises
 `abort-recursive-edit' (\\<selectrum-minibuffer-map> \\[abort-recursive-edit]) while in a prompt
 spawned within BODY, and so on. If you use a simple `defun' in
-lieu of this wrapper, you must replicate these features!
-
-In BODY, you have access to the extra temporary variables:
-- \"current-item\" which is \"(eva-item-by-fn eva-curr-fn)\"
-- \"current-dataset\" which is \"(eva-item-dataset current-item)\"."
+lieu of this wrapper, you must replicate these features!"
   (declare (indent defun) (doc-string 3))
   (let* ((parsed-body (macroexp-parse-body body))
          (declarations (car parsed-body))
