@@ -15,10 +15,12 @@
 
 # ------------------------------------------------------------------------
 
+source("renv/activate.R")
+
 # On a fresh install, this will take time because it installs packages. If
 # there are problems, of course you can forgo renv and use your system-wide R
 # packages. Just comment this out and call install.packages() as needed.
-source("renv/activate.R")
+renv::hydrate()
 
 # Idempotent -- the first time the R process sources us, this blurb will be a
 # big cause of any delay. After that it's instant because there's nothing to
