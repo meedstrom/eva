@@ -34,13 +34,17 @@ General Public License for more details.
 #+END_QUOTE
 :END:
 * Requirements
-- An Unix-like system, probably
+- GNU/Linux or other Unix-like systems
 - GNU Emacs 27+
 - GNU R
 - gnuplot
 - On X: =xprintidle= or =x11idle=, or to run under Mutter (GNOME's window manager).
 - On Wayland: to run under Mutter (GNOME's window manager).
   - For other WMs than Mutter, =kidletime= or =swayidle= might work, please open issue.
+
+On Debian, you can run:
+
+: apt-get install r-recommended gnuplot xprintidle
 
 * Soft requirements
 You should let Emacs always run: add it to =xinitrc=, Startup Applications or so.  In principle, we could spin out some functionality as a separate program in Python or Scheme that always runs like your hundred other background processes, but such separation would be overengineering because the package is targeting those who always run Emacs anyway.  Every time the program would be scheduled to do something, it'd have to emit a notification, possibly an OS dialog, and start up Emacs anyway.  We'd be relying on a functional notification daemon and dbus (brittle assumption), gtk/qt toolkits (brittle assumption), access to executables (brittle assumption, NixOS anyone?), POSIX scripts (unportable without extreme effort), service declarations (which service manager?), synced config files (brittle) and on and on.  One of the raisons d'etre for Emacs is to make app development both fast and solid by just ignoring the OS.
@@ -120,11 +124,7 @@ The order in which the items come in this list reflects the order in which you w
 #+begin_src elisp
 (use-package eva
   :init
-  ;; must be set early
   (setq eva-ai-name "Alfred")
-  (setq eva-fallback-to-emacs-idle t)
-
-  ;; best set early, but not strictly breaking if not
   (setq eva-user-name "Bruce")
   (setq eva-user-birthday "1963-02-19")
   (setq eva-user-short-title "sir")
@@ -134,23 +134,23 @@ The order in which the items come in this list reflects the order in which you w
   (setq eva-main-ledger-path      "~/l.ledger")
   (setq eva-main-datetree-path    "~/org/diary.org")
 
-  ;; prevent annoying ess prompt
+  ;; Prevent annoying ESS prompt.
   (setq ess-ask-for-ess-directory nil)
 
   :config
   (require 'eva-builtin)
   (require 'eva-activity)
 
-  ;; these are used by `eva-present-diary'; org-journal not needed
+  ;; These are used by `eva-present-diary'; org-journal not needed.
   (setq org-journal-dir "/home/kept/Diary")
   (setq org-journal-file-format "%F.org")
 
   (add-hook 'eva-after-load-vars-hook #'eva-check-dangling-clock)
   (add-hook 'eva-after-load-vars-hook #'eva-check-org-variables)
 
-  ;; HINT: you can even use the same object multiple times in the queue, you'll
-  ;; just have to assign the output of (eva-item-create) to an external
-  ;; variable and refer to it.
+  ;; HINT: Though not likely you'll want to, you can use the same object
+  ;; multiple times in the queue, you'll just have to assign the output of
+  ;; an (eva-item-create) to an external variable and refer to it.
   (setq eva-items
         (list
          (eva-item-create :fn #'eva-greet
@@ -208,32 +208,22 @@ The order in which the items come in this list reflects the order in which you w
       ("a" "View Org agenda" org-agenda-list)])
 
   (define-key eva-chat-mode-map (kbd "l") #'eva-present-ledger-report)
+  (define-key eva-chat-mode-map (kbd "f") #'eva-present-ledger-file)
   (define-key eva-chat-mode-map (kbd "a") #'org-agenda-list)
 
   ;; Activities
   (setq eva-activity-list
-        (list (eva-activity-create :name "sleep"
-                                   :cost-false-pos 3
-                                   :cost-false-neg 3)
-
-              (eva-activity-create :name "studying"
-                                   :cost-false-pos 8
-                                   :cost-false-neg 8)
-
-              (eva-activity-create :name "coding"
-                                   :cost-false-pos 5
-                                   :cost-false-neg 5)
-
-              (eva-activity-create :name "unknown"
-                                   :cost-false-pos 0
-                                   :cost-false-neg 0)))
+        (list (eva-activity-create :name "sleep")
+              (eva-activity-create :name "studying")
+              (eva-activity-create :name "coding")
+              (eva-activity-create :name "unknown")))
 
   (eva-mode))
 #+end_src
 
-Note that when you re-eval =(setq eva-items ...)=, it will reset the items' keys =:last-called= and =:dismissals=. This doesn't matter much while you are experimenting. but if you care then it's a good idea to immediately eval =(eva--mem-restore-items-values)= before the reset values are written to disk (a timer that runs every minute does this).
+Note that when you re-eval =(setq eva-items ...)=, it will reset the items' keys =:last-called= and =:dismissals=. This doesn't matter much while you are experimenting. but if you care then it's a good idea to immediately eval =(eva--mem-restore-items-values)= before the reset values are written to disk (a timer that runs every other minute does this).
 
-* Extending your VA
+* Customising your VA
 ** Writing a new function
 You'll customize this package primarily by creating defuns.  It's so personal what people want a VA for, that simple user options (variables) would not scale.  I would do you no service by making variable references all over the place.  Better you get started with the defuns and we both save energy.  As a plus, it gives our code more clarity.
 
@@ -256,6 +246,14 @@ Now, there are two main kinds of functions: queries and excursions, and a functi
 - Pure queries are simple: they prompt for user input, do something with it (usually write something to disk), and finish, letting the next item in the queue take over.
 - Excursions send you away from the chat buffer and quit the interactive session with the VA.  For example, it may send you to a ledger report (=eva-present-ledger-report=).  The VA has, so to speak, lost control of the conversation.  To proceed to the next item, it waits for the user to either kill every buffer spawned by the excursion, or manually resume the session with =eva-resume=.
   - To be an excursion, the function must push each spawned buffer onto =eva-excursion-buffers= and then call =keyboard-quit=.
+** Greetings
+
+If the current set of greetings e.g. "Nice to see you again" aren't to your tastes, you may want to override one or more of these.
+- eva-greetings (variable)
+- eva-greeting (function)
+- eva-daytime-appropriate-greetings (function)
+
+Or simply put an alternative to =eva-greet= in =eva-items=.
 
 ** Composing a custom session
 
@@ -294,10 +292,10 @@ To understand better how the package works, you can make a different entry point
   (and (-all-p #'null (-map #'eva-logged-today-p
                             (-map #'eva-item-dataset eva-items)))
        (eva-ynp "Shall I come back in an hour?")
-       (run-with-timer 3600 nil #'eva-session-from-idle)))
+       (run-with-timer 3600 nil #'my-custom-session)))
 #+end_src
 
-If you want a more intelligent session, populate =eva--queue= and then call =eva-run-queue= -- see the source for the =session-= functions.
+If you want a more intelligent session, populate =eva--queue= and then call =eva-run-queue= -- it's what the =session-= functions do.
 
 * Synergistic programs
 ** Memacs
@@ -306,35 +304,35 @@ You can enrich your agenda log (=l= hotkey in the agenda view) with Git commit h
 #+begin_example
 Week-agenda (W33):
 Monday     16 August 2021 W33
-  eva:        9:04......  Martin Edström: fix                                                  :Memacs:git::
+  eva:        9:04......  fix                                                  :Memacs:git::
 Tuesday    17 August 2021
-  eva:        10:40...... Martin Edström: Comply with checkdoc, flycheck, package-lint         :Memacs:git::
-  eva:        11:06...... Martin Edström: Hopefully fixed bug nulling mood-alist               :Memacs:git::
-  eva:        11:37...... Martin Edström: Post design goals                                    :Memacs:git::
-  eva:        12:20...... Martin Edström: minor                                                :Memacs:git::
-  eva:        20:38...... Martin Edström: Add makem.sh as submodule                            :Memacs:git::
-  eva:        21:55...... Martin Edström: Move code around and rename                          :Memacs:git::
-  eva:        23:21...... Martin Edström: Fix bug that ran mode turn-off code on init          :Memacs:git::
+  eva:        10:40...... Comply with checkdoc, flycheck, package-lint         :Memacs:git::
+  eva:        11:06...... Hopefully fixed bug nulling mood-alist               :Memacs:git::
+  eva:        11:37...... Post design goals                                    :Memacs:git::
+  eva:        12:20...... minor                                                :Memacs:git::
+  eva:        20:38...... Add makem.sh as submodule                            :Memacs:git::
+  eva:        21:55...... Move code around and rename                          :Memacs:git::
+  eva:        23:21...... Fix bug that ran mode turn-off code on init          :Memacs:git::
 Wednesday  18 August 2021
-  eva:        0:41......  Martin Edström: simplify                                             :Memacs:git::
-  eva:        0:42......  Martin Edström: had corrupt dataset, add a check for next time       :Memacs:git::
-  eva:        0:47......  Martin Edström: fix                                                  :Memacs:git::
-  eva:        2:19......  Martin Edström: Make R take user-supplied dataset path               :Memacs:git::
-  eva:        3:09......  Martin Edström: fixes                                                :Memacs:git::
-  eva:        3:11......  Martin Edström: Better guard clauses                                 :Memacs:git::
-  eva:        3:56......  Martin Edström: Remove test obsoleted by emacs-lisp-macroexpand      :Memacs:git::
-  eva:        4:33......  Martin Edström: Rename test.el                                       :Memacs:git::
-  eva:        5:01......  Martin Edström: alignment                                            :Memacs:git::
-  eva:        5:33......  Martin Edström: Fix wrap                                             :Memacs:git::
-  eva:        5:35......  Martin Edström: Always track query successes                         :Memacs:git::
-  eva:        5:50......  Martin Edström: minor                                                :Memacs:git::
-  eva:        16:27...... Martin Edström: Settle on a single boilerplate macro                 :Memacs:git::
-  eva:        16:30...... Martin Edström: Add debug messages                                   :Memacs:git::
-  eva:        16:31...... Martin Edström: fix                                                  :Memacs:git::
-  eva:        17:40...... Martin Edström: style                                                :Memacs:git::
-  eva:        18:03...... Martin Edström: Clearer init                                         :Memacs:git::
-  eva:        20:21...... Martin Edström: cleanup and document                                 :Memacs:git::
-  eva:        20:38...... Martin Edström: Update licensing                                     :Memacs:git::
+  eva:        0:41......  simplify                                             :Memacs:git::
+  eva:        0:42......  had corrupt dataset, add a check for next time       :Memacs:git::
+  eva:        0:47......  fix                                                  :Memacs:git::
+  eva:        2:19......  Make R take user-supplied dataset path               :Memacs:git::
+  eva:        3:09......  fixes                                                :Memacs:git::
+  eva:        3:11......  Better guard clauses                                 :Memacs:git::
+  eva:        3:56......  Remove test obsoleted by emacs-lisp-macroexpand      :Memacs:git::
+  eva:        4:33......  Rename test.el                                       :Memacs:git::
+  eva:        5:01......  alignment                                            :Memacs:git::
+  eva:        5:33......  Fix wrap                                             :Memacs:git::
+  eva:        5:35......  Always track query successes                         :Memacs:git::
+  eva:        5:50......  minor                                                :Memacs:git::
+  eva:        16:27...... Settle on a single boilerplate macro                 :Memacs:git::
+  eva:        16:30...... Add debug messages                                   :Memacs:git::
+  eva:        16:31...... fix                                                  :Memacs:git::
+  eva:        17:40...... style                                                :Memacs:git::
+  eva:        18:03...... Clearer init                                         :Memacs:git::
+  eva:        20:21...... cleanup and document                                 :Memacs:git::
+  eva:        20:38...... Update licensing                                     :Memacs:git::
 Thursday   19 August 2021
 Friday     20 August 2021
 Saturday   21 August 2021
@@ -436,9 +434,11 @@ To remind you of dangling clocks after a restart, Org's builtin way is as follow
 (add-hook 'org-clock-in-hook #'org-clock-save) ;; in case of a crash
 #+end_src
 
-With those settings, whenever opening an Org buffer (thus autoloading Org) it will scan agenda files (I think (FIXME)).  Alternatively, =(add-hook 'org-mode-hook #'org-resolve-clocks=) can help you.
+With those settings, whenever opening an Org buffer (thus autoloading Org) it will scan agenda files (I think).  Alternatively, =(add-hook 'org-mode-hook #'org-resolve-clocks=) can help you.
 
-However, Eva also keeps track of the active clock, so if you *don't want to load Org on every Emacs startup*, that's where Eva can help you.  The following hook will ask about turning on Org if and only if it remembers an unfinished clock from last session.  After thus loading Org, your Org config will react to the dangling clock and can take it from there.
+However, if you `(require 'eva-builtin)', the VA will watch the active Org clock, so if you *don't want to load Org on every Emacs startup*, that's where it can help you.  The following hook will ask about turning on Org if and only if the VA remembers an unfinished clock from last session.  After thus loading Org, your Org config will react to the dangling clock and can take it from there.
+
+(TODO: This is largely untested)
 
 #+begin_src elisp
 (require 'eva-builtin)

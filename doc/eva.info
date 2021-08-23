@@ -31,7 +31,7 @@ This manual is for Eva version 0.2.0.
 * Soft requirements::
 * Set-up::
 * Full set-up example::
-* Extending your VA::
+* Customising your VA::
 * Synergistic programs::
 * Notes on built-ins::
 * Surgery::
@@ -44,9 +44,10 @@ Set-up
 * Initial::
 * Choose what to track::
 
-Extending your VA
+Customising your VA
 
 * Writing a new function::
+* Greetings::
 * Composing a custom session::
 
 Synergistic programs
@@ -79,15 +80,19 @@ File: eva.info,  Node: Requirements,  Next: Soft requirements,  Prev: Top,  Up: 
 1 Requirements
 **************
 
-   • An Unix-like system, probably
+   • GNU/Linux or other Unix-like systems
    • GNU Emacs 27+
    • GNU R
    • gnuplot
    • On X: ‘xprintidle’ or ‘x11idle’, or to run under Mutter (GNOME’s
      window manager).
    • On Wayland: to run under Mutter (GNOME’s window manager).
-        • Not sure how to use ‘kidletime’ or ‘swayidle’, please open
-          issue.
+        • For other WMs than Mutter, ‘kidletime’ or ‘swayidle’ might
+          work, please open issue.
+
+   On Debian, you can run:
+
+     apt-get install r-recommended gnuplot xprintidle
 
 
 File: eva.info,  Node: Soft requirements,  Next: Set-up,  Prev: Requirements,  Up: Top
@@ -217,18 +222,14 @@ separately in ‘eva-mem’.  To reenable, try ‘M-x eva-reenable-fn’ and
 enter the name of that function, or simply edit ‘eva-disabled-fns’.
 
 
-File: eva.info,  Node: Full set-up example,  Next: Extending your VA,  Prev: Set-up,  Up: Top
+File: eva.info,  Node: Full set-up example,  Next: Customising your VA,  Prev: Set-up,  Up: Top
 
 4 Full set-up example
 *********************
 
      (use-package eva
        :init
-       ;; must be set early
        (setq eva-ai-name "Alfred")
-       (setq eva-fallback-to-emacs-idle t)
-
-       ;; best set early, but not strictly breaking if not
        (setq eva-user-name "Bruce")
        (setq eva-user-birthday "1963-02-19")
        (setq eva-user-short-title "sir")
@@ -238,23 +239,23 @@ File: eva.info,  Node: Full set-up example,  Next: Extending your VA,  Prev: Set
        (setq eva-main-ledger-path      "~/l.ledger")
        (setq eva-main-datetree-path    "~/org/diary.org")
 
-       ;; prevent annoying ess prompt
+       ;; Prevent annoying ESS prompt.
        (setq ess-ask-for-ess-directory nil)
 
        :config
        (require 'eva-builtin)
        (require 'eva-activity)
 
-       ;; these are used by `eva-present-diary'; org-journal not needed
+       ;; These are used by `eva-present-diary'; org-journal not needed.
        (setq org-journal-dir "/home/kept/Diary")
        (setq org-journal-file-format "%F.org")
 
        (add-hook 'eva-after-load-vars-hook #'eva-check-dangling-clock)
        (add-hook 'eva-after-load-vars-hook #'eva-check-org-variables)
 
-       ;; HINT: you can even use the same object multiple times in the queue, you'll
-       ;; just have to assign the output of (eva-item-create) to an external
-       ;; variable and refer to it.
+       ;; HINT: Though not likely you'll want to, you can use the same object
+       ;; multiple times in the queue, you'll just have to assign the output of
+       ;; an (eva-item-create) to an external variable and refer to it.
        (setq eva-items
              (list
               (eva-item-create :fn #'eva-greet
@@ -312,25 +313,15 @@ File: eva.info,  Node: Full set-up example,  Next: Extending your VA,  Prev: Set
            ("a" "View Org agenda" org-agenda-list)])
 
        (define-key eva-chat-mode-map (kbd "l") #'eva-present-ledger-report)
+       (define-key eva-chat-mode-map (kbd "f") #'eva-present-ledger-file)
        (define-key eva-chat-mode-map (kbd "a") #'org-agenda-list)
 
        ;; Activities
        (setq eva-activity-list
-             (list (eva-activity-create :name "sleep"
-                                        :cost-false-pos 3
-                                        :cost-false-neg 3)
-
-                   (eva-activity-create :name "studying"
-                                        :cost-false-pos 8
-                                        :cost-false-neg 8)
-
-                   (eva-activity-create :name "coding"
-                                        :cost-false-pos 5
-                                        :cost-false-neg 5)
-
-                   (eva-activity-create :name "unknown"
-                                        :cost-false-pos 0
-                                        :cost-false-neg 0)))
+             (list (eva-activity-create :name "sleep")
+                   (eva-activity-create :name "studying")
+                   (eva-activity-create :name "coding")
+                   (eva-activity-create :name "unknown")))
 
        (eva-mode))
 
@@ -338,21 +329,23 @@ File: eva.info,  Node: Full set-up example,  Next: Extending your VA,  Prev: Set
 items’ keys ‘:last-called’ and ‘:dismissals’.  This doesn’t matter much
 while you are experimenting.  but if you care then it’s a good idea to
 immediately eval ‘(eva--mem-restore-items-values)’ before the reset
-values are written to disk (a timer that runs every minute does this).
+values are written to disk (a timer that runs every other minute does
+this).
 
 
-File: eva.info,  Node: Extending your VA,  Next: Synergistic programs,  Prev: Full set-up example,  Up: Top
+File: eva.info,  Node: Customising your VA,  Next: Synergistic programs,  Prev: Full set-up example,  Up: Top
 
-5 Extending your VA
-*******************
+5 Customising your VA
+*********************
 
 * Menu:
 
 * Writing a new function::
+* Greetings::
 * Composing a custom session::
 
 
-File: eva.info,  Node: Writing a new function,  Next: Composing a custom session,  Up: Extending your VA
+File: eva.info,  Node: Writing a new function,  Next: Greetings,  Up: Customising your VA
 
 5.1 Writing a new function
 ==========================
@@ -394,9 +387,23 @@ and a function can be both at the same time.  The distinction is:
           onto ‘eva-excursion-buffers’ and then call ‘keyboard-quit’.
 
 
-File: eva.info,  Node: Composing a custom session,  Prev: Writing a new function,  Up: Extending your VA
+File: eva.info,  Node: Greetings,  Next: Composing a custom session,  Prev: Writing a new function,  Up: Customising your VA
 
-5.2 Composing a custom session
+5.2 Greetings
+=============
+
+If the current set of greetings e.g.  "Nice to see you again" aren’t to
+your tastes, you may want to override one or more of these.
+   • eva-greetings (variable)
+   • eva-greeting (function)
+   • eva-daytime-appropriate-greetings (function)
+
+   Or simply put an alternative to ‘eva-greet’ in ‘eva-items’.
+
+
+File: eva.info,  Node: Composing a custom session,  Prev: Greetings,  Up: Customising your VA
+
+5.3 Composing a custom session
 ==============================
 
 By default, your entry point is ‘eva-run-queue’ (called automatically
@@ -438,13 +445,13 @@ entry point.  The sky’s the limit.  This snippet contains a fairly
        (and (-all-p #'null (-map #'eva-logged-today-p
                                  (-map #'eva-item-dataset eva-items)))
             (eva-ynp "Shall I come back in an hour?")
-            (run-with-timer 3600 nil #'eva-session-from-idle)))
+            (run-with-timer 3600 nil #'my-custom-session)))
 
    If you want a more intelligent session, populate ‘eva--queue’ and
-then call ‘eva-run-queue’ – see the source for the ‘session-’ functions.
+then call ‘eva-run-queue’ – it’s what the ‘session-’ functions do.
 
 
-File: eva.info,  Node: Synergistic programs,  Next: Notes on built-ins,  Prev: Extending your VA,  Up: Top
+File: eva.info,  Node: Synergistic programs,  Next: Notes on built-ins,  Prev: Customising your VA,  Up: Top
 
 6 Synergistic programs
 **********************
@@ -465,35 +472,35 @@ commit history so they show up like this:
 
      Week-agenda (W33):
      Monday     16 August 2021 W33
-       eva:        9:04......  Martin Edström: fix                                                  :Memacs:git::
+       eva:        9:04......  fix                                                  :Memacs:git::
      Tuesday    17 August 2021
-       eva:        10:40...... Martin Edström: Comply with checkdoc, flycheck, package-lint         :Memacs:git::
-       eva:        11:06...... Martin Edström: Hopefully fixed bug nulling mood-alist               :Memacs:git::
-       eva:        11:37...... Martin Edström: Post design goals                                    :Memacs:git::
-       eva:        12:20...... Martin Edström: minor                                                :Memacs:git::
-       eva:        20:38...... Martin Edström: Add makem.sh as submodule                            :Memacs:git::
-       eva:        21:55...... Martin Edström: Move code around and rename                          :Memacs:git::
-       eva:        23:21...... Martin Edström: Fix bug that ran mode turn-off code on init          :Memacs:git::
+       eva:        10:40...... Comply with checkdoc, flycheck, package-lint         :Memacs:git::
+       eva:        11:06...... Hopefully fixed bug nulling mood-alist               :Memacs:git::
+       eva:        11:37...... Post design goals                                    :Memacs:git::
+       eva:        12:20...... minor                                                :Memacs:git::
+       eva:        20:38...... Add makem.sh as submodule                            :Memacs:git::
+       eva:        21:55...... Move code around and rename                          :Memacs:git::
+       eva:        23:21...... Fix bug that ran mode turn-off code on init          :Memacs:git::
      Wednesday  18 August 2021
-       eva:        0:41......  Martin Edström: simplify                                             :Memacs:git::
-       eva:        0:42......  Martin Edström: had corrupt dataset, add a check for next time       :Memacs:git::
-       eva:        0:47......  Martin Edström: fix                                                  :Memacs:git::
-       eva:        2:19......  Martin Edström: Make R take user-supplied dataset path               :Memacs:git::
-       eva:        3:09......  Martin Edström: fixes                                                :Memacs:git::
-       eva:        3:11......  Martin Edström: Better guard clauses                                 :Memacs:git::
-       eva:        3:56......  Martin Edström: Remove test obsoleted by emacs-lisp-macroexpand      :Memacs:git::
-       eva:        4:33......  Martin Edström: Rename test.el                                       :Memacs:git::
-       eva:        5:01......  Martin Edström: alignment                                            :Memacs:git::
-       eva:        5:33......  Martin Edström: Fix wrap                                             :Memacs:git::
-       eva:        5:35......  Martin Edström: Always track query successes                         :Memacs:git::
-       eva:        5:50......  Martin Edström: minor                                                :Memacs:git::
-       eva:        16:27...... Martin Edström: Settle on a single boilerplate macro                 :Memacs:git::
-       eva:        16:30...... Martin Edström: Add debug messages                                   :Memacs:git::
-       eva:        16:31...... Martin Edström: fix                                                  :Memacs:git::
-       eva:        17:40...... Martin Edström: style                                                :Memacs:git::
-       eva:        18:03...... Martin Edström: Clearer init                                         :Memacs:git::
-       eva:        20:21...... Martin Edström: cleanup and document                                 :Memacs:git::
-       eva:        20:38...... Martin Edström: Update licensing                                     :Memacs:git::
+       eva:        0:41......  simplify                                             :Memacs:git::
+       eva:        0:42......  had corrupt dataset, add a check for next time       :Memacs:git::
+       eva:        0:47......  fix                                                  :Memacs:git::
+       eva:        2:19......  Make R take user-supplied dataset path               :Memacs:git::
+       eva:        3:09......  fixes                                                :Memacs:git::
+       eva:        3:11......  Better guard clauses                                 :Memacs:git::
+       eva:        3:56......  Remove test obsoleted by emacs-lisp-macroexpand      :Memacs:git::
+       eva:        4:33......  Rename test.el                                       :Memacs:git::
+       eva:        5:01......  alignment                                            :Memacs:git::
+       eva:        5:33......  Fix wrap                                             :Memacs:git::
+       eva:        5:35......  Always track query successes                         :Memacs:git::
+       eva:        5:50......  minor                                                :Memacs:git::
+       eva:        16:27...... Settle on a single boilerplate macro                 :Memacs:git::
+       eva:        16:30...... Add debug messages                                   :Memacs:git::
+       eva:        16:31...... fix                                                  :Memacs:git::
+       eva:        17:40...... style                                                :Memacs:git::
+       eva:        18:03...... Clearer init                                         :Memacs:git::
+       eva:        20:21...... cleanup and document                                 :Memacs:git::
+       eva:        20:38...... Update licensing                                     :Memacs:git::
      Thursday   19 August 2021
      Friday     20 August 2021
      Saturday   21 August 2021
@@ -622,15 +629,17 @@ as follows.
      (add-hook 'org-clock-in-hook #'org-clock-save) ;; in case of a crash
 
    With those settings, whenever opening an Org buffer (thus autoloading
-Org) it will scan agenda files (I think (FIXME)). Alternatively,
-‘(add-hook 'org-mode-hook #'org-resolve-clocks’) can help you.
+Org) it will scan agenda files (I think).  Alternatively, ‘(add-hook
+'org-mode-hook #'org-resolve-clocks’) can help you.
 
-   However, Eva also keeps track of the active clock, so if you *don’t
-want to load Org on every Emacs startup*, that’s where Eva can help you.
-The following hook will ask about turning on Org if and only if it
-remembers an unfinished clock from last session.  After thus loading
-Org, your Org config will react to the dangling clock and can take it
-from there.
+   However, if you ‘(require ’eva-builtin)’, the VA will watch the
+active Org clock, so if you *don’t want to load Org on every Emacs
+startup*, that’s where it can help you.  The following hook will ask
+about turning on Org if and only if the VA remembers an unfinished clock
+from last session.  After thus loading Org, your Org config will react
+to the dangling clock and can take it from there.
+
+   (TODO: This is largely untested)
 
      (require 'eva-builtin)
      (add-hook 'eva-after-load-vars-hook #'eva-check-dangling-clock)
@@ -798,29 +807,30 @@ the excursions don’t have a high enough ‘:min-hours-wait’ or a low
 
 Tag Table:
 Node: Top184
-Node: Requirements1532
-Node: Soft requirements2004
-Node: Set-up3446
-Node: Initial3609
-Node: Choose what to track5145
-Node: Full set-up example7468
-Node: Extending your VA12400
-Node: Writing a new function12620
-Node: Composing a custom session14463
-Node: Synergistic programs16637
-Node: Memacs16837
-Node: Org configuration23987
-Node: Reminder of clocked task24177
-Node: Dangling clocks25072
-Node: Notes on built-ins26238
-Node: eva-query-sleep26471
-Node: eva-present-diary27239
-Node: eva--log-buffer28257
-Node: eva--log-idle29322
-Node: Surgery29687
-Node: Changing dataset file names29872
-Node: Editing datasets manually30210
-Node: Known issues31956
+Node: Requirements1550
+Node: Soft requirements2130
+Node: Set-up3572
+Node: Initial3735
+Node: Choose what to track5271
+Node: Full set-up example7594
+Node: Customising your VA12044
+Node: Writing a new function12284
+Node: Greetings14112
+Node: Composing a custom session14591
+Node: Synergistic programs16746
+Node: Memacs16948
+Node: Org configuration23639
+Node: Reminder of clocked task23829
+Node: Dangling clocks24724
+Node: Notes on built-ins25961
+Node: eva-query-sleep26194
+Node: eva-present-diary26962
+Node: eva--log-buffer27980
+Node: eva--log-idle29045
+Node: Surgery29410
+Node: Changing dataset file names29595
+Node: Editing datasets manually29933
+Node: Known issues31679
 
 End Tag Table
 

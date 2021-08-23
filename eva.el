@@ -608,8 +608,9 @@ changes and append to a file named PATH_errors."
 ;; WONTFIX: check for recent activity (user awake thru the night) and keep
 ;;          returning t
 (defun eva-logged-today-p (path)
-  "True if file at PATH contains any reference to today.
-Does this by searching for a YYYY-MM-DD datestamp."
+  "Check for references to today's date inside file at PATH.
+Does this by searching for a YYYY-MM-DD datestamp. Returns t on
+success, nil on failure."
   (when (f-exists? path)
     ;; don't act like it's a new day if the time is <5am.
     (let ((day (if (> 5 (ts-hour (ts-now)))
@@ -1169,17 +1170,21 @@ has restarted, so you can run something like the following.
   :type 'hook)
 
 (defcustom eva-before-save-vars-hook nil
-  "Invoked right before saving `eva-mem' to disk.
-You should add to that list anything you want to persist across
-reboots, using the following.
+  "Invoked right before syncing `eva-mem' to disk.
+You should add to that list any variable you want to persist
+across reboots, using the following.
 
     (eva-mem-pushnew 'my-var)
 or
     (eva-mem-pushnew-alt my-var)
 
-Of course, you can do that at any time, this hook isn't needed
-unless you do things with 'my-var at indeterminate times and you
-want to be sure what goes in before it gets written to disk."
+Of course, you can do that at any time instead of putting it on
+this hook.  The hook can be a reassurance if you do things with
+'my-var at indeterminate times and you want to be sure what goes
+in before it gets written to disk.
+
+After a reboot, we won't set the variable globally for you, it'll
+only be in `eva-mem'. See `eva-load-vars-hook'."
   :group 'eva
   :type 'hook)
 
