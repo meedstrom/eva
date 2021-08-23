@@ -26,8 +26,8 @@
 
 ;;; Commentary:
 
-;; See README.org, info node (eva) or website:
-;; https://github.com/meedstrom/eva
+;; See ./README.org or website: https://github.com/meedstrom/eva.
+;; See also ./doc/eva.org or the Info node (eva).
 
 ;;; Code:
 
@@ -51,7 +51,7 @@
 ;; Calm down the byte compiler
 (declare-function calendar-check-holidays "holidays")
 (declare-function calendar-current-date "calendar")
-(declare-function run-ess-r "ess")
+(declare-function run-ess-r "ess-r-mode")
 (declare-function ess-execute "ess")
 (declare-function eww-current-url "eww")
 (declare-function notifications-notify "notifications")
@@ -67,11 +67,14 @@
   :prefix "eva-"
   :group 'convenience)
 
-(defcustom eva-ai-name "Alfred"
-  "Your eva's name."
+(defcustom eva-va-name "Alfred"
+  "Your VA's name."
   :group 'eva
   :type 'string
   :risky t)
+
+;; DEPRECATED 2021-08-23
+(defvaralias 'eva-ai-name 'eva-va-name)
 
 (defcustom eva-user-birthday nil
   "Your birthday, an YYYY-MM-DD string."
@@ -135,12 +138,15 @@ See also `eva-sit-long' and `eva-sit-medium'."
   :group 'eva
   :type 'boolean)
 
-(defcustom eva-dbg-fn (when eva-debug #'message)
+(defcustom eva-debug-fn (when eva-debug #'message)
   "Control the behavior of `eva-dbg'.
 Recommended options are nil, `message', `warn' and `error'."
   :group 'eva
   :type 'function
   :safe t)
+
+;; DEPRECATED 2021-08-23
+(defalias #'eva-debug-fn #'eva-dbg-fn)
 
 (defvar eva--buffer-r nil)
 
@@ -175,12 +181,12 @@ own R project."
       (ess-execute "source(\"init.R\")" 'buffer))))
 
 (defun eva-dbg (&rest strings)
-  "Concat STRINGS and print them via `eva-dbg-fn'.
+  "Concat STRINGS and print them via `eva-debug-fn'.
 Do nothing if that is nil.  Note that we don't do the
 `format-message' business usual for `error' and its cousins.
 Use the real `error' for that."
-  (when eva-dbg-fn
-    (funcall eva-dbg-fn (s-join " " strings))))
+  (when eva-debug-fn
+    (funcall eva-debug-fn (s-join " " strings))))
 
 ;; TODO: Catch typos like 03 meaning 30 minutes, not 3 hours.
 (defun eva-parse-time-amount (input)
@@ -434,9 +440,7 @@ example."
 
 ;; NOTE: I considered making external variables for morning, day and evening
 ;;       lists, but users might also want to change the daytime boundaries or
-;;       even add new boundaries. Too many possibilities, this is a case where
-;;       it's ok to make the user override the defun as a primary means of
-;;       customization.
+;;       even add new boundaries.
 (defun eva-daytime-appropriate-greetings ()
   "Return different greeting strings appropriate to daytime."
   (cond ((> 5 (ts-hour (ts-now)))
@@ -848,7 +852,7 @@ Digression: Should honestly be submitted to Emacs,
                   (ts-format)
                   (number-to-string (/ (round eva-length-of-last-idle) 60))))
 
-;; This trio of functions handles lots of edge cases, they took work to make.
+;; This trio of functions handles lots of edge cases.
 (defun eva--start-next-timer (&optional assume-idle)
   "Start one or the other timer depending on idleness.
 If ASSUME-IDLE is non-nil, skip the idle check and associated
@@ -1194,7 +1198,7 @@ instead of ts objects for legibility.")
 
 (defun eva--read-lisp (s)
   "Check that string S isn't blank, then `read' it.
-Otherwise, signal an error, which `read' doesn't normally do."
+Otherwise signal an error, unlike `read' or `read-from-string'."
   (if (and (stringp s)
            (not (s-blank? s)))
       (car (read-from-string s))
@@ -1205,9 +1209,8 @@ Otherwise, signal an error, which `read' doesn't normally do."
 Use with care.  Mainly for development use.
 
 It uses `flush-lines', which is prone to mistakes (perhaps you
-have multiline values, like org-capture-templates...) and may
-flush other variables that merely refer to the variable name in
-their value."
+have multiline values...) and may flush other variables that
+merely refer to the variable name in their value."
   (f-copy eva-mem-history-path "/tmp/eva-mem.backup")
   (with-temp-buffer
     (insert-file-contents-literally eva-mem-history-path)
@@ -1218,10 +1221,8 @@ their value."
   "Get all occurrences of VAR from `eva-mem-history-path'.
 Return a list looking like
 \((TIMESTAMP KEY VALUE) (TIMESTAMP KEY VALUE) ...)."
-  (let* ((table (eva-tsv-all-entries eva-mem-history-path))
-         (table-subset (--filter (eq var (eva--read-lisp (cadr it)))
-                                 table)))
-    table-subset))
+  (--filter (eq var (eva--read-lisp (cadr it)))
+            (eva-tsv-all-entries eva-mem-history-path)))
 
 (defun eva--mem-check-history-sanity ()
   "Check that the mem history is sane."
@@ -1486,9 +1487,9 @@ Put this on `window-buffer-change-functions' and
 
 ;;; Interactive sessions
 
-(defvar eva-dbg-do-all-items nil)
+(defvar eva-debug-do-all-items nil)
 
-(defalias 'eva-resume #'eva-run-queue)
+(defalias #'eva-resume #'eva-run-queue)
 
 (defun eva-run-queue (&optional queue)
   "Call every function from QUEUE, default `eva--queue'.
@@ -1521,7 +1522,7 @@ spawned by the functions will be skipped by
     (if (minibufferp) ; user busy
         (run-with-timer 20 nil #'eva-session-butt-in-gently)
       (setq eva-date (ts-now))
-      (when-let ((fns (if eva-dbg-do-all-items
+      (when-let ((fns (if eva-debug-do-all-items
                           (eva-enabled-fns)
                         (-filter #'eva--pending-p (eva-enabled-fns)))))
         (setq eva--queue fns)
@@ -1621,8 +1622,7 @@ Optional arg TS skips the prompt and sets date from that."
 
 (defun eva--check-for-time-anomalies ()
   "Check for timestamps that don't look right.
-Good to run after enabling `eva-mode' or changing
-`eva-items'."
+Good to run after enabling `eva-mode' or changing `eva-items'."
   (let* ((datasets (--map (eva-item-dataset it) eva-items))
          (logs (list eva-idle-log-path eva-buffer-focus-log-path))
          (files (-non-nil (append datasets logs)))

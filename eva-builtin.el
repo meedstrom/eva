@@ -37,7 +37,7 @@
 (declare-function org-outline-level "org")
 (declare-function org-promote "org")
 (declare-function org-reduced-level "org")
-(declare-function org-with-wide-buffer "org-macs")
+;; (declare-function org-with-wide-buffer "org-macs")
 (defvar ledger-report-buffer-name)
 (defvar ledger-reports)
 (defvar org-agenda-files)
