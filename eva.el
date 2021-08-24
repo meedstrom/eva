@@ -182,7 +182,7 @@ own R project."
       (ess-execute "source(\"init.R\")" 'buffer))))
 
 (defun eva-dbg (&rest strings)
-  "Concat STRINGS and print them via `eva-debug-fn'.
+  "Concat STRINGS and print them via function `eva-debug-fn'.
 Do nothing if that is nil.  Note that we don't do the
 `format-message' business usual for `error' and its cousins.
 Use the real `error' for that."
@@ -417,7 +417,7 @@ example."
         (delete-blank-lines)
         (insert new-date-maybe)
         (insert msg))))
-  (setq eva--last-chatted (ts-now))
+  (setq eva--last-chatted (ts-fill (ts-now)))
   (string-join strings))
 
 (defun eva-emit-same-line (&rest strings)
@@ -427,7 +427,7 @@ example."
       (goto-char (point-max))
       (with-silent-modifications
         (insert msg)))
-    (setq eva--last-chatted (ts-now))
+    (setq eva--last-chatted (ts-fill (ts-now)))
     msg))
 
 
@@ -1190,7 +1190,7 @@ only be in `eva-mem'. See `eva-load-vars-hook'."
   :group 'eva
   :type 'hook)
 
-(defvar eva-mem  nil
+(defvar eva-mem nil
   "Alist of all relevant variable values.
 We log these values to disk at `eva-mem-history-path', so we can
 recover older values as needed.")
@@ -1236,31 +1236,34 @@ Return a list looking like
   "Check that the mem history is sane."
   (unless (--all-p (= 3 (length it))
                    (eva-tsv-all-entries eva-mem-history-path))
-    (error "Memory history looks corrupt: not all lines have 3 fields")))
+    (error "Memory history looks corrupt: not all lines have 3 fields. \n%s"
+           "See `eva-mem-history-path'")))
 
 (defun eva--mem-save-only-changed-vars ()
   "Save new or changed `eva-mem' values to disk."
   (eva--mem-check-history-sanity)
   (cl-loop for cell in eva-mem
-           do (progn
-                (let ((foo (eva--mem-filter-for-variable (car cell)))
-                      (write? nil)
-                      ;; Configure `prin1-to-string'.
-                      (print-level nil)
-                      (print-length nil))
-                  (if (null foo)
-                      (setq write? t)
-                    (unless (equal (cdr cell)
-                                   (eva--read-lisp
-                                    (nth 2 (-last-item foo))))
-                      (setq write? t)))
-                  (when write?
+           do (let ((subset (eva--mem-filter-for-variable (car cell)))
+                    (write? nil))
+                (if (null subset)
+                    (setq write? t)
+                  (let ((historic-value (eva--read-lisp
+                                         (nth 2 (-last-item subset))))
+                        (mem-value
+                         (if (member (car cell) eva--mem-timestamp-variables)
+                             (floor (ts-unix (cdr cell)))
+                           (cdr cell))))
+                    (unless (equal historic-value mem-value)
+                      (setq write? t))))
+                (when write?
+                  (let ((print-level nil)
+                        (print-length nil))
                     (eva-tsv-append eva-mem-history-path
-                                    (prin1-to-string (car cell))
-                                    (if (ts-p (cdr cell))
-                                        ;; Convert ts structs because they're clunky to read
-                                        (ts-format "%s" (cdr cell))
-                                      (prin1-to-string (cdr cell)))))))))
+                      (prin1-to-string (car cell))
+                      (if (ts-p (cdr cell))
+                          ;; Convert ts structs because they're clunky to read
+                          (ts-format "%s" (cdr cell))
+                        (prin1-to-string (cdr cell)))))))))
 
 (defun eva--mem-last-value-of-variable (var)
   "Get the most recent stored value of VAR from disk."
