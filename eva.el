@@ -434,7 +434,7 @@ example."
 ;;; Library for greeting messages
 
 (defvar eva-greetings
-  '((concat "Welcome back, " eva-user-short-title)
+  '((concat "Welcome back, " eva-user-short-title ".")
     (concat "Nice to see you again, " eva-user-name ".")
     (concat "Greetings, " eva-user-name "."))
   "Greeting phrases which can initiate a conversation.
@@ -1720,7 +1720,7 @@ Return the function on success, nil otherwise."
   (if eva-mode
       (progn
         (when eva-debug
-          (message "------ (debug message) Trying to turn on. ------"))
+          (message "------ (Eva debug) Trying to turn on. ------"))
         ;; Check to see whether it's ok to turn on.
         (when (and (or (eva--idle-set-fn)
                        (prog1 nil
@@ -1732,7 +1732,7 @@ Return the function on success, nil otherwise."
                    (if (eva--another-eva-running-p)
                        (prog1 nil
                          (message
-                          (concat "Another EVA active, I won't get"
+                          (concat "Another VA active, I won't get"
                                   " in their way.  Disabling eva-mode."))
                          (eva-mode 0))
                      t))
@@ -1756,7 +1756,7 @@ Return the function on success, nil otherwise."
               (eva--user-is-present)
               (when eva-debug
                 (eva-emit
-                 "------ (debug message) Mode turned on. ----------"))))))
+                 "------ (Eva debug) Mode turned on. ----------"))))))
     ;; Turn off.
     (unless (eva--another-eva-running-p)
       (eva-emit "Turning off.")

@@ -410,6 +410,7 @@ Searches `eva-main-datetree-path' for entries matching
 members in DATES (ts objects). Return the count of dates that
 were found to have entries."
   (require 'org)
+  (require 'org-macs)
   (let ((dates (-sort 'ts<= dates))
         (counter 0)
         ;; Doom greys out the entire headline, making it hard to read, which is
@@ -420,17 +421,16 @@ were found to have entries."
     (delete-region (point-min) (point-max))
     (with-temp-buffer
       (insert-file-contents eva-main-datetree-path)
-      (org-with-wide-buffer
-       (goto-char (point-min))
-       (dolist (date dates)
-         (when (search-forward (concat "* " (ts-format "%F" date)) nil t)
-           (setq counter (1+ counter)) ;; for summary in prompt
-           (goto-char (line-beginning-position)) ;;(beginning-of-line)
-           (let ((beg (point)))
-             (org-next-visible-heading 1)
-             (while (< 3 (org-reduced-level (org-outline-level)))
-               (org-next-visible-heading 1))
-             (append-to-buffer (get-buffer buffer) beg (point)))))))
+      (goto-char (point-min))
+      (dolist (date dates)
+        (when (search-forward (concat "* " (ts-format "%F" date)) nil t)
+          (setq counter (1+ counter)) ;; for summary in prompt
+          (goto-char (line-beginning-position)) ;;(beginning-of-line)
+          (let ((beg (point)))
+            (org-next-visible-heading 1)
+            (while (< 3 (org-reduced-level (org-outline-level)))
+              (org-next-visible-heading 1))
+            (append-to-buffer (get-buffer buffer) beg (point))))))
     (if (> counter 0)
         (progn
           (dotimes (_ 2)
