@@ -233,7 +233,7 @@ File: eva.info,  Node: Full set-up example,  Next: Customising your VA,  Prev: S
        (setq eva-ai-name "Alfred")
        (setq eva-user-name "Bruce")
        (setq eva-user-birthday "1963-02-19")
-       (setq eva-user-short-title "sir")
+       (setq eva-user-short-title "sir") ;; don't like titles? put in your name again
        (setq eva-idle-log-path         "~/self-data/idle.tsv")
        (setq eva-buffer-focus-log-path "~/self-data/buffer-focus.tsv")
        (setq eva-buffer-info-path      "~/self-data/Self_data/buffer-info.tsv")
@@ -395,8 +395,9 @@ File: eva.info,  Node: Greetings,  Next: Composing a custom session,  Prev: Writ
 
 If the current set of greetings e.g.  "Nice to see you again" aren’t to
 your tastes, you may want to override one or more of these.
-   • eva-greetings (variable)
-   • eva-daytime-appropriate-greetings (function)
+
+   • ‘eva-greetings’ (variable)
+   • ‘eva-daytime-appropriate-greetings’ (function)
 
    You can also put an alternative to ‘eva-greet’ in ‘eva-items’, but
 there’ll still be a couple of places where the above get used.
@@ -814,24 +815,24 @@ Node: Set-up3617
 Node: Initial3780
 Node: Choose what to track5316
 Node: Full set-up example7639
-Node: Customising your VA12089
-Node: Writing a new function12329
-Node: Greetings14157
-Node: Composing a custom session14677
-Node: Synergistic programs16832
-Node: Memacs17034
-Node: Org configuration23725
-Node: Reminder of clocked task23915
-Node: Dangling clocks24810
-Node: Notes on built-ins26047
-Node: eva-query-sleep26280
-Node: eva-present-diary27048
-Node: eva--log-buffer28066
-Node: eva--log-idle29131
-Node: Surgery29496
-Node: Changing dataset file names29681
-Node: Editing datasets manually30019
-Node: Known issues31765
+Node: Customising your VA12134
+Node: Writing a new function12374
+Node: Greetings14202
+Node: Composing a custom session14735
+Node: Synergistic programs16890
+Node: Memacs17092
+Node: Org configuration23783
+Node: Reminder of clocked task23973
+Node: Dangling clocks24868
+Node: Notes on built-ins26105
+Node: eva-query-sleep26338
+Node: eva-present-diary27106
+Node: eva--log-buffer28124
+Node: eva--log-idle29189
+Node: Surgery29554
+Node: Changing dataset file names29739
+Node: Editing datasets manually30077
+Node: Known issues31823
 
 End Tag Table
 

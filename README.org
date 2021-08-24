@@ -286,16 +286,8 @@ Observations
 - The concept of a "change of activity" (shift from one factor level to another in the =activity= variable) may not map to any meaningful neural event in the user.  The user might be in some form of undirected state, their choice of next activity heavily influenced by randomness (whatever they happen to see or hear, what someone else says, ...).  However, we can model that as an activity named "undirected", usually transitional between two activities.  Not sure if it's possible to detect, nor if it's important to distinguish this from other types of unknown activity.
 - All our observations of sleep can be considered a subset of =activity_verified= data, so they're baked into that variable.
 
-Questions for who knows more statistics than me
-- [ ] Clarify the relation between =activity= and =time.since.bufkind.change=.  It's not like having activity at a certain value would /cause/ a certain amount of minutes of =time.since.bufkind.change=, is it?  But it seems to be exponentially more likely that a shift in activity has occurred the longer the time goes on.
-- [ ] Is there any causal relation between =buffer_kind= and =time.since.bufkind.change= or not?
-- [ ] Baking sleep into =activity_verified=: does this play havoc with the latter's missingness process, considering that our random sampling design may naively try to poll the user's activity at night and fail to get an answer and interpret that in a way it shouldn't?  We could of auto-feed it the "sleep" response, is that ok? (only works for retroactive estimation, obviously not realtime)
-- [ ] The model as it stands estimates activity at a specific instant in time, and we could possibly implement this with something efficient like a Kalman filter for realtime prediction.  But how do I make a model that estimates large blocks of time in the past, instead of single instants?
-- [ ] See also my confusion under [[#rubins-basic-questions][#Rubin's basic questions]]
-
-# Maybe it's a hidden Markov model.
-
-# A human's life my not be reducible to a Markov process all the time, but it only needs to be so most of the time for the VA to do its job.
+*** Questions for who knows more statistics than me
+- Please see [[https://github.com/meedstrom/eva/issues/4][Issue #4]]
 
 ** Configuration: preclassify
 
