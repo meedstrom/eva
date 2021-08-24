@@ -153,31 +153,38 @@ Donald Rubin has [[https://statmodeling.stat.columbia.edu/2009/05/24/handy_stati
 
 By all data, I assume you mean all data /except/ user verification on current activity, since the point is to minimize our need for that.
 
-I think I would treat it as a classification problem, a matter of "[[https://en.wikipedia.org/wiki/Nowcasting_(economics)][nowcasting]]" at any specific time, to get the posterior -- presumably a generalized Bernoulli distribution (aka categorical distribution) or a multivariate beta distribution (aka [[https://en.wikipedia.org/wiki/Dirichlet_distribution][Dirichlet distribution]]) -- that tells me what activities have the greatest probability mass at that time.  As inputs to that model, I could probably use certain data which were the case at that exact time, chiefly whether the user is idle/away/asleep, and if not then what window/buffer they are focusing on.  I would also feel the need to rely on a lot of data from the past, and therefore input some kind of time series models (ARMA? Kalman filter?).  An interesting input is not only past confirmed activities, but past predicted activity.  If the user was doing a certain thing at a time /t/, that might causally influence what they're doing at time t+30.
+I think I would treat it as a classification problem, a matter of "[[https://en.wikipedia.org/wiki/Nowcasting_(economics)][nowcasting]]" at any specific time, to get the posterior -- presumably a generalized Bernoulli distribution (aka categorical distribution) or a multivariate beta distribution (aka [[https://en.wikipedia.org/wiki/Dirichlet_distribution][Dirichlet distribution]]) -- that tells me what activities have the greatest probability mass at that time.  As inputs to that model, I could probably use certain data which were the case at that exact time, chiefly whether the user is idle/away/asleep, and if not then what window/buffer they are focusing on.  I would also feel the need to rely on data from the past, and therefore input some kind of time series models (ARMA? Kalman filter?).  If the user was doing a certain thing at a time /t/, that might causally influence what they're doing at time t+30.  An interesting input is not only past confirmed activities, but past predicted activity.  Even though it's not confirmed, we should use it and minimize our need for confirmations.
 
 My answer leads me to ask how often to re-run the model and how to use the output of new runs.
 
-The package has dual purposes.  One is to predict in near real-time so as to comfort the user that we're on the ball and maybe get opportunities for correction and training.  To get those fast predictions, maybe the [[https://en.wikipedia.org/wiki/Kalman_filter][Kalman filter]] is appropriate, and though it is normally only used where all variables are continuous, there appear to be applications of it for classification.
+The package has dual purposes.  One is to predict in near real-time so as to reassure the user that we're on the ball and maybe get opportunities for correction and training.  To get those fast predictions, maybe the [[https://en.wikipedia.org/wiki/Kalman_filter][Kalman filter]] is appropriate, and though it is normally only used where all variables are continuous, there appear (from casual Googling) to be applications of it for classification.
 
 The other purpose is to classify what happened in the past, something that could be done at leisure overnight with arbitrarily long Markov chains ([[https://en.wikipedia.org/wiki/Markov_chain_Monte_Carlo][Markov chain Monte Carlo]]), an [[https://en.wikipedia.org/wiki/Ensemble_learning][ensemble of models]], [[https://en.wikipedia.org/wiki/Resampling_(statistics)][resampling]] and so on.  This would classify large chunks of time at once, maybe even all time since the beginning of data collection.
 
-An aside: we could block off reclassifying time too far in the past - "lock it in" as it were, but that still leaves say, the last 24-48 hours.  We also rely pretty hard on the user's claims of the truth when we can get them, and keep track of whether a block of time is verified or just a guess.  (Would it perhaps form a second dataset?)  So a question is whether we should have a variable for predicted activity separate from a variable for verified activity, and also how long the "verification" is good for?  Some kind of exponentially decaying effect from the point in time of verification?  Should we ask the user to also verify large chunks of time in the past, so we don't only have them for single instants in time?
+An aside: we could block off reclassifying time too far in the past - "lock it in" as it were, but that still leaves say, the last 24-48 hours.
+
+We're dependent on the user's claims of the truth when we can get them, to be able to calibrate the model at all, so we keep track of whether a block of time is verified or just a guess.  (Would it perhaps form a second dataset?)
+
+So a question is whether we should have a variable for guessed activity separate from a variable for verified activity, and also how long the "verification" is good for?  Some kind of exponentially decaying effect from the point in time of verification?  Should we ask the user to also verify large chunks of time in the past, so we don't only have them for single instants in time?
 
 - 2. What were you doing before you had any data?
 
-I was running nested if-then-else clauses to get guesses of the present state, nothing more.  They were hardcoded heuristics with no sense of probability.  That's where I started to feel the need to somehow include past information, because the guesses were frequently stupid, and in particular, changed too easily.  Perhaps I could have implemented a hack to give them some sluggishness, like average the guesses every minute for the past 15 minutes and only change the prediction when the average exceeds 50%.  But that'd have probably resulted in a lot of 7.5 minute time blocks instead of a lot of 1-minute blocks which still looks artificial and feels like I haven't solved the problem.  Another problem was when the user corrected the clock: for how long should this correction be canon? In a statistical model, I felt that could be taken care of by "just put a distribution on it".
+I was running nested if-then-else clauses to get guesses of the present state, nothing more.  They were hardcoded heuristics with no sense of probability.  That's where I started to feel the need to somehow include past information, because the guesses were frequently stupid, and in particular, changed too easily.  Perhaps I could have implemented a hack to give them some sluggishness, like average the guesses every minute for the past 15 minutes and only change the prediction when the average exceeds 50%.  But that'd have probably resulted in a lot of 7.5 minute time blocks instead of a lot of 1-minute blocks which still looks artificial and feels like I haven't solved the problem in a natural way.
+
+Another problem was when the user corrected the clock: for how long should this correction be canon? In a statistical model, I felt that could be taken care of by "just put a distribution on it".
 
 ** Data
 
 You like concrete? I give you concrete! Here are the kinds of data the VA gathers:
 
-*** Buffer log ("buffers" are cognate to application windows)
-| focus-in time    | name                                 | file | mode | id  |
-|------------------+--------------------------------------+------+------+-----|
-| 2020-02-16 13:20 | firefox:efficientbadass.blogspot.com | ...  | ...  | ... |
-| 2020-02-16 13:21 | school-notes.txt                     | ...  | ...  | ... |
-| 2020-02-16 13:24 | firefox:efficientbadass.blogspot.com | ...  | ...  | ... |
-| ...              | ...                                  | ...  | ...  | ... |
+*** Buffer log ("buffers" are cognate to app windows)
+| focus-in time    | name                         | file | mode | id  |
+|------------------+------------------------------+------+------+-----|
+| 2020-02-16 13:20 | firefox:news.ycombinator.com | ...  | ...  | ... |
+| 2020-02-16 13:21 | school-notes.txt             | ...  | ...  | ... |
+| 2020-02-16 13:24 | firefox:news.ycombinator.com | ...  | ...  | ... |
+| 2020-02-16 13:29 | firefox:lolcats.com          | ...  | ...  | ... |
+| ...              | ...                          | ...  | ...  | ... |
 
 See how much detail we can get from buffer data under [[#configuration-preclassify][#Configuration: preclassify]].
 
@@ -237,7 +244,7 @@ In addition to the above data, we get access to some probably less-relevant data
 - Cold showers (subjective rating)
 - ...
 
-There are other possible data sources.  All of [[https://github.com/novoid/Memacs][Memacs]]/[[https://github.com/karlicoss/orger][Orger]] can provide a lot, such as git commit history, text message history, GPS history, and so on.  Perhaps it would be interesting to email the user's phone to verify predictions and poll the webcam and mic for movement.  To limit the scope of this project, I'm only modelling user activity /while at the computer/, not while away from it, so all that can be left on the back burner as extensions for the future.
+There are other possible data sources.  All of [[https://github.com/novoid/Memacs][Memacs]]/[[https://github.com/karlicoss/orger][Orger]] can provide a lot, such as git commit history, text message history, GPS history, and so on.  Perhaps it would be interesting to email the user's phone to verify predictions and poll the webcam and mic for movement.  To limit the scope of this project, I'm only modelling user activity /while at the computer/, not while away from it, so all that can be left on ice as extensions for the future.
 
 From the buffer data, we can create a new variable: "time since buffer-change", and here things start to get interesting for realtime nowcasting.  Of course if you but briefly check an internet article for, say, 30 seconds and get back to your school notes, it's not meaningful (to me) to report this as a change of activity.  So the amount of time since the change matters.  And of course the internet article could be related to the schoolwork.
 
@@ -247,10 +254,10 @@ Also an important piece of data is what kind of buffers these are in the buffer 
 
 ** Models
 
-I'm almost certain the VA need two separate models:
+I'm almost certain the VA needs two separate models:
 
 - Realtime model :: a model to be used for realtime prediction, to satisfy the user that the VA is on the ball and get opportunities for correction.  Must be computationally efficient.
-- Past-classification model :: a model for classifying the last 24-48 hours "properly". Runs only once for any given day, after which it's up to the user to correct remaining mistakes.
+- Past-classification model :: a model for classifying the last 24-48 hours "properly". Runs only once for any given day, after which it's up to the user to correct remaining mistakes, if they care to.
 
 The next section is written with the realtime model in mind, but much can apply to both models.  For discussion, see [[https://github.com/meedstrom/eva/issues/4][Issue #4]].
 
@@ -293,10 +300,10 @@ Observations
 - =activity= is a classification of activity (e.g. coding, sleeping, studying), with fewer factor levels than =buffer_kind=.
 - =activity= is unobserved. Estimating it is the purpose.
 - =activity_verified= is user-supplied data -- their claim of what activity they're up to -- gotten through automatic prompts at the computer.
-- =missingness_verification= is the unobserved process causing =activity_verified= to have N/A values. (It's standard practice to name a process like this wherever there are N/A values).
+- =missingness_verification= is the unobserved process causing =activity_verified= to have N/A values. (It's Bayesian standard practice to name a process like this for any variable that has N/A values).
 - Fortunately, we know the generative process behind =missingness_verification= -- it's simply from when the VA asks or doesn't ask the user, and we can design that to be a random sampling over the day, so this is not as much a mystery as in many missing-data models.
-  - However, there are times when the computer doesn't get an answer because the user is either away (aka idle) or refuses to respond.  If the latter situation is rare, it doesn't necessarily affect our predictions of activity for the times of day when the user is /not/ idle, and those predictions are our research objective anyway.
-- We should leave out =buffer= in this graph, since the artifice =buffer_kind= counts as observed by itself (see [[#configuration-preclassify][#Configuration: preclassify]]), but it could theoretically be estimated from =buffer=.
+  - However, there are times when the VA doesn't get an answer because the user is either away (aka idle) or refuses to respond.  If the latter situation is rare, it doesn't necessarily affect our predictions of activity for the times of day when the user is /not/ idle, and those predictions are our research objective anyway.
+- We should leave out =buffer= in this graph, since the artifice =buffer_kind= counts as observed by itself (see [[#configuration-preclassify][#Configuration: preclassify]]), but it could theoretically be estimated from =buffer= in a sophisticated model.
 - Note that =buffer_kind= has N/A values, it's not realistic to preclassify all buffers.
 - =buffer= has tens of thousands of factor levels.
 - The concept of a "change of activity" (shift from one factor level to another in the =activity= variable) may not map to any meaningful neural event in the user.  The user might be in some form of undirected state, their choice of next activity heavily influenced by randomness (whatever they happen to see or hear, what someone else says, ...).  However, we can model that as an activity named "undirected", usually transitional between two activities.  Not sure if it's possible to detect, nor if it's important to distinguish this from other types of unknown activity.
@@ -311,16 +318,15 @@ So the buffer metadata is an essential component of our model, but we don't at f
 
 As you'll probably agree once you look over the below code, this preclassification is extremely useful to probably the majority of predictions the model will make.  I've given the factor names descriptive labels to see how they might map to activity categories, though they won't necessarily do so in the presence of other data (like time of day).  We may have fewer activity categories than the buffer kinds shown here, so that several buffer kinds could indicate the same activity.
 
-Epistemically, this exercise is not where the classification happens, it's just grouping the buffer metadata into meaningful buckets (factor levels), trying our best to find their natural borders in [[https://www.greaterwrong.com/tag/thingspace][thingspace]].
+Epistemically, this exercise is not where the classification happens, it's just grouping the buffer metadata into meaningful buckets, trying our best to find their natural borders in [[https://www.greaterwrong.com/tag/thingspace][thingspace]].
 
-# (TODO: Show a summary of the input dataset too)
+(TODO: Show a summary of the input dataset too)
 
 #+begin_src R
 # When unsure, leave a NA.  Note that it's okay to define kinds that you view
-# as conceptual subsets of another even if you don't specify that relation.  The
-# names of the kinds (after the tilde ~) are just suggestive, and meaningless
-# to the modeler.  Consider giving them truly meaningless names, like "fnord" or
-# "1", "2", "3"...
+# as conceptual subsets of another.  The names of the kinds (after the tilde ~)
+# are just suggestive, and meaningless to the modeler.  Consider giving them
+# truly meaningless names, like "fnord" or "1", "2", "3"...
 
 # Keep in mind that this list is parsed sequentially: the first match wins.
 # Look at the printout of d to see what kind of info exists.
@@ -357,10 +363,11 @@ d %>%
     str_detect(mode, "ess") ~ "coding"
   ))
 #+end_src
+Snippet 1: Each observed buffer is run through these =str_detect()= rules, and on the first matching rule, it's assigned a certain =buffer_kind= indicated after the tilde character =~=.
 
-The above snippet of R code is something the user might have to edit to encode features unique to their lives (or even filesystem organization) -- but the default snippet should be pretty comprehensive.  This not yet comprehensive, but a proof of concept.  Each observed buffer is run through these =str_detect()= rules, and on the first matching rule, it's assigned a certain =buffer_kind= indicated after the tilde character =~=.
+The above snippet of R code is something the user probably will have to edit to encode features unique to their lives (such as file organization) -- but the default snippet should be pretty comprehensive.  This is not yet comprehensive, but a proof of concept.
 
-There remain cases where the =buffer_kind= is left at a N/A value because none of the rules matched.  Instead of a single N/A bucket, we might put it in one of a few "=unknown_1=", "=unknown_2=", ... buckets, for example one for web browsing where the URL doesn't make it clear what's the activity (but we still know it's web browsing at least, so it can go in =unknown_web_browsing= as opposed to =unknown_something_else=).  (NOTE to prevent confusion: the above snippet already does this for eww and firefox and much too high up in the list -- as I said, it needs work)
+There remain cases where the =buffer_kind= is left at a N/A value because none of the rules matched.  Instead of a single N/A bucket, we might put it in one of a few "=unknown_1=", "=unknown_2=", ... buckets, for example one for web browsing where the URL doesn't make it clear what's the activity (but we still know it's web browsing at least, so it can go in =unknown_web_browsing= as opposed to =unknown_something_else=).  (NOTE to prevent confusion: the above snippet already does this for eww and firefox and much too high up in the list -- as I said, it needs work).
 
 ** Configuration: define activities
 
@@ -394,11 +401,13 @@ There should be an activity called "unknown" with costs zero, to work as a defau
 
 ** Elicitation of priors
 
-Before the auto-clocker starts running models, it will get the priors it needs by carrying out  [[https://onlinelibrary.wiley.com/doi/book/10.1002/0470033312][expert elicitation]], where the user is considered the "expert".  The user shall be asked to give their beliefs about a range of situations.  We already went into this a bit under [[#example-time-of-day][#Example: Time of day]], how the user would give their priors about activities over different times of day.
+Before the auto-clocker starts running models, it will get the priors it needs by carrying out  [[https://onlinelibrary.wiley.com/doi/book/10.1002/0470033312][expert elicitation]], where the user is considered the "expert".  The user shall be asked to give their beliefs about a range of situations.  We already went into this a bit under [[#example-time-of-day][#Example: Time of day]], how the user would give their priors over different times of day.
 
-Aside from times of day, the user might be asked for Dirichlet concentration parameters to how each =buffer_kind= predicts activity.
+Aside from times of day, the user might be asked for Dirichlet concentration parameters to how each =buffer_kind= predicts activity.  While the name is scary, it's not a lot to ask: one number for each one of their predefined activities, where a bigger number means more likely.  Like with the cost function, the most important thing is the ratio between them, but this time the absolute scale does play a role.  There is a difference between {1, 2, 3} and {2, 4, 6}... (TODO: explain)
 
-Ideally, this would be a one-time thing, but in practice we have to repeat it whenever the user re-defines the buffer kinds (repeat for each buffer kind affected by the change) or re-defines the activities (repeat everything), since that changes the statistical model.  This would be an iterative process that's most intense in the beginning.
+We'll reassure the user there's no need to overthink your answers.  While priors are necessary, enough data will overwhelm them eventually, provided you didn't zero out any possibilities nor put them at 100% ([[https://en.wikipedia.org/wiki/Cromwell%27s_rule][Cromwell's rule]]).
+
+Ideally, this questioning would be a one-time thing, but in practice we have to repeat it whenever the user re-defines the buffer kinds (repeat for each buffer kind affected by the change) or re-defines the activities (repeat everything), since that changes the statistical model.  This would be an iterative process that's most intense in the beginning.
 
 Every time the questioning repeats, we have to discard all the data up to that point to avoid HARK ([[https://en.wikipedia.org/wiki/Hypotheses_suggested_by_the_data][hypothesising after results known]]).  The idea is that the user rolls up everything they've learned into the new priors.  We display descriptive statistics during this questioning.  If the user is not feeling up to it, they can cancel all this and stay on the old model until later.
 
