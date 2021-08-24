@@ -436,7 +436,8 @@ example."
   '((concat "Welcome back, Master.")
     (concat "Nice to see you again, " eva-user-name ".")
     (concat "Greetings, " eva-user-name "."))
-  "Greeting phrases which can initiate a conversation.")
+  "Greeting phrases which can initiate a conversation.
+A quoted list of expressions.")
 
 ;; NOTE: I considered making external variables for morning, day and evening
 ;;       lists, but users might also want to change the daytime boundaries or
@@ -457,8 +458,8 @@ example."
                "Pleasant evening to you!"))))
 
 (defun eva--holiday-maybe ()
-  "If today's a holiday, format a suitable string."
-  (declare (side-effect-free t))
+  "If today's a holiday, return a suitable string for `eva-emit'.
+Else return a blank string."
   (require 'calendar)
   (require 'holidays)
   (if-let (foo (calendar-check-holidays (calendar-current-date)))
@@ -1373,7 +1374,9 @@ You should quote VAR, like with `set', not `setq'."
           (map-insert eva-mem var (symbol-value var)))))
 
 (defmacro eva-mem-pushnew-alt (var)
-  "In `eva-mem', store variable VAR's current value."
+  "In `eva-mem', store variable VAR's current value.
+Unlike `eva-mem-pushnew', quotes VAR for you, and it works in
+some cases (pushing let-bound variables) where that won't."
   `(if (assoc ',var eva-mem)
        (map-put! eva-mem ',var ,var)
      (setq eva-mem

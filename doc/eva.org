@@ -34,7 +34,7 @@ General Public License for more details.
 #+END_QUOTE
 :END:
 * Requirements
-- GNU/Linux or other Unix-like systems
+- GNU/Linux or other Unix-like systems. Should work on MacOS to my knowledge.
 - GNU Emacs 27+
 - GNU R
 - gnuplot
@@ -250,10 +250,9 @@ Now, there are two main kinds of functions: queries and excursions, and a functi
 
 If the current set of greetings e.g. "Nice to see you again" aren't to your tastes, you may want to override one or more of these.
 - eva-greetings (variable)
-- eva-greeting (function)
 - eva-daytime-appropriate-greetings (function)
 
-Or simply put an alternative to =eva-greet= in =eva-items=.
+You can also put an alternative to =eva-greet= in =eva-items=, but there'll still be a couple of places where the above get used.
 
 ** Composing a custom session
 

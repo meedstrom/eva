@@ -80,7 +80,8 @@ File: eva.info,  Node: Requirements,  Next: Soft requirements,  Prev: Top,  Up: 
 1 Requirements
 **************
 
-   • GNU/Linux or other Unix-like systems
+   • GNU/Linux or other Unix-like systems.  Should work on MacOS to my
+     knowledge.
    • GNU Emacs 27+
    • GNU R
    • gnuplot
@@ -395,10 +396,10 @@ File: eva.info,  Node: Greetings,  Next: Composing a custom session,  Prev: Writ
 If the current set of greetings e.g.  "Nice to see you again" aren’t to
 your tastes, you may want to override one or more of these.
    • eva-greetings (variable)
-   • eva-greeting (function)
    • eva-daytime-appropriate-greetings (function)
 
-   Or simply put an alternative to ‘eva-greet’ in ‘eva-items’.
+   You can also put an alternative to ‘eva-greet’ in ‘eva-items’, but
+there’ll still be a couple of places where the above get used.
 
 
 File: eva.info,  Node: Composing a custom session,  Prev: Greetings,  Up: Customising your VA
@@ -808,29 +809,29 @@ the excursions don’t have a high enough ‘:min-hours-wait’ or a low
 Tag Table:
 Node: Top184
 Node: Requirements1550
-Node: Soft requirements2130
-Node: Set-up3572
-Node: Initial3735
-Node: Choose what to track5271
-Node: Full set-up example7594
-Node: Customising your VA12044
-Node: Writing a new function12284
-Node: Greetings14112
-Node: Composing a custom session14591
-Node: Synergistic programs16746
-Node: Memacs16948
-Node: Org configuration23639
-Node: Reminder of clocked task23829
-Node: Dangling clocks24724
-Node: Notes on built-ins25961
-Node: eva-query-sleep26194
-Node: eva-present-diary26962
-Node: eva--log-buffer27980
-Node: eva--log-idle29045
-Node: Surgery29410
-Node: Changing dataset file names29595
-Node: Editing datasets manually29933
-Node: Known issues31679
+Node: Soft requirements2175
+Node: Set-up3617
+Node: Initial3780
+Node: Choose what to track5316
+Node: Full set-up example7639
+Node: Customising your VA12089
+Node: Writing a new function12329
+Node: Greetings14157
+Node: Composing a custom session14677
+Node: Synergistic programs16832
+Node: Memacs17034
+Node: Org configuration23725
+Node: Reminder of clocked task23915
+Node: Dangling clocks24810
+Node: Notes on built-ins26047
+Node: eva-query-sleep26280
+Node: eva-present-diary27048
+Node: eva--log-buffer28066
+Node: eva--log-idle29131
+Node: Surgery29496
+Node: Changing dataset file names29681
+Node: Editing datasets manually30019
+Node: Known issues31765
 
 End Tag Table
 
