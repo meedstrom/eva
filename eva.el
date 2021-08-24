@@ -92,7 +92,8 @@
   :safe t)
 
 (defcustom eva-user-short-title "Master"
-  "A short title for you that works on its own."
+  "A short title for you that works on its own.
+May be capitalized or not, e.g. \"Sojourner\" or \"sir\"."
   :group 'eva
   :type 'string
   :safe t)
@@ -1195,7 +1196,8 @@ We log these values to disk at `eva-mem-history-path', so we can
 recover older values as needed.")
 
 ;; REVIEW: We may not need this
-(defvar eva--mem-timestamp-variables '(eva--last-online)
+(defvar eva--mem-timestamp-variables '(eva--last-online
+                                       eva--last-chatted)
   "List of Lisp variables that contain ts objects.
 Members will be saved to `eva-mem-history-path' as plain numbers
 instead of ts objects for legibility.")
