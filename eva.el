@@ -4,7 +4,7 @@
 
 ;; Author: Martin Edström <meedstrom@teknik.io>
 ;; URL: https://github.com/meedstrom/eva
-;; Version: 0.2.0
+;; Version: 0.3.0
 ;; Created: 2020-12-03
 ;; Keywords: convenience
 ;; Package-Requires: ((emacs "27.1") (ts "0.3-pre") (s "1.12") (dash "2.19") (f "0.20.0") (ess "18.10.2") (pfuture "1.9") (named-timer "0.1") (transient "0.3.6"))
@@ -1355,6 +1355,7 @@ Appropriate on init."
              "as on a new setup, possibly all blank.  Please post an issue:"
              "https://github.com/meedstrom/eva even if you fix it"))
     (eva-mem-pushnew 'eva--last-online)
+    (eva-mem-pushnew 'eva--last-chatted)
     (eva-mem-pushnew 'eva-items)
     (eva-mem-pushnew 'eva-disabled-fns)
     (make-directory eva-cache-dir-path t)
