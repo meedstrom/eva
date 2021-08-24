@@ -238,9 +238,18 @@ Also an important piece of data is what kind of buffers these are in the buffer 
 
 # Also, predicted activity category.
 
+** Models
+
+I'm almost certain the VA need two separate models:
+
+- Realtime model :: a model to be used for realtime prediction, to satisfy the user that the VA is on the ball and get opportunities for correction.  Must be computationally efficient.
+- Past-classification model :: a model for classifying the last 24-48 hours "properly". Runs only once for any given day, after which it's up to the user to correct remaining mistakes.
+
+The next section is written with the realtime model in mind, but much can apply to the past-classification model as well.  For discussion, see [[https://github.com/meedstrom/eva/issues/4][Issue #4]].
+
 ** DAG
 
-So here's a first draft DAG (directed acyclic graph) for causal relations within my model.
+So here's a first draft DAG (directed acyclic graph) for causal relations within the realtime model.
 
 # #+begin_src R
 # library(dagitty)
@@ -261,7 +270,7 @@ So here's a first draft DAG (directed acyclic graph) for causal relations within
 
 [[file:assets/dag1.png]]
 \\
-Figure 2: Model graph.  As usual for DAGs, an arrow means "this causally influences that".  Some of these are observed variables, others have to be estimated (=activity= and =missingness_verification=).  Hyperparameters left out for now.
+Figure 2: Model graph for the realtime model.  As usual for DAGs, an arrow means "this causally influences that".  Some of these are observed variables, others have to be estimated (=activity= and =missingness_verification=).  Hyperparameters left out for now.
 
 # #+begin_quote
 # Aside: if you need a refresher on DAGs, see.
