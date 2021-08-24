@@ -127,7 +127,7 @@ The order in which the items come in this list reflects the order in which you w
   (setq eva-ai-name "Alfred")
   (setq eva-user-name "Bruce")
   (setq eva-user-birthday "1963-02-19")
-  (setq eva-user-short-title "sir")
+  (setq eva-user-short-title "sir") ;; don't like titles? put in your name again
   (setq eva-idle-log-path         "~/self-data/idle.tsv")
   (setq eva-buffer-focus-log-path "~/self-data/buffer-focus.tsv")
   (setq eva-buffer-info-path      "~/self-data/Self_data/buffer-info.tsv")
@@ -249,8 +249,9 @@ Now, there are two main kinds of functions: queries and excursions, and a functi
 ** Greetings
 
 If the current set of greetings e.g. "Nice to see you again" aren't to your tastes, you may want to override one or more of these.
-- eva-greetings (variable)
-- eva-daytime-appropriate-greetings (function)
+
+- =eva-greetings= (variable)
+- =eva-daytime-appropriate-greetings= (function)
 
 You can also put an alternative to =eva-greet= in =eva-items=, but there'll still be a couple of places where the above get used.
 

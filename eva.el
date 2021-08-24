@@ -91,8 +91,8 @@
   :type 'string
   :safe t)
 
-(defcustom eva-user-short-title "master"
-  "A short title for you that works on its own, in lowercase."
+(defcustom eva-user-short-title "Master"
+  "A short title for you that works on its own."
   :group 'eva
   :type 'string
   :safe t)
@@ -433,7 +433,7 @@ example."
 ;;; Library for greeting messages
 
 (defvar eva-greetings
-  '((concat "Welcome back, Master.")
+  '((concat "Welcome back, " eva-user-short-title)
     (concat "Nice to see you again, " eva-user-name ".")
     (concat "Greetings, " eva-user-name "."))
   "Greeting phrases which can initiate a conversation.
@@ -445,7 +445,7 @@ A quoted list of expressions.")
 (defun eva-daytime-appropriate-greetings ()
   "Return different greeting strings appropriate to daytime."
   (cond ((> 5 (ts-hour (ts-now)))
-         (list "You're up late, Master."
+         (list (concat "You're up late, " eva-user-short-title)
                "Burning the midnight oil?"))
         ((> 10 (ts-hour (ts-now)))
          (list (concat "Good morning, " eva-user-name ".")
