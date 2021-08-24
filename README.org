@@ -85,6 +85,8 @@ For the auto-clocking feature, when the VA's probability estimates make it nearl
 
 * Installation
 
+Please note that there is no auto-clocker yet!
+
 If you have [[https://github.com/raxod502/straight.el][straight.el]], you can install the package like so:
 #+begin_src elisp
 (use-package eva
@@ -99,7 +101,7 @@ Alternatively with Doom Emacs, this goes in =packages.el=:
            :files (:defaults "assets"  "renv" "*.R" "*.gnuplot")))
 #+end_src
 
-For set-up, please see [[file:doc/eva.org][the user manual]] (also available as Info manual after installation, type ~C-h i d m eva~) and the full setup example at [[file:eva-config.el][eva-config.el]].
+For set-up, please see [[file:doc/eva.org][the user manual]] (also available as Info manual after installation, type ~C-h i d m eva~).
 
 * Theory
 NOTE: Input is welcome -- post on [[https://github.com/meedstrom/eva/issues/4][Issue #4]] or email me at [[mailto:meedstrom@teknik.io][meedstrom@teknik.io]]!
