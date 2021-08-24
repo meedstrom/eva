@@ -31,8 +31,9 @@ This is an Emacs-based virtual assistant: Eva for short.  It helps you with
 My goal is an extensible toolbox for making a virtual assistant VA that meets your needs, rather than a monolith.  Thus writing new functions is the primary means of configuring this thing.  I ship a lot of premade functions in [[file:eva-builtin.el]], and it's hopefully easy to make your own.  I'll be happy to mainline your suggestion; please, open an issue!
 
 As part of data tracking, it also has some automatic loggers:
-- Idle logger:  Record all time when you were idle or the VA was off (like when the computer was off).
+- Idle logger:  Record all time when the computer was idle or the VA was off (like when the computer was off).
 - Buffer logger:  Record the current buffer, with info such as how long the buffer was in focus, its title, major mode, visited file name, variables =exwm-class-name=, =eww-url= and so on.
+  - (The term "buffer" is an Emacs cognate to "window")
 
 # We keep much of our state on disk, so everything works across reboots and crashes.
 
@@ -152,7 +153,7 @@ My answer leads me to ask how often to re-run the model and how to use the outpu
 
 The package has dual purposes.  One is to predict in near real-time so as to comfort the user that we're on the ball and maybe get opportunities for correction and training.  To get those fast predictions, maybe the [[https://en.wikipedia.org/wiki/Kalman_filter][Kalman filter]] is appropriate, and though it is normally only used where all variables are continuous, there appear to be applications of it for classification.
 
-The other purpose is to classify what happened in the past, something that could be done at leisure at any time (overnight), with arbitrarily many iterations of Markov chain Monte Carlo, an [[https://en.wikipedia.org/wiki/Ensemble_learning][ensemble of models]], [[https://en.wikipedia.org/wiki/Resampling_(statistics)][resampling]] and so on, but this would classify large chunks of time at once, maybe even all time since the beginning of data collection.  I'm not sure how that looks, mathematically. Nowcasting only returns /one/ distribution, not one for every infinitesimal slice of time in a span of days.  This is a question I need help with.
+The other purpose is to classify what happened in the past, something that could be done at leisure overnight with arbitrarily long Markov chains ([[https://en.wikipedia.org/wiki/Markov_chain_Monte_Carlo][Markov chain Monte Carlo]]), an [[https://en.wikipedia.org/wiki/Ensemble_learning][ensemble of models]], [[https://en.wikipedia.org/wiki/Resampling_(statistics)][resampling]] and so on.  This would classify large chunks of time at once, maybe even all time since the beginning of data collection.
 
 An aside: we could block off reclassifying time too far in the past - "lock it in" as it were, but that still leaves say, the last 24-48 hours.  We also rely pretty hard on the user's claims of the truth when we can get them, and keep track of whether a block of time is verified or just a guess.  (Would it perhaps form a second dataset?)  So a question is whether we should have a variable for predicted activity separate from a variable for verified activity, and also how long the "verification" is good for?  Some kind of exponentially decaying effect from the point in time of verification?  Should we ask the user to also verify large chunks of time in the past, so we don't only have them for single instants in time?
 
@@ -245,7 +246,7 @@ I'm almost certain the VA need two separate models:
 - Realtime model :: a model to be used for realtime prediction, to satisfy the user that the VA is on the ball and get opportunities for correction.  Must be computationally efficient.
 - Past-classification model :: a model for classifying the last 24-48 hours "properly". Runs only once for any given day, after which it's up to the user to correct remaining mistakes.
 
-The next section is written with the realtime model in mind, but much can apply to the past-classification model as well.  For discussion, see [[https://github.com/meedstrom/eva/issues/4][Issue #4]].
+The next section is written with the realtime model in mind, but much can apply to both models.  For discussion, see [[https://github.com/meedstrom/eva/issues/4][Issue #4]].
 
 ** DAG
 
