@@ -202,6 +202,8 @@ itself through use.")
                 (eva-tsv-last-value eva-curr-dataset)
                 " kg"))))
 
+;; TODO: Make it not fail on the first run
+;; TODO: Let's pass the datasets as args and eva-item-create should take :args
 ;; TODO: Pass start-date (today minus 3mo) and projection incline, letting
 ;;       user change the incline
 ;; TODO: Persist the buffer content across restarts
@@ -211,9 +213,11 @@ itself through use.")
   (setq eva-curr-fn #'eva-plot-weight)
   (mkdir "/tmp/eva" t)
   ;; Refresh data with R.
-  (let ;; FIXME: Allow custom item fns, and allow empty `eva-items'
+  (let ;; FIXME: Allow any item fns instead of hardcoding these two
       ((weight-path (eva-item-dataset (eva-item-by-fn #'eva-query-weight)))
-       (mood-path (eva-item-dataset (eva-item-by-fn #'eva-query-mood))))
+       (mood-path (eva-item-dataset (or
+                                     (eva-item-by-fn #'eva-query-mood-numeric)
+                                     (eva-item-by-fn #'eva-query-mood)))))
     (with-current-buffer eva--buffer-r
       (ess-execute (concat "weight_dataset <- '" weight-path "'") 'buffer)
       (ess-execute (concat "mood_dataset <- '" mood-path "'") 'buffer)
