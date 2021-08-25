@@ -270,16 +270,17 @@ itself through use.")
         (delete-region (point-min) (point-max))
         (message (eva-emit "Plotting your weight..."))
         (ess-wait-for-process eva--r-process t 0.1 nil 2)
-        ;; TODO: make it more informative for debugging, don't use
-        ;; ignore-errors. Ideally bury the buffer upon error and emit
-        ;; stderr to the chat log.
+        ;; TODO: Make it more informative for debugging. Ideally emit stderr to
+        ;;       the chat log.
         (if (= 0 (call-process "gnuplot" gnuplot-script-path t))
             (progn
-              (view-buffer (current-buffer) #'kill-buffer)
               (push (current-buffer) eva-excursion-buffers)
+              (eva-dbg "Gnuplot success.")
+              (view-buffer (current-buffer) #'kill-buffer)
               (keyboard-quit))
           ;; On error, keep showing the old plot. Hopefully error messages will
           ;; trail below.
+          (eva-dbg "Gnuplot failed.")
           (goto-char (point-min))
           (insert reserve))))))
 
@@ -521,15 +522,15 @@ Note that org-journal is not needed."
   (let* ((dates-to-check (funcall eva-past-sample-function eva-date))
          (discrete-files-found
           (--keep (eva--existing-diary it) dates-to-check))
-         (buffer (get-buffer-create
-                  (concat "*" eva-ai-name ": Selected diary entries*")))
+         (datetree-buf (get-buffer-create
+                  (concat "*" eva-va-name ": Selected diary entries*")))
          (datetree-found-count
-          (eva--make-indirect-datetree buffer dates-to-check))
+          (eva--make-indirect-datetree datetree-buf dates-to-check))
          (total-found-count
           (+ (length discrete-files-found) datetree-found-count)))
     (if (= 0 total-found-count)
         (message (eva-emit "No diary entries relevant to this date."))
-      (when (or (when eva-presumptive
+      (if (or (when eva-presumptive
                   (eva-emit "Opening "
                             (int-to-string total-found-count)
                             " diary entries.")
@@ -539,16 +540,18 @@ Note that org-journal is not needed."
                          " relevant to this date. Want me to open "
                          (if (= 1 total-found-count) "it" "them")
                          "?"))
-        (if (= 0 datetree-found-count)
-            (kill-buffer buffer)
-          ;; TODO: pressing q should kill it!
-          (view-buffer buffer #'kill-buffer)
-          (push (current-buffer) eva-excursion-buffers))
-        (when (-non-nil discrete-files-found)
-          (dolist (x discrete-files-found)
-            (view-file x)
-            (push (current-buffer) eva-excursion-buffers)))
-        (keyboard-quit)))))
+          (progn
+            (if (= 0 datetree-found-count)
+                (kill-buffer datetree-buf)
+              ;; TODO: pressing q should kill it!
+              (view-buffer datetree-buf #'kill-buffer)
+              (push (current-buffer) eva-excursion-buffers))
+            (when (-non-nil discrete-files-found)
+              (dolist (x discrete-files-found)
+                (view-file x)
+                (push (current-buffer) eva-excursion-buffers)))
+            (keyboard-quit))
+        (kill-buffer datetree-buf)))))
 
 
 ;;; Org
