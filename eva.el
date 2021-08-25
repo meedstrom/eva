@@ -1039,21 +1039,21 @@ Return non-nil on yes, and nil on no."
 Note that there is a variable watcher `eva--add-local-hook' on
 this list.")
 
-;; WIP: untested
-;; Convoluted way to make sure the end user doesn't have to write add-hook in
-;; their eva-defun definitions; it'll be enough to just push a buffer onto
-;; eva-excursion-buffers and they automatically get a buffer-local hook set.
+;; Make sure the end user doesn't have to write add-hook in their eva-defun
+;; definitions; it'll be enough to just push a buffer onto
+;; eva-excursion-buffers (or in any way modify it) and all members
+;; automatically get a buffer-local hook set.
 (add-variable-watcher
  'eva-excursion-buffers
  (defun eva--add-local-hook (_sym new _op _where)
-   "Add buffer-local hooks to all members of NEW, which is
-assumed to be a list of buffers, most likely
+   "Add buffer-local hooks to all members of NEW.
+NEW is assumed to be a list of buffers\; most likely, it is
 `eva-excursion-buffers'."
    (cl-loop for buf in new
             do (if (bufferp buf)
                    (when (buffer-live-p buf)
                      (with-current-buffer buf
-                       (eva-dbg "Adding local hook to: " (buffer-name))
+                       ;; (eva-dbg "Adding local hook to: " (buffer-name))
                        (add-hook 'kill-buffer-hook
                                  #'eva--if-excursion-complete-do-stuff
                                  96 t)))
@@ -1076,19 +1076,12 @@ assumed to be a list of buffers, most likely
                                       (symbol-name eva-curr-fn))
                               eva-cache-dir-path)))
         (setq eva--queue (cl-remove eva-curr-fn eva--queue :count 1))
+        ;; TODO: if a fn is called in isolation manually, don't resume
         ;; HACK Because the current-buffer is still active, wait to be sure the
         ;; kill-buffer completes.  I would like an after-kill-buffer-hook so I
         ;; don't need this timer.
         (run-with-timer .2 nil #'eva-resume)))))
 
-;; "Fail" excursion
-(defun eva-stop-watching-excursion ()
-  "Called after some time on an excursion."
-  (eva-dbg "Running eva-stop-watching-excursion")
-  (named-timer-cancel :eva-excursion)
-  (remove-hook 'kill-buffer-hook #'eva--if-excursion-complete-do-stuff))
-
-;; "Fail" query
 (defun eva--after-cancel-prompt-do-stuff ()
   "Actions after user cancels a minibuffer spawned from `eva-defun'."
   (eva-dbg "Running eva--after-cancel-prompt-do-stuff")
@@ -1101,16 +1094,47 @@ assumed to be a list of buffers, most likely
   ;; cancel, we want it to remain queued up.
   (cl-pushnew eva-curr-fn eva--queue))
 
-;; Ok, here's the shenanigans.  Observe that keyboard-quit and
-;; abort-recursive-edit are distinct commands.  When the user cancels a "query"
-;; by typing C-g, they were in the minibuffer, so it calls abort-recursive-edit
-;; (at least under selectrum-mode).  You can define an "excursion" by putting a
-;; keyboard-quit in BODY.  With this, we ensure different behavior for queries
+(defun eva--prep-for-interaction ()
+  "Set up variables and hooks prior to calling `eva-curr-fn'.
+Return t if there was no problem with setup, nil otherwise."
+  (let ((ok t))
+    (setq eva-curr-item (eva-item-by-fn eva-curr-fn))
+    ;; TODO: proceed even though it's not listed (need sanity checks elsewhere)
+    (unless eva-curr-item
+      (setq ok nil)
+      (error "%s not listed in eva-items" (symbol-name eva-curr-fn)))
+    (setq eva-curr-dataset (eva-item-dataset eva-curr-item))
+    (when (minibufferp)
+      (message "Was in minibuffer when %s called, not proceeding."
+               (symbol-name eva-curr-fn))
+      (eva-stop-queue)
+      (setq ok nil))
+    (setq eva-excursion-buffers nil)
+    (setf (eva-item-last-called eva-curr-item)
+          (time-convert (current-time) 'integer))
+    ;; Set up watcher for cancelled prompt.
+    (advice-add 'abort-recursive-edit :before
+                #'eva--after-cancel-prompt-do-stuff)
+    ok))
+
+(defun eva--after-pure-query-cleanup ()
+  (setq eva--queue (cl-remove eva-curr-fn eva--queue :count 1))
+  (setf (eva-item-dismissals eva-curr-item) 0)
+  ;; Save timestamp of this successful run.
+  (eva-tsv-append
+    (expand-file-name (concat "successes-" (symbol-name eva-curr-fn))
+                      eva-cache-dir-path))
+  ;; Clean up, because this wasn't an excursion.
+  (named-timer-cancel :eva-excursion)
+  (remove-hook 'kill-buffer-hook #'eva--if-excursion-complete-do-stuff))
+
+;; TODO: add itself to queue pls (why?)
+;;
+;; Ok, here's the shenanigans.  When the user cancels a "query" by typing C-g,
+;; they were in the minibuffer, so it calls abort-recursive-edit (at least
+;; under selectrum-mode).  With this, we ensure different behavior for queries
 ;; and excursions.  How?  We advise abort-recursive-edit to do things that we
-;; only want when a query is cancelled.  In this macro, pay attention to the
-;; placement of NEW-BODY, since it may contain a keyboard-quit.  Thus,
-;; everything coming after NEW-BODY will never be called for excursions, unless
-;; of course you use unwind-protect.
+;; only want when a query is cancelled.
 (defmacro eva-defun (name args &rest body)
   "Boilerplate wrapper for `cl-defun'.
 NAME, ARGS and BODY are as in `cl-defun'.  To see what it expands
@@ -1135,53 +1159,11 @@ you should replicate these features!"
        (when (eva--prep-for-interaction)
          (unwind-protect
              (prog1 (progn ,@main-body)
-               (eva--after-pure-query-cleanup))
+               (unless eva--on-excursion
+                 (eva--after-pure-query-cleanup)))
            ;; All below this line will always happen.
-           (advice-remove 'abort-recursive-edit #'eva--after-cancel-prompt-do-stuff))))))
-
-;; TODO: since returning nil will just make run-queue skip to the next item in
-;; queue, we should actually make run-queue check each return value as it goes
-;; -- and that would give us an alternative to keyboard-quit.
-;; Let's make a feature branch first.
-(defun eva--prep-for-interaction ()
-  "Set up variables and hooks prior to calling `eva-curr-fn'.
-Return t if there was no problem with setup, nil otherwise."
-  (let ((ok t))
-    (setq eva-curr-item (eva-item-by-fn eva-curr-fn))
-    (setq eva-curr-dataset (eva-item-dataset eva-curr-item))
-    (setq eva-excursion-buffers nil)
-    (unless eva-curr-item
-      (setq ok nil)
-      (error "%s not listed in eva-items" (symbol-name eva-curr-fn)))
-    (when (minibufferp)
-      (message "Was in minibuffer when %s called, not proceeding."
-               (symbol-name eva-curr-fn))
-      (setq ok nil))
-    (setf (eva-item-last-called eva-curr-item)
-          (time-convert (current-time) 'integer))
-    ;; TODO: Not sure if this is good
-    ;; (unless (get-buffer-window (eva-buffer-chat))
-    ;;   (pop-to-buffer (eva-buffer-chat)))
-
-    ;; Set up watchers in case an "excursion" happens.
-    ;;
-    (named-timer-run :eva-excursion (* 5 60) ()
-                     #'eva-stop-watching-excursion)
-    ;; Set up watcher for cancelled prompt.
-    (advice-add 'abort-recursive-edit :before
-                #'eva--after-cancel-prompt-do-stuff)
-    ok))
-
-(defun eva--after-pure-query-cleanup ()
-  (setq eva--queue (cl-remove eva-curr-fn eva--queue :count 1))
-  (setf (eva-item-dismissals eva-curr-item) 0)
-  ;; Save timestamp of this successful run.
-  (eva-tsv-append
-    (expand-file-name (concat "successes-" (symbol-name eva-curr-fn))
-                      eva-cache-dir-path))
-  ;; Clean up, because this wasn't an excursion.
-  (named-timer-cancel :eva-excursion)
-  (remove-hook 'kill-buffer-hook #'eva--if-excursion-complete-do-stuff))
+           (advice-remove 'abort-recursive-edit
+                          #'eva--after-cancel-prompt-do-stuff))))))
 
 
 ;;; Persistent variables memory
@@ -1439,6 +1421,88 @@ interface considering we use `eva-mem-push' to set variables."
   (map-elt eva-mem var))
 
 
+;;; Interactive sessions
+
+(defvar eva-debug-do-all-items nil)
+
+(defalias #'eva-resume #'eva-run-queue)
+
+(defvaralias 'eva--on-excursion 'eva--stop-queue)
+
+(defvar eva--stop-queue nil)
+
+(defun eva-stop-queue ()
+  "If `eva-run-queue' is currently looping, quit."
+  (setq eva--stop-queue t))
+
+(defun eva-run-queue ()
+  "Call every function from QUEUE, default `eva--queue'.
+Does some checks and sets up a good environment, in particular
+nulling the 'buffer-predicate frame parameter so that no buffers
+spawned by the functions will be skipped by
+`switch-to-next-buffer'."
+  (interactive)
+  (eva-dbg "Running eva-run-queue")
+  (if (minibufferp) ; user busy
+      ;; NOTE: named-timer is great insurance.  We've had bugs spawn many
+      ;;       copies of this timer, causing a predictably terrible UX.
+      (named-timer-run :eva-retry 20 nil #'eva-run-queue)
+    (let ((bufpred-backup (frame-parameter nil 'buffer-predicate)))
+      (unwind-protect
+          (progn
+            (set-frame-parameter nil 'buffer-predicate nil)
+            (when eva--stop-queue
+              (setq eva--queue (cl-remove eva-curr-fn eva--queue :count 1)))
+            (setq eva--stop-queue nil)
+            (cl-loop for f in eva--queue
+                     while (not eva--stop-queue)
+                     do (eva-call-fn-check-dismissals f)))
+        (set-frame-parameter nil 'buffer-predicate bufpred-backup)))))
+
+(defun eva-session-butt-in-gently ()
+  "Butt in if any queries are pending, with an introductory chime."
+  ;; If a session is already active, don't start a new one.
+  (eva-dbg "Running eva-session-butt-in-gently")
+  (unless eva--on-excursion
+    (if (minibufferp) ; user busy
+        (named-timer-run :eva-retry 20 nil #'eva-session-butt-in-gently)
+      (setq eva-date (ts-now))
+      (when-let ((fns (if eva-debug-do-all-items
+                          (eva-enabled-fns)
+                        (-filter #'eva--pending-p (eva-enabled-fns)))))
+        (setq eva--queue fns)
+        (unless (eq t (frame-focus-state))
+          (require 'notifications)
+          (notifications-notify :title eva-va-name :body (eva-greeting)))
+        (eva--chime-aural)
+        (eva--chime-visual)
+        (run-with-timer 1 nil #'eva-run-queue)))))
+
+(defun eva-session-from-idle ()
+  "Start a session if idle was long."
+  (eva-dbg "Running eva-session-from-idle")
+  (unless (< eva-length-of-last-idle eva-idle-threshold-secs-long)
+    (eva-session-butt-in-gently)))
+
+(defun eva-session-new ()
+  "Recalculate what items are pending and run them."
+  (interactive)
+  (eva-dbg "Running eva-session-new")
+  (unless eva--on-excursion
+    (setq eva-date (ts-now))
+    (setq eva--queue (-filter #'eva--pending-p (eva-enabled-fns)))
+    (eva-run-queue)))
+
+(defun eva-session-new-force-all ()
+  "Run through all enabled items."
+  (interactive)
+  (eva-dbg "Running eva-session-new-force-all")
+  (eva-stop-queue)
+  (setq eva-date (ts-now))
+  (setq eva--queue (eva-enabled-fns))
+  (eva-run-queue))
+
+
 ;;; Buffer logger
 ;; Unlike most data sources which make only the occasional datapoint, this
 ;; logger produces constant reams of new data, so we write them temporarily to
@@ -1547,84 +1611,6 @@ Put this on `window-buffer-change-functions' and
         (with-current-buffer eva--buffer-focus-log-buffer
           (goto-char (point-max))
           (insert "\n" (s-join "\t" focus-record)))))))
-
-
-;;; Interactive sessions
-
-(defvar eva-debug-do-all-items nil)
-
-(defalias #'eva-resume #'eva-run-queue)
-
-(defvar eva--on-excursion nil)
-
-(defun eva-start-excursion ()
-  (setq eva--on-excursion t))
-
-(defun eva-run-queue (&optional queue)
-  "Call every function from QUEUE, default `eva--queue'.
-Does some checks and sets up a good environment, in particular
-nulling the 'buffer-predicate frame parameter so that no buffers
-spawned by the functions will be skipped by
-`switch-to-next-buffer'."
-  (interactive)
-  (eva-dbg "Running eva-run-queue")
-  (unless (named-timer-get :eva-excursion)
-    (if (minibufferp) ; user busy
-        ;; NOTE: named-timer is great insurance. We've had bugs that ran many
-        ;;       copies of this timer, causing a predictably terrible UX!
-        (named-timer-run :eva-retry 20 nil #'eva-run-queue)
-      (let ((bufpred-backup (frame-parameter nil 'buffer-predicate)))
-        (unwind-protect
-            (progn
-              (set-frame-parameter nil 'buffer-predicate nil)
-              (setq eva--on-excursion nil)
-              (cl-loop for f in (or queue eva--queue)
-                       while (not eva--on-excursion)
-                       do (eva-call-fn-check-dismissals f)))
-          (set-frame-parameter nil 'buffer-predicate bufpred-backup))))))
-
-(defun eva-session-butt-in-gently ()
-  "Butt in if any queries are pending, with an introductory chime."
-  ;; If a session is already active, don't start a new one.
-  (eva-dbg "Running eva-session-butt-in-gently")
-  (unless (named-timer-get :eva-excursion)
-    (if (minibufferp) ; user busy
-        (named-timer-run :eva-retry 20 nil #'eva-session-butt-in-gently)
-      (setq eva-date (ts-now))
-      (when-let ((fns (if eva-debug-do-all-items
-                          (eva-enabled-fns)
-                        (-filter #'eva--pending-p (eva-enabled-fns)))))
-        (setq eva--queue fns)
-        (unless (eq t (frame-focus-state))
-          (require 'notifications)
-          (notifications-notify :title eva-va-name :body (eva-greeting)))
-        (eva--chime-aural)
-        (eva--chime-visual)
-        (run-with-timer 1 nil #'eva-run-queue)))))
-
-(defun eva-session-from-idle ()
-  "Start a session if idle was long."
-  (eva-dbg "Running eva-session-from-idle")
-  (unless (< eva-length-of-last-idle eva-idle-threshold-secs-long)
-    (eva-session-butt-in-gently)))
-
-(defun eva-session-new ()
-  "Recalculate what items are pending and run them."
-  (interactive)
-  (eva-dbg "Running eva-session-new")
-  (unless (named-timer-get :eva-excursion)
-    (setq eva-date (ts-now))
-    (setq eva--queue (-filter #'eva--pending-p (eva-enabled-fns)))
-    (eva-run-queue)))
-
-(defun eva-session-new-force-all ()
-  "Run through all enabled items."
-  (interactive)
-  (eva-dbg "Running eva-session-new-force-all")
-  (named-timer-cancel :eva-excursion)
-  (setq eva-date (ts-now))
-  (setq eva--queue (eva-enabled-fns))
-  (eva-run-queue))
 
 
 ;;; Commands

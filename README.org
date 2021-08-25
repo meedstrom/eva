@@ -15,7 +15,7 @@
 
 * Important news
 ** [2021-08-25 Wed]
-1. Your =eva-defun= bodies no longer need =(keyboard-quit)= to pause the session, use =(eva-start-excursion)= instead.
+1. Your =eva-defun= bodies no longer need =(keyboard-quit)= to pause the session, use =(eva-stop-queue)= instead.
 
 ** [2021-08-23 Mon]
 1. Git happened. If Straight asks you about merge conflicts on your next sync, just reset to origin/master. Sorry about that.
