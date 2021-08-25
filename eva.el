@@ -885,7 +885,7 @@ Runs `eva-periodic-hook'."
     ;; Run hooks last, in case they contain bugs.
     (run-hooks 'eva-periodic-hook)))
 
-;; NOTE: This runs rapidly, so it should be relatively efficient
+;; NOTE: This runs rapidly b/c it should react quickly on user returning.
 (defun eva--user-is-idle (&optional decrement)
   "Do stuff assuming the user is idle.
 This function is called by `eva--start-next-timer'

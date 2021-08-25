@@ -26,7 +26,7 @@
 
 (require 'eva)
 
-;; Calm the compiler.
+;; Silence the compiler.
 (declare-function ess-execute "ess")
 (declare-function ledger-report "ledger-report")
 (declare-function ledger-report-goto "ledger-report")
@@ -49,7 +49,7 @@
 
 ;;; Collection of basic stuff
 ;; Improvements to the core library should mean we can simplify the more
-;; complex definitions and move them to this section.
+;; complex definitions further below and move them to this section.
 
 (eva-defun eva-greet ()
   (message (eva-emit (eva-greeting)))
@@ -115,6 +115,45 @@ Near equivalent to typing l v A after entering `org-agenda-list'."
   (org-agenda-archives-mode t)
   (push (current-buffer) eva-excursion-buffers)
   (keyboard-quit))
+
+
+;;; Activity
+
+(cl-defstruct (eva-activity
+               (:constructor eva-activity-create)
+               (:copier nil))
+  name
+  id
+  cost-false-pos
+  cost-false-neg
+  query)
+
+(defvar eva-activity-list)
+
+(defun eva-activity-by-name (name)
+  "Get the first activity in `eva-activitys' matching NAME."
+  (--find (equal name (eva-activity-name it)) eva-activity-list))
+
+(defun eva-activity-names ()
+  "Get the :name of all members of `eva-activity-list'."
+  (-map #'eva-activity-name eva-activity-list))
+
+;; TODO: Get all informally named activities from the item's dataset.
+(eva-defun eva-query-activity ()
+  "Ask user what they're up to."
+  (let* ((name (eva-read "What are you up to? " (eva-activity-names)))
+         (name-corrected
+          (--find (member it (eva-activity-names))
+                  (list name (capitalize name) (downcase name))))
+         (name (if name-corrected
+                   name-corrected
+                 name))
+         (activity (eva-activity-by-name name)))
+    (eva-tsv-append eva-curr-dataset
+      (ts-format eva-date) ;; the time the activity happened
+      name
+      (when activity
+        (eva-activity-id activity)))))
 
 
 ;;; Mood
@@ -350,6 +389,7 @@ Uses the first command specified in `ledger-reports'."
     (goto-char (point-max)))
   (keyboard-quit))
 
+;; TODO: Explain/screencast in docs
 (defun eva-make-ods-for-finance ()
   "Make and open an ODS spreadsheet from Ledger data.
 Requires the ssconvert program that comes with Gnumeric."

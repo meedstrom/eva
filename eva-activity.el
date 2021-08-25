@@ -19,47 +19,13 @@
 
 ;;; Commentary:
 
-;; Things related to activity tracking.  Still experimental.
+;; You may notice there's no code.  Until we make more specific functionality
+;; for activity prediction, it makes sense to keep what we have in a section of
+;; eva-builtin.
 
 ;;; Code:
 
 (require 'eva)
-
-(cl-defstruct (eva-activity
-               (:constructor eva-activity-create)
-               (:copier nil))
-  name
-  id
-  cost-false-pos
-  cost-false-neg
-  query)
-
-(defvar eva-activity-list)
-
-(defun eva-activity-by-name (name)
-  "Get the first activity in `eva-activitys' matching NAME."
-  (--find (equal name (eva-activity-name it)) eva-activity-list))
-
-(defun eva-activity-names ()
-  "Get the :name of all members of `eva-activitys'."
-  (-map #'eva-activity-name eva-activity-list))
-
-;; TODO: Get all informally named activities from the dataset.
-(eva-defun eva-query-activity ()
-  "Ask user what they're up to."
-  (let* ((name (eva-read "What are you up to? " (eva-activity-names)))
-         (name-corrected
-          (--find (member it (eva-activity-names))
-                  (list name (capitalize name) (downcase name))))
-         (name (if name-corrected
-                   name-corrected
-                 name))
-         (activity (eva-activity-by-name name)))
-    (eva-tsv-append eva-curr-dataset
-      (ts-format eva-date) ;; the time the activity happened
-      name
-      (when activity
-        (eva-activity-id activity)))))
 
 (provide 'eva-activity)
 

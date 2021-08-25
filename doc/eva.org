@@ -143,7 +143,6 @@ The order in which the items come in this list reflects the order in which you w
 
   :config
   (require 'eva-builtin)
-  (require 'eva-activity)
 
   ;; These are used by `eva-present-diary'; org-journal not needed.
   (setq org-journal-dir "/home/kept/Diary")
