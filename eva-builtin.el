@@ -180,7 +180,7 @@ itself through use.")
 (add-hook 'eva-before-save-vars-hook
           (defun eva-mood-save ()
             "Save `eva-mood-alist' to memory."
-            (eva-mem-pushnew 'eva-mood-alist)))
+            (eva-mem-push 'eva-mood-alist)))
 
 
 ;;; Weight
@@ -518,9 +518,9 @@ Note that org-journal is not needed."
           (defun eva--save-org-variables ()
             "Sync certain org settings to mem."
             (when (featurep 'org-clock)
-              (eva-mem-pushnew 'org-clock-current-task))
+              (eva-mem-push 'org-clock-current-task))
             (when (featurep 'org-agenda)
-              (eva-mem-pushnew 'org-agenda-files))
+              (eva-mem-push 'org-agenda-files))
             ;; Transform newlines; eva-tsv-append correctly refuses them.
             (when (featurep 'org-capture)
               (let ((transformed-org-templates
@@ -529,7 +529,7 @@ Note that org-journal is not needed."
                                                  (s-replace "\n" "\\n" it)
                                                it)
                                              template))))
-                (eva-mem-pushnew-alt transformed-org-templates)))))
+                (eva-mem-push-alt transformed-org-templates)))))
 
 (defun eva-check-org-variables ()
   "Alert user if certain Org settings have changed.

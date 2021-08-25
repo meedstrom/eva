@@ -1179,9 +1179,9 @@ has restarted, so you can run something like the following.
 You should add to that list any variable you want to persist
 across reboots, using the following.
 
-    (eva-mem-pushnew 'my-var)
+    (eva-mem-push 'my-var)
 or
-    (eva-mem-pushnew-alt my-var)
+    (eva-mem-push-alt my-var)
 
 Of course, you can do that at any time instead of putting it on
 this hook.  The hook can be a reassurance if you do things with
@@ -1362,10 +1362,10 @@ Appropriate on init."
              "restored them from disk first, so the variables would have been"
              "as on a new setup, possibly all blank.  Please post an issue:"
              "https://github.com/meedstrom/eva even if you fix it"))
-    (eva-mem-pushnew 'eva--last-online)
-    (eva-mem-pushnew 'eva--last-chatted)
-    (eva-mem-pushnew 'eva-items)
-    (eva-mem-pushnew 'eva-disabled-fns)
+    (eva-mem-push 'eva--last-online)
+    (eva-mem-push 'eva--last-chatted)
+    (eva-mem-push 'eva-items)
+    (eva-mem-push 'eva-disabled-fns)
     (make-directory eva-cache-dir-path t)
     (when eva-chat-log-path
       (eva-write-safely (with-current-buffer (eva-buffer-chat)
@@ -1374,7 +1374,7 @@ Appropriate on init."
     (run-hooks 'eva-before-save-vars-hook)
     (eva--mem-save-only-changed-vars)))
 
-(defun eva-mem-pushnew (var)
+(defun eva-mem-push (var)
   "In `eva-mem', store variable VAR's current value.
 You should quote VAR, like with `set', not `setq'."
   (if (assoc var eva-mem)
@@ -1382,14 +1382,17 @@ You should quote VAR, like with `set', not `setq'."
     (setq eva-mem
           (map-insert eva-mem var (symbol-value var)))))
 
-(defmacro eva-mem-pushnew-alt (var)
+(defmacro eva-mem-push-alt (var)
   "In `eva-mem', store variable VAR's current value.
-Unlike `eva-mem-pushnew', quotes VAR for you, and it works in
-some cases (pushing let-bound variables) where that won't."
+Unlike `eva-mem-push', quotes VAR for you, and it works in some
+cases (pushing let-bound variables) where that function won't."
   `(if (assoc ',var eva-mem)
        (map-put! eva-mem ',var ,var)
      (setq eva-mem
            (map-insert eva-mem ',var ,var))))
+
+(defalias #'eva-mem-pushnew #'eva-mem-push "Deprecated 2021-08-24")
+(defalias #'eva-mem-pushnew-alt #'eva-mem-push-alt "Deprecated 2021-08-24")
 
 
 ;;; Buffer logger
@@ -1579,12 +1582,12 @@ spawned by the functions will be skipped by
 
 (defun eva-decrement-date ()
   "Decrement `eva-date'."
-  (interactive nil eva-chat-mode)
+  (interactive)
   (eva-set-date (ts-dec 'day 1 eva-date)))
 
 (defun eva-increment-date ()
   "Increment `eva-date'."
-  (interactive nil eva-chat-mode)
+  (interactive)
   (eva-set-date (ts-inc 'day 1 eva-date)))
 
 (defun eva-set-date-today ()
