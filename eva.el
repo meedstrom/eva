@@ -67,14 +67,14 @@
   :prefix "eva-"
   :group 'convenience)
 
+;; DEPRECATED 2021-08-23
+(defvaralias 'eva-ai-name 'eva-va-name)
+
 (defcustom eva-va-name "Alfred"
   "Your VA's name."
   :group 'eva
   :type 'string
   :risky t)
-
-;; DEPRECATED 2021-08-23
-(defvaralias 'eva-ai-name 'eva-va-name)
 
 (defcustom eva-user-birthday nil
   "Your birthday, an YYYY-MM-DD string."
@@ -1065,24 +1065,22 @@ assumed to be a list of buffers, most likely
   "If the current excursion appears done, do things."
   (eva-dbg "Running eva--if-excursion-complete-do-stuff."
            " Current buffer: " (buffer-name))
-  ;; TODO: some way of detecting pure query (excursion-buffers WILL naturally be empty)
-  ;; TODO: if current buffer is crap like  *temp* or *load* then ... idk
-  ;; maybe only buffer-locally add the kill hook
-  (let ((others (remove (current-buffer) eva-excursion-buffers)))
-    (when (-none-p #'buffer-live-p others)
-      (remove-hook 'kill-buffer-hook #'eva--if-excursion-complete-do-stuff)
-      (named-timer-cancel :eva-excursion)
-      (when (null (eva-item-dataset
-                   (eva-item-by-fn eva-curr-fn)))
-        (eva-tsv-append
-         (expand-file-name (concat "successes-"
-                                   (symbol-name eva-curr-fn))
-                           eva-cache-dir-path)))
-      (setq eva--queue (cl-remove eva-curr-fn eva--queue :count 1))
-      ;; HACK Because the current-buffer is still active, wait to be sure the
-      ;; kill-buffer completes.  I would like an after-kill-buffer-hook so I
-      ;; don't need this timer.
-      (run-with-timer .2 nil #'eva-resume))))
+  (when eva--on-excursion
+    (let ((others (remove (current-buffer) eva-excursion-buffers)))
+      (when (-none-p #'buffer-live-p others)
+        (remove-hook 'kill-buffer-hook #'eva--if-excursion-complete-do-stuff)
+        (named-timer-cancel :eva-excursion)
+        (when (null (eva-item-dataset
+                     (eva-item-by-fn eva-curr-fn)))
+          (eva-tsv-append
+            (expand-file-name (concat "successes-"
+                                      (symbol-name eva-curr-fn))
+                              eva-cache-dir-path)))
+        (setq eva--queue (cl-remove eva-curr-fn eva--queue :count 1))
+        ;; HACK Because the current-buffer is still active, wait to be sure the
+        ;; kill-buffer completes.  I would like an after-kill-buffer-hook so I
+        ;; don't need this timer.
+        (run-with-timer .2 nil #'eva-resume)))))
 
 ;; "Fail" excursion
 (defun eva-stop-watching-excursion ()
@@ -1168,10 +1166,6 @@ Return t if there was no problem with setup, nil otherwise."
 
     ;; Set up watchers in case an "excursion" happens.
     ;;
-    ;; FIXME: This hook causes severe bugs, commented out for now, result:
-    ;;        user has to manually resume after they're finished w/ an
-    ;;        excursion
-    ;; (add-hook 'kill-buffer-hook #'eva--if-excursion-complete-do-stuff 96)
     (named-timer-run :eva-excursion (* 5 60) ()
                      #'eva-stop-watching-excursion)
     ;; Set up watcher for cancelled prompt.
@@ -1562,6 +1556,11 @@ Put this on `window-buffer-change-functions' and
 
 (defalias #'eva-resume #'eva-run-queue)
 
+(defvar eva--on-excursion nil)
+
+(defun eva-start-excursion ()
+  (setq eva--on-excursion t))
+
 (defun eva-run-queue (&optional queue)
   "Call every function from QUEUE, default `eva--queue'.
 Does some checks and sets up a good environment, in particular
@@ -1579,16 +1578,10 @@ spawned by the functions will be skipped by
         (unwind-protect
             (progn
               (set-frame-parameter nil 'buffer-predicate nil)
-              ;; (pop-to-buffer (eva-buffer-chat))
-              ;; TODO: make it check non-nil return value for each fn
+              (setq eva--on-excursion nil)
               (cl-loop for f in (or queue eva--queue)
-                       with success = t
-                       until (null success)
-                       do (setq success (eva-call-fn-check-dismissals f))))
-          ;; FIXME: Actually, this will executed at the first keyboard-quit, so
-          ;; we will never have a nil predicate. We need to preserve it during
-          ;; an excursion.
-          ;; REVIEW: Probably been fixed
+                       while (not eva--on-excursion)
+                       do (eva-call-fn-check-dismissals f)))
           (set-frame-parameter nil 'buffer-predicate bufpred-backup))))))
 
 (defun eva-session-butt-in-gently ()
@@ -1838,6 +1831,7 @@ Return the function on success, nil otherwise."
     (remove-hook 'kill-emacs-hook #'eva--save-vars-to-disk)
     (named-timer-cancel :eva)
     (named-timer-cancel :eva-retry)
+    (named-timer-cancel :eva-excursion)
     (named-timer-cancel :eva-keepalive)))
 
 (provide 'eva)

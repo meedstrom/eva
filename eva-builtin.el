@@ -99,8 +99,8 @@
                (eva-ynp "I can direct you to my colleague ELIZA, though"
                         " she's not too bright.  Will that do?"))
       (doctor)
-      (eva-stop-watching-excursion)
-      (keyboard-quit))
+      (eva-start-excursion)
+      (eva-stop-watching-excursion))
     score-num))
 
 (eva-defun eva-present-org-agenda ()
@@ -114,7 +114,7 @@ Near equivalent to typing l v A after entering `org-agenda-list'."
   (org-agenda-log-mode t)
   (org-agenda-archives-mode t)
   (push (current-buffer) eva-excursion-buffers)
-  (keyboard-quit))
+  (eva-start-excursion))
 
 
 ;;; Activity
@@ -206,7 +206,7 @@ itself through use.")
                         " she's not too bright.  Will that do?"))
       (doctor)
       (eva-stop-watching-excursion)
-      (keyboard-quit))
+      (eva-start-excursion))
     score-num))
 
 (add-hook 'eva-after-load-vars-hook
@@ -277,7 +277,7 @@ itself through use.")
               (push (current-buffer) eva-excursion-buffers)
               (eva-dbg "Gnuplot success.")
               (view-buffer (current-buffer) #'kill-buffer)
-              (keyboard-quit))
+              (eva-start-excursion))
           ;; On error, keep showing the old plot. Hopefully error messages will
           ;; trail below.
           (eva-dbg "Gnuplot failed.")
@@ -317,7 +317,7 @@ add."
             (push (current-buffer) eva-excursion-buffers)
             ;; prevent counting this run as a success
             (eva-stop-watching-excursion)
-            (keyboard-quit)))))
+            (eva-start-excursion)))))
   (let* ((recently-hhmm (ts-format "%H:%M" (ts-dec 'minute 10 eva-date)))
          (recently-response (concat "Recently (" recently-hhmm ")"))
          (wakeup-time
@@ -377,7 +377,7 @@ Uses the first command specified in `ledger-reports'."
            (with-current-buffer (find-file-noselect eva-main-ledger-path)
              (ledger-report (caar ledger-reports) nil)))
          (push (get-buffer ledger-report-buffer-name) eva-excursion-buffers)
-         (keyboard-quit))))
+         (eva-start-excursion))))
 
 (eva-defun eva-present-ledger-file ()
   (unless (f-exists-p eva-main-ledger-path)
@@ -388,7 +388,7 @@ Uses the first command specified in `ledger-reports'."
   (push (current-buffer) eva-excursion-buffers)
   (unless save-place-mode
     (goto-char (point-max)))
-  (keyboard-quit))
+  (eva-start-excursion))
 
 ;; TODO: Explain/screencast in docs
 (defun eva-make-ods-for-finance ()
@@ -550,7 +550,7 @@ Note that org-journal is not needed."
               (dolist (x discrete-files-found)
                 (view-file x)
                 (push (current-buffer) eva-excursion-buffers)))
-            (keyboard-quit))
+            (eva-start-excursion))
         (kill-buffer datetree-buf)))))
 
 

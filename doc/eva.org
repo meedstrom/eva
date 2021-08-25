@@ -250,7 +250,8 @@ Now, there are two main kinds of functions: queries and excursions, and a functi
 
 - Pure queries are simple: they prompt for user input, do something with it (usually write something to disk), and finish, letting the next item in the queue take over.
 - Excursions send you away from the chat buffer and quit the interactive session with the VA.  For example, it may send you to a ledger report (=eva-present-ledger-report=).  The VA has, so to speak, lost control of the conversation.  To proceed to the next item, it waits for the user to either kill every buffer spawned by the excursion, or manually resume the session with =eva-resume=.
-  - To be an excursion, the function must push each spawned buffer onto =eva-excursion-buffers= and then call =keyboard-quit=.
+  - To be an excursion, the function must push each spawned buffer onto =eva-excursion-buffers= and then call =eva-start-excursion=.
+
 ** Greetings
 
 If the current set of greetings e.g. "Nice to see you again" aren't to your tastes, you may want to override one or more of these.

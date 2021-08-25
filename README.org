@@ -13,13 +13,15 @@
 
 [[file:assets/screencast01.gif]]
 
-# TODO: A bit less "self-focused" throughout: how can you apply this to your friends?
-# TODO: go over the usage of "we" vs. "it"
+* Important news
+** [2021-08-25 Wed]
+1. Your =eva-defun= bodies no longer need =(keyboard-quit)= to pause the session, use =(eva-start-excursion)= instead.
 
-* Recent changes
+** [2021-08-23 Mon]
 1. Git happened. If Straight asks you about merge conflicts on your next sync, just reset to origin/master. Sorry about that.
 2. The installation recipe was missing a few items.  Please see the updated version in [[#Installation]].
 3. It came to my attention that ESS asks about the R directory on every startup. I suggest setting =(setq ess-ask-for-ess-directory nil)=.
+
 * Introduction
 
 This is an Emacs-based [[https://en.wikipedia.org/wiki/Virtual_assistant][virtual assistant]]: *Eva* for short.  It helps you with
