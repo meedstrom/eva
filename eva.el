@@ -147,7 +147,7 @@ Recommended options are nil, `message', `warn' and `error'."
   :safe t)
 
 ;; DEPRECATED 2021-08-23
-(defalias #'eva-debug-fn #'eva-dbg-fn)
+(defalias #'eva-dbg-fn #'eva-debug-fn)
 
 (defvar eva--buffer-r nil)
 
@@ -166,6 +166,8 @@ some queries apply, for example to log something for yesterday.
 This may not apply, check the source for the welcomer you are
 using.")
 
+(defvar eva--r-process nil)
+
 (defun eva--init-r ()
   "Spin up an R process and load needed R libraries.
 Uses `run-ess-r' which is full of sanity checks (e.g. for cygwin
@@ -178,6 +180,7 @@ own R project."
     ;; gotcha: only use `ess-with-current-buffer' for temp output buffers, not
     ;; for the process buffer
     (with-current-buffer eva--buffer-r
+      (setq eva--r-process (get-process ess-local-process-name))
       ;; TODO: How to check if the script errors out?
       (ess-execute "source(\"init.R\")" 'buffer))))
 

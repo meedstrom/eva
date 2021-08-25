@@ -202,8 +202,7 @@ itself through use.")
                 (eva-tsv-last-value eva-curr-dataset)
                 " kg"))))
 
-;; TODO: Make it not fail on the first run
-;; TODO: Let's pass the datasets as args and eva-item-create should take :args
+;; TODO: Let's pass the datasets as args, from eva-item-create :args
 ;; TODO: Pass start-date (today minus 3mo) and projection incline, letting
 ;;       user change the incline
 ;; TODO: Persist the buffer content across restarts
@@ -232,15 +231,19 @@ itself through use.")
       (let ((reserve (buffer-string)))
         (delete-region (point-min) (point-max))
         (message (eva-emit "Plotting your weight..."))
+        (ess-wait-for-process eva--r-process t 0.1 nil 2)
         ;; TODO: make it more informative for debugging, don't use
         ;; ignore-errors. Ideally bury the buffer upon error and emit
         ;; stderr to the chat log.
-        (unless (ignore-errors (call-process "gnuplot" gnuplot-script-path t))
+        (if (= 0 (call-process "gnuplot" gnuplot-script-path t))
+            (progn
+              (view-buffer (current-buffer) #'kill-buffer)
+              (push (current-buffer) eva-excursion-buffers)
+              (keyboard-quit))
           ;; On error, keep showing the old plot. Hopefully error messages will
           ;; trail below.
           (goto-char (point-min))
-          (insert reserve)))
-      (display-buffer (current-buffer)))))
+          (insert reserve))))))
 
 
 ;;; Sleep
