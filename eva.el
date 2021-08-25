@@ -86,7 +86,7 @@
   (if (s-blank? user-full-name)
       "Mr. Bond"
     (-first-item (s-split " " user-full-name)))
-  "Name by which you prefer the eva to address you."
+  "Name by which you prefer the VA to address you."
   :group 'eva
   :type 'string
   :safe t)
@@ -283,10 +283,10 @@ on to `call-process'."
   "Timestamp updated whenever the chat is written to.")
 
 (defun eva-buffer-chat ()
-  "Buffer where the eva sends its messages."
-  (or (get-buffer (concat "*" eva-ai-name ": chat log*"))
+  "Buffer where the VA sends its messages."
+  (or (get-buffer (concat "*" eva-va-name ": chat log*"))
       (let ((buf (get-buffer-create
-                  (concat "*" eva-ai-name ": chat log*"))))
+                  (concat "*" eva-va-name ": chat log*"))))
         (with-current-buffer buf
           (eva-chat-mode)
           (setq-local auto-save-visited-mode nil)
@@ -1355,7 +1355,7 @@ Appropriate on init."
 (defun eva--save-vars-to-disk ()
   "Sync all relevant variables to disk."
   (if (eva--another-eva-running-p)
-      (warn "Another EVA running, not saving variables.")
+      (warn "Another VA running, not saving variables.")
     (unless eva--has-restored-variables
       (error "\n%s\n%s\n%s\n%s"
              "Attempted to save variables to disk, but never fully"
@@ -1556,7 +1556,7 @@ spawned by the functions will be skipped by
         (setq eva--queue fns)
         (unless (eq t (frame-focus-state))
           (require 'notifications)
-          (notifications-notify :title eva-ai-name :body (eva-greeting)))
+          (notifications-notify :title eva-va-name :body (eva-greeting)))
         (eva--chime-aural)
         (eva--chime-visual)
         (run-with-timer 1 nil #'eva-run-queue)))))
@@ -1632,7 +1632,7 @@ Optional arg TS skips the prompt and sets date from that."
     (define-key map (kbd "h") #'eva-dispatch)
     map))
 
-(define-derived-mode eva-chat-mode text-mode "Eva chat")
+(define-derived-mode eva-chat-mode text-mode "VA chat")
 
 (transient-define-prefix eva-dispatch ()
   ["General actions"
@@ -1723,9 +1723,7 @@ Return the function on success, nil otherwise."
   "Unload the Eva library."
   (eva-mode 0)
   (with-demoted-errors nil
-    (unload-feature 'eva-tests)
-    (unload-feature 'eva-config)
-    (unload-feature 'eva-doing)
+    (unload-feature 'eva-test)
     (unload-feature 'eva-builtin))
   ;; Continue standard unloading.
   nil)
@@ -1742,7 +1740,7 @@ Return the function on success, nil otherwise."
         (when (and (or (eva--idle-set-fn)
                        (prog1 nil
                          (message
-                          (concat eva-ai-name
+                          (concat eva-va-name
                                   ": Not able to detect idleness, I'll be"
                                   " useless.  Disabling eva-mode."))
                          (eva-mode 0)))
@@ -1790,6 +1788,7 @@ Return the function on success, nil otherwise."
     (remove-hook 'after-init-hook #'eva--start-next-timer)
     (remove-hook 'kill-emacs-hook #'eva--save-vars-to-disk)
     (named-timer-cancel :eva)
+    (named-timer-cancel :eva-retry)
     (named-timer-cancel :eva-keepalive)))
 
 (provide 'eva)

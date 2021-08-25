@@ -68,6 +68,7 @@
   (should (named-timer-get :eva))
   ;; Takedown
   (named-timer-cancel :eva-keepalive)
+  (named-timer-cancel :eva-retry)
   (named-timer-cancel :eva))
 
 (ert-deftest eva-test-ts-usage ()

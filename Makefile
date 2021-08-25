@@ -2,7 +2,7 @@
 .POSIX:
 .SUFFIXES: .el .elc
 EMACS	= emacs
-EL   	= eva.el eva-builtin.el eva-activity.el
+EL   	= eva.el eva-builtin.el
 ELC  	= $(EL:.el=.elc)
 # external dependencies
 LDFLAGS = -L deps/ts -L deps/dash -L deps/s -L deps/ess/lisp -L deps/f -L deps/named-timer -L deps/pfuture -L deps/transient/lisp
@@ -25,7 +25,6 @@ clean:
 
 # Dependencies
 eva-test.elc:  $(ELC)
-eva-activity.elc: eva.elc eva-builtin.elc
 eva-builtin.elc: eva.elc
 
 # Tell make how to compile an .el into an .elc.
