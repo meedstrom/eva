@@ -132,7 +132,7 @@ See also `eva-sit-long' and `eva-sit-medium'."
   :risky t)
 
 
-;;; Library
+;;; Common library
 
 (defcustom eva-debug init-file-debug
   "Whether to do debug stuff."
@@ -150,8 +150,6 @@ Recommended options are nil, `message', `warn' and `error'."
 (defalias #'eva-dbg-fn #'eva-debug-fn)
 
 (defvar eva--buffer-r nil)
-
-(defvar eva--queue nil)
 
 (defvar eva-curr-fn nil)
 
@@ -270,6 +268,8 @@ on to `call-process'."
   :group 'eva
   :type 'file
   :safe t)
+
+(defvar eva--queue nil)
 
 (defvar eva--midprompt-keymap
   (let ((map (make-sparse-keymap)))
@@ -609,7 +609,7 @@ changes and append to a file named PATH_errors."
       (and buf (with-current-buffer buf
                  (revert-buffer))))))
 
-;; NOTE: Actually unused in this package, but may be useful.
+;; NOTE: Actually unused inside this package, but may be useful.
 ;; WONTFIX: check for recent activity (user awake thru the night) and keep
 ;;          returning t
 (defun eva-logged-today-p (path)
@@ -858,7 +858,7 @@ Digression: Should honestly be submitted to Emacs,
                   (ts-format)
                   (number-to-string (/ (round eva-length-of-last-idle) 60))))
 
-;; This trio of functions handles lots of edge cases.
+;; This trio of functions handles many edge cases elegantly.  Modify with care.
 (defun eva--start-next-timer (&optional assume-idle)
   "Start one or the other timer depending on idleness.
 If ASSUME-IDLE is non-nil, skip the idle check and associated
@@ -1060,7 +1060,6 @@ assumed to be a list of buffers, most likely
                  (error "New value of %s contains a non-buffer"
                         "eva-excursion-buffers")))))
 
-;; "Success" excursion
 (defun eva--if-excursion-complete-do-stuff ()
   "If the current excursion appears done, do things."
   (eva-dbg "Running eva--if-excursion-complete-do-stuff."

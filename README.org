@@ -1,5 +1,5 @@
 #+TITLE: Eva
-:GITHUB-PREAMBLE:
+:PREAMBLE:
 # Copying and distribution of this file, with or without modification,
 # are permitted in any medium without royalty provided the copyright
 # notice and this notice are preserved.  This file is offered as-is,
@@ -108,7 +108,7 @@ For set-up, please see [[file:doc/eva.org][the user manual]] (also available as 
 ** Possible issues
 - Untested with Helm or any completion system other than Selectrum
 - Untested with Evil
-- Untested with frames-only-mode or similar
+- Untested with frames-only-mode and similar
 
 * Theory
 NOTE: Input is welcome -- post on [[https://github.com/meedstrom/eva/issues/4][Issue #4]] or email me at [[mailto:meedstrom@teknik.io][meedstrom@teknik.io]]!
