@@ -111,7 +111,7 @@ something, it’d have to emit a notification, possibly an OS dialog, and
 start up Emacs anyway.  We’d be relying on a functional notification
 daemon and dbus (brittle assumption), gtk/qt toolkits (brittle
 assumption), access to executables (brittle assumption, NixOS anyone?),
-POSIX scripts (unportable without extreme effort), service declarations
+POSIX scripts (unportable without a lot of effort), service declarations
 (which service manager?), synced config files (brittle) and on and on.
 One of the raisons d’etre for Emacs is to make app development both fast
 and solid by just ignoring the OS.
@@ -122,6 +122,12 @@ flip side is that user configuration can cause it to return errors on
 startup (e.g.  ‘ess-history-file’ at an unreadable location) and stop
 ‘eva-mode’ from turning on.  It’s your responsibility to have a
 functional ESS.
+
+   Many of the prompts you will get probably benefit from a completion
+system, where you can see the possible options.  I’ve only tested
+Selectrum so far.  In addition, if your system does _not_ call
+‘abort-recursive-edit’ to exit a prompt (by way of C-g), you might see
+some misbehavior.
 
 
 File: eva.info,  Node: Set-up,  Next: Full set-up example,  Prev: Soft requirements,  Up: Top
@@ -165,7 +171,7 @@ are:
 
   1. To bring the buffer logger online, which is necessary for the
      automatic org-clocker to guess what is going on.  Even if it’s not
-     important, it’s useful to have data on what "not important" looks
+     important, it’s useful to have data on what “not important” looks
      like.
   2. To calculate idleness correctly.  We count idleness from the last
      time Emacs was running and this mode was on, so any stretch of time
@@ -245,13 +251,14 @@ File: eva.info,  Node: Full set-up example,  Next: Customising your VA,  Prev: S
 
        :config
        (require 'eva-builtin)
-       (require 'eva-activity)
 
        ;; These are used by `eva-present-diary'; org-journal not needed.
        (setq org-journal-dir "/home/kept/Diary")
        (setq org-journal-file-format "%F.org")
 
        (add-hook 'eva-after-load-vars-hook #'eva-check-dangling-clock)
+
+       ;; currently only says anything with eva-debug t b/c it's work in progress
        (add-hook 'eva-after-load-vars-hook #'eva-check-org-variables)
 
        ;; HINT: Though not likely you'll want to, you can use the same object
@@ -308,7 +315,7 @@ File: eva.info,  Node: Full set-up example,  Next: Customising your VA,  Prev: S
 
        (transient-replace-suffix 'eva-dispatch '(0)
          '["General actions"
-           ("q" "Quit" bury-buffer)
+           ("q" "Quit the chat" bury-buffer)
            ("l" "View Ledger report" eva-present-ledger-report)
            ("f" "View Ledger file" eva-present-ledger-file)
            ("a" "View Org agenda" org-agenda-list)])
@@ -385,7 +392,8 @@ and a function can be both at the same time.  The distinction is:
      item, it waits for the user to either kill every buffer spawned by
      the excursion, or manually resume the session with ‘eva-resume’.
         • To be an excursion, the function must push each spawned buffer
-          onto ‘eva-excursion-buffers’ and then call ‘keyboard-quit’.
+          onto ‘eva-excursion-buffers’ and then call
+          ‘eva-start-excursion’.
 
 
 File: eva.info,  Node: Greetings,  Next: Composing a custom session,  Prev: Writing a new function,  Up: Customising your VA
@@ -393,7 +401,7 @@ File: eva.info,  Node: Greetings,  Next: Composing a custom session,  Prev: Writ
 5.2 Greetings
 =============
 
-If the current set of greetings e.g.  "Nice to see you again" aren’t to
+If the current set of greetings e.g.  “Nice to see you again” aren’t to
 your tastes, you may want to override one or more of these.
 
    • ‘eva-greetings’ (variable)
@@ -415,7 +423,7 @@ session, you can also call ‘M-x eva-session-new’.
 
    To understand better how the package works, you can make a different
 entry point.  The sky’s the limit.  This snippet contains a fairly
-"dumb" approach:
+“dumb” approach:
 
      (defun my-custom-session (&optional just-idled)
        (setq eva-date (ts-now))
@@ -811,28 +819,28 @@ Tag Table:
 Node: Top184
 Node: Requirements1550
 Node: Soft requirements2175
-Node: Set-up3617
-Node: Initial3780
-Node: Choose what to track5316
-Node: Full set-up example7639
-Node: Customising your VA12134
-Node: Writing a new function12374
-Node: Greetings14202
-Node: Composing a custom session14735
-Node: Synergistic programs16890
-Node: Memacs17092
-Node: Org configuration23783
-Node: Reminder of clocked task23973
-Node: Dangling clocks24868
-Node: Notes on built-ins26105
-Node: eva-query-sleep26338
-Node: eva-present-diary27106
-Node: eva--log-buffer28124
-Node: eva--log-idle29189
-Node: Surgery29554
-Node: Changing dataset file names29739
-Node: Editing datasets manually30077
-Node: Known issues31823
+Node: Set-up3914
+Node: Initial4077
+Node: Choose what to track5617
+Node: Full set-up example7940
+Node: Customising your VA12496
+Node: Writing a new function12736
+Node: Greetings14580
+Node: Composing a custom session15117
+Node: Synergistic programs17276
+Node: Memacs17478
+Node: Org configuration24169
+Node: Reminder of clocked task24359
+Node: Dangling clocks25254
+Node: Notes on built-ins26491
+Node: eva-query-sleep26724
+Node: eva-present-diary27492
+Node: eva--log-buffer28510
+Node: eva--log-idle29575
+Node: Surgery29940
+Node: Changing dataset file names30125
+Node: Editing datasets manually30463
+Node: Known issues32209
 
 End Tag Table
 
