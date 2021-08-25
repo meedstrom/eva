@@ -4,7 +4,7 @@
 
 ;; Author: Martin Edström <meedstrom@teknik.io>
 ;; URL: https://github.com/meedstrom/eva
-;; Version: 0.3.0
+;; Version: 0.3.1
 ;; Created: 2020-12-03
 ;; Keywords: convenience
 ;; Package-Requires: ((emacs "27.1") (ts "0.3-pre") (s "1.12") (dash "2.19") (f "0.20.0") (ess "18.10.2") (pfuture "1.9") (named-timer "0.1") (transient "0.3.6"))
