@@ -47,11 +47,15 @@ On Debian, you can run:
 : apt-get install r-recommended gnuplot xprintidle
 
 * Soft requirements
-You should let Emacs always run: add it to =xinitrc=, Startup Applications or so.  In principle, we could spin out some functionality as a separate program in Python or Scheme that always runs like your hundred other background processes, but such separation would be overengineering because the package is targeting those who always run Emacs anyway.  Every time the program would be scheduled to do something, it'd have to emit a notification, possibly an OS dialog, and start up Emacs anyway.  We'd be relying on a functional notification daemon and dbus (brittle assumption), gtk/qt toolkits (brittle assumption), access to executables (brittle assumption, NixOS anyone?), POSIX scripts (unportable without extreme effort), service declarations (which service manager?), synced config files (brittle) and on and on.  One of the raisons d'etre for Emacs is to make app development both fast and solid by just ignoring the OS.
+You should let Emacs always run: add it to =xinitrc=, Startup Applications or so.  In principle, we could spin out some functionality as a separate program in Python or Scheme that always runs like your hundred other background processes, but such separation would be overengineering because the package is targeting those who always run Emacs anyway.  Every time the program would be scheduled to do something, it'd have to emit a notification, possibly an OS dialog, and start up Emacs anyway.  We'd be relying on a functional notification daemon and dbus (brittle assumption), gtk/qt toolkits (brittle assumption), access to executables (brittle assumption, NixOS anyone?), POSIX scripts (unportable without a lot of effort), service declarations (which service manager?), synced config files (brittle) and on and on.  One of the raisons d'etre for Emacs is to make app development both fast and solid by just ignoring the OS.
 
 -------
 
 We use =run-ess-r= from [[https://github.com/emacs-ess/ess][ESS]] because it has sanity checks and handles encoding issues well, but the flip side is that user configuration can cause it to return errors on startup (e.g. =ess-history-file= at an unreadable location) and stop =eva-mode= from turning on.  It's your responsibility to have a functional ESS.
+
+-------
+
+Many of the prompts you will get probably benefit from a completion system, where you can see the possible options.  I've only tested Selectrum so far.  In addition, if your system does /not/ call =abort-recursive-edit= to exit a prompt (by way of C-g), you might see some misbehavior.
 
 * Set-up
 ** Initial
@@ -146,6 +150,8 @@ The order in which the items come in this list reflects the order in which you w
   (setq org-journal-file-format "%F.org")
 
   (add-hook 'eva-after-load-vars-hook #'eva-check-dangling-clock)
+
+  ;; currently only says anything with eva-debug t b/c it's work in progress
   (add-hook 'eva-after-load-vars-hook #'eva-check-org-variables)
 
   ;; HINT: Though not likely you'll want to, you can use the same object

@@ -37,7 +37,6 @@
 (declare-function org-outline-level "org")
 (declare-function org-promote "org")
 (declare-function org-reduced-level "org")
-;; (declare-function org-with-wide-buffer "org-macs")
 (defvar ledger-report-buffer-name)
 (defvar ledger-reports)
 (defvar org-agenda-files)
@@ -544,12 +543,10 @@ Suitable on `eva-after-load-vars-hook'."
          (map-elt eva-mem 'org-agenda-files)))
     (when eva-debug ; TODO: remove this condition, but ensure it's not annoying
       (when restored-templates
-        (if (equal restored-templates org-capture-templates)
-            (message (eva-emit "org-capture-templates unchanged."))
+        (unless (equal restored-templates org-capture-templates)
           (message (eva-emit "org-capture-templates changed!"))))
       (when restored-agenda-files
-        (if (equal restored-agenda-files org-agenda-files)
-            (message (eva-emit "org-agenda-files unchanged."))
+        (unless (equal restored-agenda-files org-agenda-files)
           (message (eva-emit "org-agenda-files changed!")))))))
 
 ;; (defvar eva--org-vars-checked nil)

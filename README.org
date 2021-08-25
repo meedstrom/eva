@@ -103,6 +103,11 @@ Alternatively with Doom Emacs, this goes in =packages.el=:
 
 For set-up, please see [[file:doc/eva.org][the user manual]] (also available as Info manual after installation, type ~C-h i d m eva~).
 
+** Possible issues
+- Untested with Helm or any completion system other than Selectrum
+- Untested with Evil
+- Untested with frames-only-mode or similar
+
 * Theory
 NOTE: Input is welcome -- post on [[https://github.com/meedstrom/eva/issues/4][Issue #4]] or email me at [[mailto:meedstrom@teknik.io][meedstrom@teknik.io]]!
 

@@ -1376,7 +1376,9 @@ Appropriate on init."
 
 (defun eva-mem-push (var)
   "In `eva-mem', store variable VAR's current value.
-You should quote VAR, like with `set', not `setq'."
+You should quote VAR, like with `set', not `setq'.  I.e.:
+
+    (eva-mem-push 'VAR)"
   (if (assoc var eva-mem)
       (map-put! eva-mem var (symbol-value var))
     (setq eva-mem
@@ -1393,6 +1395,12 @@ cases (pushing let-bound variables) where that function won't."
 
 (defalias #'eva-mem-pushnew #'eva-mem-push "Deprecated 2021-08-24")
 (defalias #'eva-mem-pushnew-alt #'eva-mem-push-alt "Deprecated 2021-08-24")
+
+(defun eva-mem-get (var)
+  "Get VAR's value from `eva-mem'.
+Equivalent to (map-elt eva-mem 'var), but is a more consistent
+interface considering we use `eva-mem-push' to set variables."
+  (map-elt eva-mem var))
 
 
 ;;; Buffer logger
