@@ -342,18 +342,16 @@ buffer, binds certain hotkeys."
 
 (defun eva-check-special-input (input)
   "Check INPUT for keywords like \"/skip\" and react specially."
-  (cond ((string-match-p "/skip" input)
+  (cond ((string-match-p "^/s" input) ;; /skip
          (if (and (< 1 (length eva--queue))
                   (member eva-curr-fn eva--queue))
              ;; Try to proceed to next item
              (progn
-               (setq eva--queue
-                     (cl-remove eva-curr-fn eva--queue
-                                :count 1))
+               (setq eva--queue (cl-remove eva-curr-fn eva--queue :count 1))
                (eva-resume))
            ;; Just cancel the session
            (abort-recursive-edit)))
-        ((string-match-p "help" input)
+        ((string-match-p "^/h" input) ;; /help
          (eva-dispatch) ;; TODO: develop a midprompt-dispatch
          (abort-recursive-edit))))
 
@@ -390,7 +388,8 @@ All of PROMPT, INITIAL-INPUT, HISTORY, DEFAULT-VALUE are passed
 to that function, though PROMPT is prepended with extra info."
   (eva-emit prompt)
   (let* ((background-info (concat "[Applying to date: "
-                                  (ts-format "%Y %b %d" eva-date) "]\n"))
+                                  (ts-format "%Y, %b %d]\n" eva-date)
+                                  "[Type /skip to skip, or /help for help.]\n"))
          (input (read-string
                  (concat background-info
                          (ts-format "<%H:%M> ")
@@ -779,7 +778,7 @@ is in focus."
   :type 'integer)
 
 (defcustom eva-idle-threshold-secs-long (* 90 60)
-  "Be idle at least this many seconds to be greeted upon return."
+  "Be idle at least this many seconds to start a session on return."
   :group 'eva
   :type 'integer)
 
@@ -1216,12 +1215,12 @@ only be in `eva-mem'. See `eva-load-vars-hook'."
 We log these values to disk at `eva-mem-history-path', so we can
 recover older values as needed.")
 
-;; REVIEW: We may not need this
 (defvar eva--mem-timestamp-variables '(eva--last-online
                                        eva--last-chatted)
   "List of Lisp variables that contain ts objects.
-Members will be saved to `eva-mem-history-path' as plain numbers
-instead of ts objects for legibility.")
+Members that appear in `eva-mem' as ts objects will be saved to
+`eva-mem-history-path' as plain numbers instead of ts objects for
+legibility.")
 
 (defvar eva--has-restored-variables nil)
 

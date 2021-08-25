@@ -457,7 +457,6 @@ Searches `eva-main-datetree-path' for entries matching
 members in DATES (ts objects). Return the count of dates that
 were found to have entries."
   (require 'org)
-  (require 'org-macs)
   (let ((dates (-sort 'ts<= dates))
         (counter 0)
         ;; Doom greys out the entire headline, making it hard to read, which is

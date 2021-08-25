@@ -207,7 +207,7 @@ The order in which the items come in this list reflects the order in which you w
 
   (transient-replace-suffix 'eva-dispatch '(0)
     '["General actions"
-      ("q" "Quit" bury-buffer)
+      ("q" "Quit the chat" bury-buffer)
       ("l" "View Ledger report" eva-present-ledger-report)
       ("f" "View Ledger file" eva-present-ledger-file)
       ("a" "View Org agenda" org-agenda-list)])

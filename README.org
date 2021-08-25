@@ -37,10 +37,6 @@ As part of data tracking, it also has some automatic loggers:
 - *Buffer logger:*  Record the current buffer, with info such as how long the buffer was in focus, its title, major mode, visited file name, variables =exwm-class-name=, =eww-url= and so on.
   - (The term "buffer" is an [[https://www.gnu.org/software/emacs/][Emacs]] cognate to "window")
 
-# We keep much of our state on disk, so everything works across reboots and crashes.
-
-# As part of data tracking, Eva always logs the current buffer, with info such as how long the buffer was in focus, its title, major mode, visited file name, variables =exwm-class-name=, =eww-url= and so on.  It also logs idle/offline time.  That means you know how much of the buffer-focus time wasn't.  Since it knows when the idle state ended, you also get the hook =eva-after-return-from-idle-hook= for any purpose -- during which you can look up =eva-length-of-last-idle= -- a modern and necessary complement to =emacs-startup-hook=.  We keep much of our state on disk, so everything works across reboots and crashes, which shouldn't and don't matter.
-
 It can basically ask you for anything you configure at various times throughout the day and log your response. For example, ask about your mood, weight, or what you're working on. It tries not to ask too often, and if you dismiss a question a lot, it'll prompt for your consent to quit asking that question.
 
 In addition to gathering data, it works as a reminder/"tickler" system: it'll make sure you see your Org agenda, your Ledger report, yesterday's diary entry, or whatever you configure.
@@ -63,10 +59,6 @@ Another question is whether we can make this data more useful, after all's said 
 
 Now the VA has most of what it needs on the elisp side, plus a bunch of byproduct features and bonus features that justify themselves.  Before the auto-clocking can work, I have to flesh out the statistical model, which is hard.  Input is welcome: please see [[#Theory]].
 
-# Reconsider this paragraph. Keep it or no?
-# coded some more ... [it's bragging if don't specify what it means that we're here]
-# I started simple: a series of =(y-or-n-p)= or =(completing-read)= on Emacs init.  That was the UX equivalent of axe murder, but then I coded some more, and now we're here.  We have most features we need for the original purpose, some byproduct features, and some bonus features.  Before the auto-clocking can work, we have to flesh out the statistical model, which is hard.  Input is welcome: please see [[#milestone-for-10-auto-clocking][Milestone for 1.0: Auto-clocking]].
-
 ** Design principles
 *** Memory
 The VA has "memory", in plain terms a cache of variable values (see the variable =eva-mem= and the append-only record at =eva-mem-history-path=, both of which grow with use), because we think of the virtual assistant as a person.  What would you do in its shoes, employed as an assistant to some [[https://www.urbandictionary.com/define.php?term=Unix%20beard][Unix beard]]?
@@ -87,7 +79,9 @@ For the auto-clocking feature, when the VA's probability estimates make it nearl
 
 * Installation
 
-Please note that there is no auto-clocker yet!
+Please note
+1. There is no auto-clocker yet!
+2. New commits MAY break the package for days at a time and deprecations are frequent.
 
 If you have [[https://github.com/raxod502/straight.el][straight.el]], you can install the package like so:
 #+begin_src elisp
