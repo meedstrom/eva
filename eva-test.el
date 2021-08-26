@@ -51,6 +51,7 @@
     (when was-on
       (eva-mode 0))
     (setq eva--last-online (ts-now))
+    (setq eva--idle-beginning (ts-now))
     (setq eva--idle-secs-fn #'eva--idle-secs-emacs)
     (eva--start-next-timer t)
     (sit-for .05)
