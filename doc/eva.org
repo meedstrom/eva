@@ -236,8 +236,10 @@ In the chat buffer, there is a Transient menu available by typing =h=.  Most hot
 
 To resume a broken session, type =r= in the chat buffer, or =M-x eva-resume= from anywhere.
 
+You can type =-= or =+= in the chat buffer to increment or decrement the date the questions will apply to.  That's useful if you forgot something yesterday.  Pay attention to the date in each prompt. Type =0= to reset it to today.
+
 # TODO: C- hotkeys actually dont work
-You can type =-= or =+= in the chat buffer, or =C--= or =C-+= during a prompt to increment or decrement the date the questions will apply to.  That's useful if you forgot something yesterday.  Pay attention to the date in each prompt. Type =0= or =C-0= to reset it to today.
+# You can type =-= or =+= in the chat buffer, or =C--= or =C-+= during a prompt to increment or decrement the date the questions will apply to.  That's useful if you forgot something yesterday.  Pay attention to the date in each prompt. Type =0= or =C-0= to reset it to today.
 
 If you wish to force a session right now, instead of waiting for the VA to butt in, =M-x eva-session-new= should do it.
 

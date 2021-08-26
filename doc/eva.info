@@ -11,7 +11,7 @@ File: eva.info,  Node: Top,  Next: Requirements,  Up: (dir)
 Eva’s User Manual
 *****************
 
-This manual is for Eva version 0.3.1.
+This manual is for Eva version 0.4.0
 
      Copyright (C) 2020-2021 Martin Edström <meedstrom@teknik.io>
 
@@ -31,6 +31,7 @@ This manual is for Eva version 0.3.1.
 * Soft requirements::
 * Set-up::
 * Full set-up example::
+* Usage::
 * Customising your VA::
 * Synergistic programs::
 * Notes on built-ins::
@@ -229,7 +230,7 @@ separately in ‘eva-mem’.  To reenable, try ‘M-x eva-reenable-fn’ and
 enter the name of that function, or simply edit ‘eva-disabled-fns’.
 
 
-File: eva.info,  Node: Full set-up example,  Next: Customising your VA,  Prev: Set-up,  Up: Top
+File: eva.info,  Node: Full set-up example,  Next: Usage,  Prev: Set-up,  Up: Top
 
 4 Full set-up example
 *********************
@@ -341,9 +342,35 @@ values are written to disk (a timer that runs every other minute does
 this).
 
 
-File: eva.info,  Node: Customising your VA,  Next: Synergistic programs,  Prev: Full set-up example,  Up: Top
+File: eva.info,  Node: Usage,  Next: Customising your VA,  Prev: Full set-up example,  Up: Top
 
-5 Customising your VA
+5 Usage
+*******
+
+For as long as ‘eva-mode’ is enabled, it will start a questioning
+session when you return to the computer after being away for more than
+90 minutes (configurable at ‘eva-idle-threshold-secs-long’).  This works
+even if the computer is off during that time, because it writes
+‘eva--last-online’ to disk at ‘eva-mem-history-path’.
+
+   In the chat buffer, there is a Transient menu available by typing
+‘h’.  Most hotkeys within match the hotkeys in the chat buffer.
+
+   To resume a broken session, type ‘r’ in the chat buffer, or ‘M-x
+eva-resume’ from anywhere.
+
+   You can type ‘-’ or ‘+’ in the chat buffer to increment or decrement
+the date the questions will apply to.  That’s useful if you forgot
+something yesterday.  Pay attention to the date in each prompt.  Type
+‘0’ to reset it to today.
+
+   If you wish to force a session right now, instead of waiting for the
+VA to butt in, ‘M-x eva-session-new’ should do it.
+
+
+File: eva.info,  Node: Customising your VA,  Next: Synergistic programs,  Prev: Usage,  Up: Top
+
+6 Customising your VA
 *********************
 
 * Menu:
@@ -355,7 +382,7 @@ File: eva.info,  Node: Customising your VA,  Next: Synergistic programs,  Prev: 
 
 File: eva.info,  Node: Writing a new function,  Next: Greetings,  Up: Customising your VA
 
-5.1 Writing a new function
+6.1 Writing a new function
 ==========================
 
 You’ll customize this package primarily by creating defuns.  It’s so
@@ -398,7 +425,7 @@ and a function can be both at the same time.  The distinction is:
 
 File: eva.info,  Node: Greetings,  Next: Composing a custom session,  Prev: Writing a new function,  Up: Customising your VA
 
-5.2 Greetings
+6.2 Greetings
 =============
 
 If the current set of greetings e.g.  “Nice to see you again” aren’t to
@@ -413,7 +440,7 @@ there’ll still be a couple of places where the above get used.
 
 File: eva.info,  Node: Composing a custom session,  Prev: Greetings,  Up: Customising your VA
 
-5.3 Composing a custom session
+6.3 Composing a custom session
 ==============================
 
 By default, your entry point is ‘eva-run-queue’ (called automatically
@@ -463,7 +490,7 @@ then call ‘eva-run-queue’ – it’s what the ‘session-’ functions do.
 
 File: eva.info,  Node: Synergistic programs,  Next: Notes on built-ins,  Prev: Customising your VA,  Up: Top
 
-6 Synergistic programs
+7 Synergistic programs
 **********************
 
 * Menu:
@@ -474,7 +501,7 @@ File: eva.info,  Node: Synergistic programs,  Next: Notes on built-ins,  Prev: C
 
 File: eva.info,  Node: Memacs,  Next: Org configuration,  Up: Synergistic programs
 
-6.1 Memacs
+7.1 Memacs
 ==========
 
 You can enrich your agenda log (‘l’ hotkey in the agenda view) with Git
@@ -595,7 +622,7 @@ show up.  You will also be shown that view by the builtin
 
 File: eva.info,  Node: Org configuration,  Prev: Memacs,  Up: Synergistic programs
 
-6.2 Org configuration
+7.2 Org configuration
 =====================
 
 * Menu:
@@ -606,7 +633,7 @@ File: eva.info,  Node: Org configuration,  Prev: Memacs,  Up: Synergistic progra
 
 File: eva.info,  Node: Reminder of clocked task,  Next: Dangling clocks,  Up: Org configuration
 
-6.2.1 Reminder of clocked task
+7.2.1 Reminder of clocked task
 ------------------------------
 
 Do you want to be reminded every 10 minutes of the currently clocked
@@ -626,7 +653,7 @@ task?  A timer can do it:
 
 File: eva.info,  Node: Dangling clocks,  Prev: Reminder of clocked task,  Up: Org configuration
 
-6.2.2 Dangling clocks
+7.2.2 Dangling clocks
 ---------------------
 
 To remind you of dangling clocks after a restart, Org’s builtin way is
@@ -657,7 +684,7 @@ to the dangling clock and can take it from there.
 
 File: eva.info,  Node: Notes on built-ins,  Next: Surgery,  Prev: Synergistic programs,  Up: Top
 
-7 Notes on built-ins
+8 Notes on built-ins
 ********************
 
 * Menu:
@@ -670,7 +697,7 @@ File: eva.info,  Node: Notes on built-ins,  Next: Surgery,  Prev: Synergistic pr
 
 File: eva.info,  Node: eva-query-sleep,  Next: eva-present-diary,  Up: Notes on built-ins
 
-7.1 ‘eva-query-sleep’
+8.1 ‘eva-query-sleep’
 =====================
 
 ‘eva-query-sleep’ is made to be flexible.  It can log either or both of
@@ -686,7 +713,7 @@ shouldn’t just add a new line, but edit the dataset.
 
 File: eva.info,  Node: eva-present-diary,  Next: eva--log-buffer,  Prev: eva-query-sleep,  Up: Notes on built-ins
 
-7.2 ‘eva-present-diary’
+8.2 ‘eva-present-diary’
 =======================
 
 This does diary backlook; shows you past entries on this date last
@@ -708,7 +735,7 @@ something like ‘(file+olp+datetree "~/diary.org")’.
 
 File: eva.info,  Node: eva--log-buffer,  Next: eva--log-idle,  Prev: eva-present-diary,  Up: Notes on built-ins
 
-7.3 ‘eva--log-buffer’
+8.3 ‘eva--log-buffer’
 =====================
 
 (This is fully automated and not something you’d add to ‘eva-items’.)
@@ -730,7 +757,7 @@ new buffer with new UUID.
 
 File: eva.info,  Node: eva--log-idle,  Prev: eva--log-buffer,  Up: Notes on built-ins
 
-7.4 ‘eva--log-idle’
+8.4 ‘eva--log-idle’
 ===================
 
 (This is fully automated and not something you’d add to ‘eva-items’.)
@@ -742,7 +769,7 @@ free.
 
 File: eva.info,  Node: Surgery,  Next: Known issues,  Prev: Notes on built-ins,  Up: Top
 
-8 Surgery
+9 Surgery
 *********
 
 * Menu:
@@ -753,7 +780,7 @@ File: eva.info,  Node: Surgery,  Next: Known issues,  Prev: Notes on built-ins, 
 
 File: eva.info,  Node: Changing dataset file names,  Next: Editing datasets manually,  Up: Surgery
 
-8.1 Changing dataset file names
+9.1 Changing dataset file names
 ===============================
 
 Since we have append-only datasets, you don’t need to worry if you
@@ -763,7 +790,7 @@ the old file at any time.
 
 File: eva.info,  Node: Editing datasets manually,  Prev: Changing dataset file names,  Up: Surgery
 
-8.2 Editing datasets manually
+9.2 Editing datasets manually
 =============================
 
 Want to add a lot of rows at once?  You can edit the ‘.tsv’ file
@@ -800,47 +827,44 @@ it’s a matter of hygiene.
 
 File: eva.info,  Node: Known issues,  Prev: Surgery,  Up: Top
 
-9 Known issues
-**************
+10 Known issues
+***************
 
-After an excursion, we do not currently detect that the user is done (we
-had this functionality, but it broke).  So, to resume going through the
-rest of ‘eva-items’, you either have to wait until the next time the VA
-butts in, or call ‘eva-resume’ via ‘M-x’ or by typing ‘r’ in the chat
-buffer.
+   • C- hotkeys don’t work during a prompt (‘set-transient-map’ doesn’t
+     do what I want)
+   • Doom’s Org makes eva-present-diary slow
 
-   This also means it’s possible to never get to the end of the list, if
-the excursions don’t have a high enough ‘:min-hours-wait’ or a low
-‘:max-successes-per-day’.
+   See <https://github.com/meedstrom/eva/issues>
 
 
 
 Tag Table:
 Node: Top184
-Node: Requirements1550
-Node: Soft requirements2175
-Node: Set-up3914
-Node: Initial4077
-Node: Choose what to track5617
-Node: Full set-up example7940
-Node: Customising your VA12496
-Node: Writing a new function12736
-Node: Greetings14580
-Node: Composing a custom session15117
-Node: Synergistic programs17276
-Node: Memacs17478
-Node: Org configuration24169
-Node: Reminder of clocked task24359
-Node: Dangling clocks25254
-Node: Notes on built-ins26491
-Node: eva-query-sleep26724
-Node: eva-present-diary27492
-Node: eva--log-buffer28510
-Node: eva--log-idle29575
-Node: Surgery29940
-Node: Changing dataset file names30125
-Node: Editing datasets manually30463
-Node: Known issues32209
+Node: Requirements1559
+Node: Soft requirements2184
+Node: Set-up3923
+Node: Initial4086
+Node: Choose what to track5626
+Node: Full set-up example7949
+Node: Usage12491
+Node: Customising your VA13571
+Node: Writing a new function13797
+Node: Greetings15641
+Node: Composing a custom session16178
+Node: Synergistic programs18337
+Node: Memacs18539
+Node: Org configuration25230
+Node: Reminder of clocked task25420
+Node: Dangling clocks26315
+Node: Notes on built-ins27552
+Node: eva-query-sleep27785
+Node: eva-present-diary28553
+Node: eva--log-buffer29571
+Node: eva--log-idle30636
+Node: Surgery31001
+Node: Changing dataset file names31186
+Node: Editing datasets manually31524
+Node: Known issues33270
 
 End Tag Table
 
