@@ -140,7 +140,7 @@ See also `eva-sit-long' and `eva-sit-medium'."
   :type 'boolean)
 
 ;; DEPRECATED 2021-08-23
-(defalias #'eva-dbg-fn #'eva-debug-fn)
+(defvaralias 'eva-dbg-fn 'eva-debug-fn)
 
 (defcustom eva-debug-fn (when eva-debug #'message)
   "Control the behavior of `eva-dbg'.
@@ -1229,6 +1229,34 @@ legibility.")
 
 (defvar eva--has-restored-variables nil)
 
+(defun eva-mem-push (var)
+  "In `eva-mem', store variable VAR's current value.
+You should quote VAR, like with `set', not `setq'.  I.e.:
+
+    (eva-mem-push 'VAR)"
+  (if (assoc var eva-mem)
+      (map-put! eva-mem var (symbol-value var))
+    (setq eva-mem
+          (map-insert eva-mem var (symbol-value var)))))
+
+(defmacro eva-mem-push-alt (var)
+  "In `eva-mem', store variable VAR's current value.
+Unlike `eva-mem-push', quotes VAR for you, and it works in some
+cases (pushing let-bound variables) where that function won't."
+  `(if (assoc ',var eva-mem)
+       (map-put! eva-mem ',var ,var)
+     (setq eva-mem
+           (map-insert eva-mem ',var ,var))))
+
+(defalias 'eva-mem-pushnew #'eva-mem-push "Deprecated 2021-08-24")
+(defalias 'eva-mem-pushnew-alt #'eva-mem-push-alt "Deprecated 2021-08-24")
+
+(defun eva-mem-get (var)
+  "Get VAR's value from `eva-mem'.
+Equivalent to (map-elt eva-mem 'var), but is a more consistent
+interface considering we use `eva-mem-push' to set variables."
+  (map-elt eva-mem var))
+
 (defun eva--read-lisp (s)
   "Check that string S isn't blank, then `read' it.
 Otherwise signal an error, unlike `read' or `read-from-string'."
@@ -1395,34 +1423,6 @@ Appropriate on init."
                         eva-chat-log-path))
     (run-hooks 'eva-before-save-vars-hook)
     (eva--mem-save-only-changed-vars)))
-
-(defun eva-mem-push (var)
-  "In `eva-mem', store variable VAR's current value.
-You should quote VAR, like with `set', not `setq'.  I.e.:
-
-    (eva-mem-push 'VAR)"
-  (if (assoc var eva-mem)
-      (map-put! eva-mem var (symbol-value var))
-    (setq eva-mem
-          (map-insert eva-mem var (symbol-value var)))))
-
-(defmacro eva-mem-push-alt (var)
-  "In `eva-mem', store variable VAR's current value.
-Unlike `eva-mem-push', quotes VAR for you, and it works in some
-cases (pushing let-bound variables) where that function won't."
-  `(if (assoc ',var eva-mem)
-       (map-put! eva-mem ',var ,var)
-     (setq eva-mem
-           (map-insert eva-mem ',var ,var))))
-
-(defalias #'eva-mem-pushnew #'eva-mem-push "Deprecated 2021-08-24")
-(defalias #'eva-mem-pushnew-alt #'eva-mem-push-alt "Deprecated 2021-08-24")
-
-(defun eva-mem-get (var)
-  "Get VAR's value from `eva-mem'.
-Equivalent to (map-elt eva-mem 'var), but is a more consistent
-interface considering we use `eva-mem-push' to set variables."
-  (map-elt eva-mem var))
 
 
 ;;; Interactive sessions

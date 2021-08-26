@@ -25,6 +25,7 @@
 ;;; Code:
 
 (require 'eva)
+;; (require 'l) ;; cool
 
 ;; Silence the compiler.
 (declare-function ess-execute "ess-inf")
@@ -168,8 +169,8 @@ itself through use.")
   "Ask user about their mood."
   (let* ((first-response (eva-read
                           "Your mood: "
-                          (--sort (> 0 (random))
-                                  (map-keys eva-mood-alist))))
+                          (sort (map-keys eva-mood-alist)
+                                (lambda (_1 _2) (> 0 (random))))))
          (old-score (cdr (assoc first-response eva-mood-alist)))
          (prompt-for-score
           (concat "Score from 1 to 10"
@@ -512,18 +513,13 @@ Note that org-journal is not needed."
     (unless (null file)
       (expand-file-name file dir))))
 
-;; TODO: (Feature) Make separate buffers for each datetree-based entry (use
-;;                 rename-buffer?) and interleave with discrete files so it's
-;;                 all in chrono order.
-;; TODO: (Feature) Try creating a sparse tree, so user can edit in-place
-;; TODO: (Feature) Maybe show the agenda log taken from each date?
 (eva-defun eva-present-diary ()
   "Show user a selection of past diary entries."
   (let* ((dates-to-check (funcall eva-past-sample-function eva-date))
          (discrete-files-found
           (--keep (eva--existing-diary it) dates-to-check))
          (datetree-buf (get-buffer-create
-                  (concat "*" eva-va-name ": Selected diary entries*")))
+                        (concat "*" eva-va-name ": Selected diary entries*")))
          (datetree-found-count
           (eva--make-indirect-datetree datetree-buf dates-to-check))
          (total-found-count
@@ -531,15 +527,15 @@ Note that org-journal is not needed."
     (if (= 0 total-found-count)
         (message (eva-emit "No diary entries relevant to this date."))
       (if (or (when eva-presumptive
-                  (eva-emit "Opening "
-                            (int-to-string total-found-count)
-                            " diary entries.")
-                  t)
-                (eva-ynp "Found " (int-to-string total-found-count) " past diary "
-                         (if (= 1 total-found-count) "entry" "entries")
-                         " relevant to this date. Want me to open "
-                         (if (= 1 total-found-count) "it" "them")
-                         "?"))
+                (eva-emit "Opening "
+                          (int-to-string total-found-count)
+                          " diary entries.")
+                t)
+              (eva-ynp "Found " (int-to-string total-found-count) " past diary "
+                       (if (= 1 total-found-count) "entry" "entries")
+                       " relevant to this date. Want me to open "
+                       (if (= 1 total-found-count) "it" "them")
+                       "?"))
           (progn
             (if (= 0 datetree-found-count)
                 (kill-buffer datetree-buf)
