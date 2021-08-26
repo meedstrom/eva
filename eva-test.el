@@ -62,8 +62,10 @@
 
 (ert-deftest eva-test-keepalive ()
   (eva-mode 0)
+  (setq eva--last-online (ts-now))
   (setq eva--idle-secs-fn #'eva--idle-secs-emacs)
   (eva--keepalive)
+  (sit-for .1)
   (should (named-timer-get :eva))
   ;; Takedown
   (named-timer-cancel :eva-keepalive)

@@ -9,6 +9,7 @@
 # screencasts in this file.
 
 [[https://www.gnu.org/licenses/gpl-3.0][https://img.shields.io/badge/License-GPL%20v3-blue.svg]]
+[[https://github.com/meedstrom/eva/actions/workflows/test.yml][https://github.com/meedstrom/eva/actions/workflows/test.yml/badge.svg]]
 :END:
 
 [[file:assets/screencast01.gif]]
@@ -105,7 +106,7 @@ For set-up, please see [[file:doc/eva.org][the user manual]] (also available as 
 - Untested with frames-only-mode and similar
 
 * Theory
-NOTE: Input is welcome -- post on [[https://github.com/meedstrom/eva/issues/4][Issue #4]] or email me at [[mailto:meedstrom@teknik.io][meedstrom@teknik.io]]!
+NOTE: Input is welcome -- post on [[https://github.com/meedstrom/eva/issues/4][Issue #4]] or [[https://www.reddit.com/user/meedstrom][contact me on Reddit]].
 
 ** Goal
 The goal: continuously keep the Org clock running.  Clock into the correct Org tasks with minimal user initiative.  Assume all tasks come under master tasks named Coding, Studying, Yak Shaving and so on, or can be refiled as such.  Some of these master tasks can likely be narrow, while others have to be broad, depending on how easy their subtasks are to identify (see [[#configuration-preclassify][#Configuration: preclassify]]).

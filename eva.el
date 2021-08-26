@@ -855,8 +855,8 @@ Digression: Should honestly be submitted to Emacs,
 (defun eva--log-idle ()
   "Log chunk of idle time to disk."
   (eva-tsv-append eva-idle-log-path
-                  (ts-format)
-                  (number-to-string (/ (round eva-length-of-last-idle) 60))))
+    (ts-format)
+    (number-to-string (/ (round eva-length-of-last-idle) 60))))
 
 ;; This trio of functions handles many edge cases elegantly.  Modify with care.
 (defun eva--start-next-timer (&optional assume-idle)
