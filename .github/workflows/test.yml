@@ -33,6 +33,8 @@ on:
     # Comment out this section to enable testing of all branches.
     branches:
       - master
+    paths:
+      - "*.el"
 
 jobs:
   build:
