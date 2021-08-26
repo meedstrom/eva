@@ -19,7 +19,7 @@
 
 ;;; Commentary:
 
-;; Premade queries, hooks and other uses of the core library. I dogfood these,
+;; Premade queries, hooks and other uses of the core library.  I dogfood these,
 ;; you can use them as-is or define your own alternatives.
 
 ;;; Code:
@@ -27,9 +27,10 @@
 (require 'eva)
 
 ;; Silence the compiler.
-(declare-function ess-execute "ess")
-(declare-function ledger-report "ledger-report")
-(declare-function ledger-report-goto "ledger-report")
+(declare-function ess-execute "ess-inf")
+(declare-function ess-wait-for-process "ess-inf")
+(declare-function ledger-report "ext:ledger-report")
+(declare-function ledger-report-goto "ext:ledger-report")
 (declare-function org-agenda-archives-mode "org-agenda")
 (declare-function org-agenda-log-mode "org-agenda")
 (declare-function org-map-region "org")

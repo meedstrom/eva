@@ -7,7 +7,7 @@
 ;; Version: 0.4.0
 ;; Created: 2020-12-03
 ;; Keywords: convenience
-;; Package-Requires: ((emacs "27.1") (ts "0.3-pre") (s "1.12") (dash "2.19") (f "0.20.0") (ess "18.10.2") (pfuture "1.9") (named-timer "0.1") (transient "0.3.6"))
+;; Package-Requires: ((emacs "27.1") (ts "0.3-pre") (s "1.12") (dash "2.19") (f "0.20.0") (ess "18.10.3snapshot") (pfuture "1.9") (named-timer "0.1") (transient "0.3.6"))
 
 ;; This file is not part of GNU Emacs.
 
@@ -52,7 +52,7 @@
 (declare-function calendar-check-holidays "holidays")
 (declare-function calendar-current-date "calendar")
 (declare-function run-ess-r "ess-r-mode")
-(declare-function ess-execute "ess")
+(declare-function ess-execute "ess-inf")
 (declare-function eww-current-url "eww")
 (declare-function notifications-notify "notifications")
 (declare-function org-mac-idle-seconds "org-clock")
@@ -1033,6 +1033,10 @@ Return non-nil on yes, and nil on no."
 ;; As you may note, the main way of passing info between functions is
 ;; eva-curr-fn.
 
+(defvaralias 'eva--on-excursion 'eva--stop-queue)
+
+(defvar eva--stop-queue nil)
+
 (defvar eva-excursion-buffers nil
   "Buffers included in the current or last excursion.
 Note that there is a variable watcher `eva--add-local-hook' on
@@ -1426,10 +1430,6 @@ interface considering we use `eva-mem-push' to set variables."
 
 (defalias #'eva-resume #'eva-run-queue)
 
-(defvaralias 'eva--on-excursion 'eva--stop-queue)
-
-(defvar eva--stop-queue nil)
-
 (defun eva-stop-queue ()
   "If `eva-run-queue' is currently looping, quit."
   (setq eva--stop-queue t))
@@ -1450,6 +1450,8 @@ spawned by the functions will be skipped by
       (unwind-protect
           (progn
             (set-frame-parameter nil 'buffer-predicate nil)
+            (when (null eva--queue)
+              (message (eva-emit "All done for now.")))
             (when eva--stop-queue
               (setq eva--queue (cl-remove eva-curr-fn eva--queue :count 1)))
             (setq eva--stop-queue nil)

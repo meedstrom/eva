@@ -23,7 +23,8 @@
 
 ;;; Code:
 
-(require 'eva-config)
+(require 'eva-builtin)
+(require 'eva)
 (require 'ert)
 
 ;; (setq eva--idle-beginning (setq eva--last-online (make-ts :unix 0)))
