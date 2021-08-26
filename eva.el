@@ -380,7 +380,8 @@ metadata to PROMPT, check for special keyword input, etc."
                          (ts-format "<%H:%M> ")
                          prompt
                          (when (stringp default)
-                           " (default " default "): "))
+                           (concat
+                            " (default " default "): ")))
                  (append collection extra-collection)
                  nil nil nil nil
                  (when (stringp default)
