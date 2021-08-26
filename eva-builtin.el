@@ -328,24 +328,28 @@ add."
                                  (ts-format "%A" eva-date)
                                  "). When did you wake? ")
                          (list "I don't know"
-                               recently-response))))
+                               recently-response)
+                         recently-hhmm)))
             (cond ((equal reply recently-response)
                    recently-hhmm)
                   ((s-match (rx num) reply)
                    (eva-coerce-to-hh-mm reply))
                   (t nil))))
+         (suggested-length (concat (eva-one-decimal
+                                    (number-to-string
+                                     (/ eva-length-of-last-idle 60 60))) " h"))
          (sleep-minutes
           (eva-parse-time-amount
            (eva-read "How long did you sleep? "
-                     `("I don't know"
-                       ,(number-to-string
-                         (/ eva-length-of-last-idle 60 60)))))))
+                     (list suggested-length
+                           "I don't know")
+                     suggested-length))))
     (eva-emit (when wakeup-time
                 (concat "You woke at " wakeup-time ". "))
               (when sleep-minutes
-                (concat "You slept " (number-to-string sleep-minutes)
-                        " minutes (" (number-to-string
-                                      (/ sleep-minutes 60.0))
+                (concat "You slept " (number-to-string (round sleep-minutes))
+                        " minutes (" (eva-one-decimal (number-to-string
+                                                       (/ sleep-minutes 60.0)))
                         " hours)."))
               (when (-all-p #'null '(wakeup-time sleep-minutes))
                 (concat "One sleep block recorded without metrics.")))

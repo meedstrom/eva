@@ -242,6 +242,14 @@ If \"am\" or \"pm\" present, assume input is in 12-hour clock."
             (when (< minute 10) "0")
             (number-to-string minute))))
 
+(defun eva-one-decimal (string)
+  "If STRING contains a number, drop decimals beyond the first."
+  (when (stringp string)
+    (if (s-numeric? string)
+        ;; leave integer as is
+        string
+      (car (s-match (rx (* nonl) "\." nonl) string)))))
+
 (defmacro eva--process-output-to-string (program &rest args)
   "Like `shell-command-to-string' without the shell intermediary.
 You don't need a /bin/sh.  PROGRAM and ARGS are passed on to
