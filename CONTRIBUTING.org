@@ -12,3 +12,6 @@ See issues at https://github.com/meedstrom/eva/issues.
 - Don't risk data :: Don't carry out destructive operations on datasets.
   - This is why we use append-only, and when edits are needed we simply print out the file path and let the user edit manually.
     - Exceptions may apply to =eva-mem= since it's not user data, but it's still a good idea.
+
+
+- Datestamp :: When the code or doc notes known issues or deprecations, datestamp the note.

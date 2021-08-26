@@ -352,7 +352,7 @@ buffer, binds certain hotkeys."
            ;; Just cancel the session
            (abort-recursive-edit)))
         ((string-match-p "^/h" input) ;; /help
-         (eva-dispatch) ;; TODO: develop a midprompt-dispatch
+         (eva-dispatch)
          (abort-recursive-edit))))
 
 (defun eva-read (prompt &optional collection default)
@@ -387,6 +387,7 @@ metadata to PROMPT, check for special keyword input, etc."
 All of PROMPT, INITIAL-INPUT, HISTORY, DEFAULT-VALUE are passed
 to that function, though PROMPT is prepended with extra info."
   (eva-emit prompt)
+  (set-transient-map eva--midprompt-keymap #'minibufferp)
   (let* ((background-info (concat "[Applying to date: "
                                   (ts-format "%Y, %b %d]\n" eva-date)
                                   "[Type /skip to skip, or /help for help.]\n"))

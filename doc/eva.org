@@ -228,6 +228,19 @@ The order in which the items come in this list reflects the order in which you w
 
 Note that when you re-eval =(setq eva-items ...)=, it will reset the items' keys =:last-called= and =:dismissals=. This doesn't matter much while you are experimenting. but if you care then it's a good idea to immediately eval =(eva--mem-restore-items-values)= before the reset values are written to disk (a timer that runs every other minute does this).
 
+* Usage
+
+For as long as =eva-mode= is enabled, it will start a questioning session when you return to the computer after being away for more than 90 minutes (configurable at =eva-idle-threshold-secs-long=).  This works even if the computer is off during that time, because it writes =eva--last-online= to disk at =eva-mem-history-path=.
+
+In the chat buffer, there is a Transient menu available by typing =h=.  Most hotkeys within match the hotkeys in the chat buffer.
+
+To resume a broken session, type =r= in the chat buffer, or =M-x eva-resume= from anywhere.
+
+# TODO: C- hotkeys actually dont work
+You can type =-= or =+= in the chat buffer, or =C--= or =C-+= during a prompt to increment or decrement the date the questions will apply to.  That's useful if you forgot something yesterday.  Pay attention to the date in each prompt. Type =0= or =C-0= to reset it to today.
+
+If you wish to force a session right now, instead of waiting for the VA to butt in, =M-x eva-session-new= should do it.
+
 * Customising your VA
 ** Writing a new function
 You'll customize this package primarily by creating defuns.  It's so personal what people want a VA for, that simple user options (variables) would not scale.  I would do you no service by making variable references all over the place.  Better you get started with the defuns and we both save energy.  As a plus, it gives our code more clarity.
@@ -505,6 +518,8 @@ and you have a bunch of older observations on the same topic you wrote on a piec
 As long as the Unix timestamps are always greater or equal to the ones above, it's valid. Nothing bad will happen if they're not in order, as it stands, but that data could come into use at some point (for sanity checks if not a matter for analysis in its own right) so it's a matter of hygiene.
 
 * Known issues
-After an excursion, we do not currently detect that the user is done (we had this functionality, but it broke).  So, to resume going through the rest of =eva-items=, you either have to wait until the next time the VA butts in, or call =eva-resume= via =M-x= or by typing =r= in the chat buffer.
 
-This also means it's possible to never get to the end of the list, if the excursions don't have a high enough =:min-hours-wait= or a low =:max-successes-per-day=.
+- C- hotkeys don't work during a prompt (=set-transient-map= doesn't do what I want)
+- Doom's Org makes eva-present-diary slow
+
+See https://github.com/meedstrom/eva/issues
