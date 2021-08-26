@@ -139,15 +139,15 @@ See also `eva-sit-long' and `eva-sit-medium'."
   :group 'eva
   :type 'boolean)
 
+;; DEPRECATED 2021-08-23
+(defalias #'eva-dbg-fn #'eva-debug-fn)
+
 (defcustom eva-debug-fn (when eva-debug #'message)
   "Control the behavior of `eva-dbg'.
 Recommended options are nil, `message', `warn' and `error'."
   :group 'eva
   :type 'function
   :safe t)
-
-;; DEPRECATED 2021-08-23
-(defalias #'eva-dbg-fn #'eva-debug-fn)
 
 (defvar eva--buffer-r nil)
 
@@ -301,7 +301,7 @@ on to `call-process'."
 
 (defun eva--y-or-n-p-insert-k ()
   "Mostly like `y-or-n-p-insert-y'."
-  (interactive nil minibuffer-mode)
+  (interactive)
   (delete-minibuffer-contents)
   (insert "y")
   (setq eva--just-typed-k t)
@@ -1429,11 +1429,11 @@ interface considering we use `eva-mem-push' to set variables."
 
 (defvar eva-debug-do-all-items nil)
 
-(defalias #'eva-resume #'eva-run-queue)
-
 (defun eva-stop-queue ()
   "If `eva-run-queue' is currently looping, quit."
   (setq eva--stop-queue t))
+
+(defalias 'eva-resume #'eva-run-queue)
 
 (defun eva-run-queue ()
   "Call every function from QUEUE, default `eva--queue'.
