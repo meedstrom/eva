@@ -356,7 +356,7 @@ add."
     (eva-tsv-append eva-curr-dataset
       (ts-format "%F" eva-date) ;; date (no time component)
       wakeup-time ;; time (optional)
-      (when sleep-minutes (number-to-string sleep-minutes)))))
+      (when sleep-minutes (number-to-string (round sleep-minutes))))))
 
 
 ;;; Ledger & finances
