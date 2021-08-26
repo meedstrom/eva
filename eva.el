@@ -1016,7 +1016,8 @@ Return non-nil on yes, and nil on no."
   (if (eva-ynp "You have been dismissing "
                (symbol-name fn)
                ", shall I stop tracking it for now?")
-      (push fn eva-disabled-fns)
+      (progn (push fn eva-disabled-fns)
+             (setq eva--queue (remove fn eva--queue)))
     (setf (eva-item-dismissals (eva-item-by-fn fn)) 0)
     nil))
 
