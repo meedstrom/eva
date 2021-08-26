@@ -162,7 +162,7 @@ Near equivalent to typing l v A after entering `org-agenda-list'."
 
 (defvar eva-mood-alist nil
   "For suggesting a score in the `eva-query-mood' prompt.
-Merely a convenience for auto-completion. The variable populates
+Merely a convenience for auto-completion.  The variable populates
 itself through use.")
 
 (eva-defun eva-query-mood ()
@@ -431,9 +431,8 @@ diary entries directly into.  Checked by `eva-present-diary'."
 (defun eva-past-sample-greedy (&optional ts)
   "Return a list of ts objects.
 They refer to yesterday, this weekday the last 4 weeks, this day
-of the month the last 12 months, and this date the last 50
-years. Optionally, the point of reference can be TS instead of
-today."
+of the month the last 12 months, and this date the last 50 years.
+Optionally, the point of reference can be TS instead of today."
   (let ((now (or ts (ts-now))))
     (-uniq (append
             (--iterate (ts-dec 'day 1 it) now 1) ;; yesterday
@@ -444,8 +443,8 @@ today."
 (defun eva-past-sample-casual (&optional ts)
   "Return a list of ts objects.
 They refer to to yesterday, this this day of the month the last 6
-months, and this date the last 50 years. Optionally, the point of
-reference can be TS instead of today."
+months, and this date the last 50 years.  Optionally, the point
+of reference can be TS instead of today."
   (let ((now (or ts (ts-now))))
     (-uniq (append
             (--iterate (ts-dec 'day 1 it) now 1)
@@ -455,9 +454,9 @@ reference can be TS instead of today."
 ;; TODO: Allow a list of datetrees
 (defun eva--make-indirect-datetree (buffer dates)
   "Replace BUFFER contents with a datetree of archive entries.
-Searches `eva-main-datetree-path' for entries matching
-members in DATES (ts objects). Return the count of dates that
-were found to have entries."
+Searches `eva-main-datetree-path' for entries matching members in
+DATES (ts objects).  Return the count of dates that were found to
+have entries."
   (require 'org)
   (let ((dates (-sort 'ts<= dates))
         (counter 0)
@@ -489,8 +488,8 @@ were found to have entries."
 
 (defun eva--existing-diary (&optional date dir file-format)
   "Return the first file in DIR matching FILE-FORMAT.
-FILE-FORMAT is handled by `parse-time-string'. The value returned
-is a full filesystem path or nil.
+FILE-FORMAT is handled by `parse-time-string'.  The value
+returned is a full filesystem path or nil.
 
 When DATE is nil, use `eva-date'.  Should be a ts object.
 When DIR is nil, use `org-journal-dir'.

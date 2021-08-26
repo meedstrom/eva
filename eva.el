@@ -253,7 +253,7 @@ You don't need a /bin/sh.  PROGRAM and ARGS are passed on to
 
 (defmacro eva--process-output-to-number (program &rest args)
   "Like `shell-command-to-string' without the shell intermediary.
-Also converts the result to number. PROGRAM and ARGS are passed
+Also converts the result to number.  PROGRAM and ARGS are passed
 on to `call-process'."
   (declare (debug (&rest form)))
   `(string-to-number (eva--process-output-to-string ,program ,@args)))
@@ -264,7 +264,7 @@ on to `call-process'."
 (defcustom eva-chat-log-path
   (convert-standard-filename
    (expand-file-name "chat.log" eva-cache-dir-path))
-  "Where to save chat log across sessions. Can be nil."
+  "Where to save chat log across sessions.  Can be nil."
   :group 'eva
   :type 'file
   :safe t)
@@ -493,9 +493,9 @@ do so again."
 
 (defun eva-greeting-standalone ()
   "Return a greeting that expects to be followed by nothing.
-No prompts, no debug message, no info. Suitable for
-`notifications-notify' or `startup-echo-area-message'. A superset
-of `eva-greeting'. Mutually exclusive with
+No prompts, no debug message, no info.  Suitable for
+`notifications-notify' or `startup-echo-area-message'.  A
+superset of `eva-greeting'.  Mutually exclusive with
 `eva-greeting-curt'."
   (eval (seq-random-elt
          (append eva-greetings
@@ -614,7 +614,7 @@ changes and append to a file named PATH_errors."
 ;;          returning t
 (defun eva-logged-today-p (path)
   "Check for references to today's date inside file at PATH.
-Does this by searching for a YYYY-MM-DD datestamp. Returns t on
+Does this by searching for a YYYY-MM-DD datestamp.  Returns t on
 success, nil on failure."
   (when (f-exists? path)
     ;; don't act like it's a new day if the time is <5am.
@@ -764,7 +764,7 @@ integer for the first field."
 (defcustom eva-fallback-to-emacs-idle nil
   "Track Emacs idle rather than turn off under unknown OS/DE.
 Not recommended, as the idleness log will be meaningless unless
-you never use a graphical program. You'll end up with the
+you never use a graphical program.  You'll end up with the
 situation where returning to Emacs from a long Firefox session
 triggers the return-from-idle-hook.
 
@@ -1122,6 +1122,7 @@ Return t if there was no problem with setup, nil otherwise."
     ok))
 
 (defun eva--after-pure-query-cleanup ()
+  "Update variables counting this as a successful run."
   (setq eva--queue (cl-remove eva-curr-fn eva--queue :count 1))
   (setf (eva-item-dismissals eva-curr-item) 0)
   ;; Save timestamp of this successful run.
@@ -1148,7 +1149,7 @@ Manages the external variables `eva-curr-fn' and `eva--queue',
 zeroes `eva-item-dismissals' on success, advises
 `abort-recursive-edit' (\\<minibuffer-local-map>
 \\[minibuffer-keyboard-quit]) while in a prompt spawned within BODY,
-and so on. If you use a simple `defun' in lieu of this wrapper,
+and so on.  If you use a simple `defun' in lieu of this wrapper,
 you should replicate these features!"
   (declare (indent defun) (doc-string 3))
   (let* ((parsed-body (macroexp-parse-body body))
@@ -1211,7 +1212,7 @@ this hook.  The hook can be a reassurance if you do things with
 in before it gets written to disk.
 
 After a reboot, we won't set the variable globally for you, it'll
-only be in `eva-mem'. See `eva-load-vars-hook'."
+only be in `eva-mem'.  See `eva-load-vars-hook'."
   :group 'eva
   :type 'hook)
 
@@ -1281,7 +1282,7 @@ merely refer to the variable name in their value."
 (defun eva--mem-filter-for-variable (var)
   "Get all occurrences of VAR from `eva-mem-history-path'.
 Return a list looking like
-\((TIMESTAMP KEY VALUE) (TIMESTAMP KEY VALUE) ...)."
+\((TIMESTAMP KEY VALUE) (TIMESTAMP KEY VALUE) ... )."
   (--filter (eq var (eva--read-lisp (cadr it)))
             (eva-tsv-all-entries eva-mem-history-path)))
 
@@ -1289,7 +1290,7 @@ Return a list looking like
   "Check that the mem history is sane."
   (unless (--all-p (= 3 (length it))
                    (eva-tsv-all-entries eva-mem-history-path))
-    (error "Memory history looks corrupt: not all lines have 3 fields. \n%s"
+    (error "Memory history looks corrupt: not all lines have 3 fields.  \n%s"
            "See `eva-mem-history-path'")))
 
 (defun eva--mem-save-only-changed-vars ()

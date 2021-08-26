@@ -61,16 +61,20 @@
 ;;       (eva-mode))))
 
 (ert-deftest eva-test-keepalive ()
-  (eva-mode 0)
-  (setq eva--last-online (ts-now))
-  (setq eva--idle-secs-fn #'eva--idle-secs-emacs)
-  (eva--keepalive)
-  (sit-for .1)
-  (should (named-timer-get :eva))
-  ;; Takedown
-  (named-timer-cancel :eva-keepalive)
-  (named-timer-cancel :eva-retry)
-  (named-timer-cancel :eva))
+  (let ((was-on eva-mode))
+    (when was-on
+      (eva-mode 0))
+    (setq eva--last-online (ts-now))
+    (setq eva--idle-secs-fn #'eva--idle-secs-emacs)
+    (eva--keepalive)
+    (sit-for .1)
+    (should (named-timer-get :eva))
+    ;; Takedown
+    (named-timer-cancel :eva-keepalive)
+    (named-timer-cancel :eva-retry)
+    (named-timer-cancel :eva)
+    (when was-on
+      (eva-mode))))
 
 (ert-deftest eva-test-ts-usage ()
   (let ((now (ts-now)))
