@@ -1113,8 +1113,7 @@ NEW is assumed to be a list of buffers\; most likely, it is
   (advice-remove 'abort-recursive-edit #'eva--after-cancel-prompt-do-stuff)
   (when (null eva-curr-fn)
     (error "Unexpectedly null: eva-curr-fn"))
-  (cl-incf (eva-item-dismissals
-            (eva-item-by-fn eva-curr-fn)))
+  (cl-incf (eva-item-dismissals eva-curr-item))
   ;; Re-add the fn to the queue because it got removed (so I expect); after a
   ;; cancel, we want it to remain queued up.
   (cl-pushnew eva-curr-fn eva--queue))
