@@ -55,6 +55,7 @@
 (declare-function ess-execute "ess-inf")
 (declare-function eww-current-url "eww")
 (declare-function notifications-notify "notifications")
+(declare-function notifications-get-capabilities "notifications")
 (declare-function org-mac-idle-seconds "org-clock")
 (declare-function org-read-date "org")
 (defvar exwm-class-name)
@@ -347,30 +348,6 @@ buffer, binds certain hotkeys."
       (setq-local buffer-read-only t)
       (dolist (x '("o" "i" "k" "<SPC>"))
         (define-key y-or-n-p-map (kbd x) #'y-or-n-p-insert-other)))))
-
-;; TODO: should /skip count as a dismissal?
-(defun eva-check-special-input (input)
-  "Check INPUT for keywords like \"/skip\" and react specially."
-  (cond ((string-match-p "^/s" input) ;; /skip
-         (if (and (< 1 (length eva--queue))
-                  (member eva-curr-fn eva--queue))
-             ;; Try to proceed to next item
-             ;; 
-             ;; REVIEW: does this actually work now since it checks
-             ;;         minibufferp?  we need maybe to call
-             ;;         abort-recursive-edit too?
-             (progn
-               (cl-incf (eva-item-dismissals eva-curr-item))
-               (setq eva--queue (cl-remove eva-curr-fn eva--queue :count 1))
-               (eva-resume))
-           ;; Just cancel the session
-           (abort-recursive-edit))
-         nil)
-        ((string-match-p "^/h" input) ;; /help
-         (eva-dispatch)
-         (abort-recursive-edit)
-         nil)
-        (t input)))
 
 (defun eva-read (prompt &optional collection default)
   "Wrapper for `completing-read'.
@@ -674,6 +651,11 @@ meant to get."
     (let ((rows (s-split "\n" (buffer-string) t)))
       (--map (s-split "\t" it) rows))))
 
+;; equivalents
+;; (-map (##s-split "\t" %) rows) ;; with llama.el
+;; (-map (l's-split "\t" %) rows) ;; with l.el
+;; (--map (s-split "\t" it) rows)
+
 ;; HACK: too strong assumption
 (defun eva-tsv-last-timestamp* (path)
   "In .tsv at PATH, get the second field of last row."
@@ -965,6 +947,29 @@ separate function from `eva--user-is-present'."
 (defvar eva-disabled-fns nil
   "Which members of `eva-items' to avoid processing.
 Referred to by their :fn value.")
+
+(defun eva-check-special-input (input)
+  "Check INPUT for keywords like \"/skip\" and react specially."
+  (cond ((string-match-p "^/s" input) ;; /skip
+         (if (and (< 1 (length eva--queue))
+                  (member eva-curr-fn eva--queue))
+             ;; Try to proceed to next item
+             ;;
+             ;; REVIEW: does this actually work now since it checks
+             ;;         minibufferp?  we need maybe to call
+             ;;         abort-recursive-edit too?
+             (progn
+               (cl-incf (eva-item-dismissals eva-curr-item))
+               (setq eva--queue (cl-remove eva-curr-fn eva--queue :count 1))
+               (eva-resume))
+           ;; Just cancel the session
+           (abort-recursive-edit))
+         nil)
+        ((string-match-p "^/h" input) ;; /help
+         (eva-dispatch)
+         (abort-recursive-edit)
+         nil)
+        (t input)))
 
 (defun eva--pending-p (fn)
   "Return t if FN is due to be called."
