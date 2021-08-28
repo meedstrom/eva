@@ -348,20 +348,29 @@ buffer, binds certain hotkeys."
       (dolist (x '("o" "i" "k" "<SPC>"))
         (define-key y-or-n-p-map (kbd x) #'y-or-n-p-insert-other)))))
 
+;; TODO: should /skip count as a dismissal?
 (defun eva-check-special-input (input)
   "Check INPUT for keywords like \"/skip\" and react specially."
   (cond ((string-match-p "^/s" input) ;; /skip
          (if (and (< 1 (length eva--queue))
                   (member eva-curr-fn eva--queue))
              ;; Try to proceed to next item
+             ;; 
+             ;; REVIEW: does this actually work now since it checks
+             ;;         minibufferp?  we need maybe to call
+             ;;         abort-recursive-edit too?
              (progn
+               (cl-incf (eva-item-dismissals eva-curr-item))
                (setq eva--queue (cl-remove eva-curr-fn eva--queue :count 1))
                (eva-resume))
            ;; Just cancel the session
-           (abort-recursive-edit)))
+           (abort-recursive-edit))
+         nil)
         ((string-match-p "^/h" input) ;; /help
          (eva-dispatch)
-         (abort-recursive-edit))))
+         (abort-recursive-edit)
+         nil)
+        (t input)))
 
 (defun eva-read (prompt &optional collection default)
   "Wrapper for `completing-read'.
@@ -387,8 +396,9 @@ metadata to PROMPT, check for special keyword input, etc."
                  (when (stringp default)
                    default))))
     (eva-emit-same-line input)
-    (eva-check-special-input input)
-    input))
+    (if (eva-check-special-input input)
+        input
+      nil)))
 
 (defun eva-read-string
     (prompt &optional initial-input history default-value)
@@ -408,8 +418,9 @@ to that function, though PROMPT is prepended with extra info."
                  history
                  default-value)))
     (eva-emit-same-line input)
-    (eva-check-special-input input)
-    input))
+    (if (eva-check-special-input input)
+        input
+      nil)))
 
 (defun eva-emit (&rest strings)
   "Write a line to the chat buffer, made from STRINGS.

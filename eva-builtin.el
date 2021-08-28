@@ -60,50 +60,54 @@
 (eva-defun eva-query-meditation ()
   "Ask user whether they meditated and how long."
   (when (eva-ynp "Did you meditate today?")
-    (let* ((mins (eva-read-string "Do you know how long (in minutes)? "))
-           (cleaned-mins (number-to-string (string-to-number mins)))) ; HACK
-      (eva-tsv-append eva-curr-dataset
-        (ts-format)
-        "TRUE"
-        (unless (string= "0" cleaned-mins) cleaned-mins)))))
+    (let* ((mins (eva-read-string "Great! Do you know how long (in minutes)? "))
+           (cleaned-mins (when mins (number-to-string (string-to-number mins))))) ; HACK
+      (when mins
+        (eva-tsv-append eva-curr-dataset
+          (ts-format)
+          "TRUE"
+          (unless (string= "0" cleaned-mins) cleaned-mins))))))
 
 (eva-defun eva-query-cold-shower ()
   "Ask user to rate their cold exposure today."
   (let ((rating (eva-read-string "Cold rating? ")))
-    (eva-tsv-append eva-curr-dataset
-      (ts-format eva-date)
-      rating)))
+    (when rating
+      (eva-tsv-append eva-curr-dataset
+        (ts-format eva-date)
+        rating))))
 
 (eva-defun eva-query-ingredients ()
   "Ask user for a description of what they ate."
   (let* ((response (eva-read-string
                     "What ingredients did you eat recently? ")))
-    (eva-tsv-append eva-curr-dataset
-      (ts-format eva-date)
-      response)
-    (eva-emit "Ingredients recorded today: "
-              (->> (eva-tsv-entries-by-date eva-curr-dataset)
-                   (nreverse)
-                   (-map #'-last-item)
-                   (s-join ", ")
-                   (s-replace ",," ",")))))
+    (when response
+      (eva-tsv-append eva-curr-dataset
+        (ts-format eva-date)
+        response)
+      (eva-emit "Ingredients recorded today: "
+                (->> (eva-tsv-entries-by-date eva-curr-dataset)
+                     (nreverse)
+                     (-map #'-last-item)
+                     (s-join ", ")
+                     (s-replace ",," ","))))))
 
 (eva-defun eva-query-mood-numeric ()
   "Ask user about their mood."
   (let* ((score (eva-read-string "How do you feel? (score from 1-10): "))
          (score-num (string-to-number score)))
-    (eva-tsv-append eva-curr-dataset
-      (ts-format)
-      (s-replace "," "." score)
-      nil) ;; use the same dataset as eva-query-mood
-    (when (and (s-numeric? score) ;; needed b/c typing numless junk makes it 0
-               (<= score-num 1)
-               (eva-ynp "Do you want to talk?")
-               (eva-ynp "I can direct you to my colleague ELIZA, though"
-                        " she's not too bright.  Will that do?"))
-      (doctor)
-      (eva-stop-queue))
-    score-num))
+    (when score
+      (eva-tsv-append eva-curr-dataset
+        (ts-format)
+        (s-replace "," "." score)
+        nil) ;; use the same dataset as eva-query-mood
+      (when (and (s-numeric? score) ;; needed b/c typing numless junk makes it 0
+                 (<= score-num 1)
+                 (eva-ynp "Do you want to talk?")
+                 (eva-ynp "I can direct you to my colleague ELIZA, though"
+                          " she's not too bright.  Will that do?"))
+        (doctor)
+        (eva-stop-queue))
+      score-num)))
 
 (eva-defun eva-present-org-agenda ()
   "Send the user to an Org agenda log with archives enabled.
@@ -151,11 +155,12 @@ Near equivalent to typing l v A after entering `org-agenda-list'."
                    name-corrected
                  name))
          (activity (eva-activity-by-name name)))
-    (eva-tsv-append eva-curr-dataset
-      (ts-format eva-date) ;; the time the activity happened
-      name
-      (when activity
-        (eva-activity-id activity)))))
+    (when name
+      (eva-tsv-append eva-curr-dataset
+        (ts-format eva-date) ;; the time the activity happened
+        name
+        (when activity
+          (eva-activity-id activity))))))
 
 
 ;;; Mood
@@ -187,29 +192,30 @@ itself through use.")
                     first-response
                   second-response))
          (score-num (string-to-number score)))
-    (eva-tsv-append eva-curr-dataset
-      (ts-format)
-      (s-replace "," "." score)
-      mood-desc)
-    (when eva-debug
-      (eva-emit "------ (debug message) Recorded mood: "
-                (s-join " " (cdr (eva-tsv-last-row
-                                  eva-curr-dataset)))))
-    ;; Update eva-mood-alist.
-    (if (assoc mood-desc eva-mood-alist)
-        (setq eva-mood-alist
-              (--replace-where (string= (car it) mood-desc)
-                               (cons (car it) score)
-                               eva-mood-alist))
-      (push (cons mood-desc score) eva-mood-alist))
-    (when (and  (s-numeric? score) ;; needed b/c typing numless junk makes it 0
-                (<= score-num 1)
-                (eva-ynp "Do you want to talk?")
-                (eva-ynp "I can direct you to my colleague ELIZA, though"
-                         " she's not too bright.  Will that do?"))
-      (doctor)
-      (eva-stop-queue))
-    score-num))
+    (when (and first-response second-response)
+      (eva-tsv-append eva-curr-dataset
+        (ts-format)
+        (s-replace "," "." score)
+        mood-desc)
+      (when eva-debug
+        (eva-emit "------ (debug message) Recorded mood: "
+                  (s-join " " (cdr (eva-tsv-last-row
+                                    eva-curr-dataset)))))
+      ;; Update eva-mood-alist.
+      (if (assoc mood-desc eva-mood-alist)
+          (setq eva-mood-alist
+                (--replace-where (string= (car it) mood-desc)
+                                 (cons (car it) score)
+                                 eva-mood-alist))
+        (push (cons mood-desc score) eva-mood-alist))
+      (when (and  (s-numeric? score) ;; needed b/c typing numless junk makes it 0
+                  (<= score-num 1)
+                  (eva-ynp "Do you want to talk?")
+                  (eva-ynp "I can direct you to my colleague ELIZA, though"
+                           " she's not too bright.  Will that do?"))
+        (doctor)
+        (eva-stop-queue))
+      score-num)))
 
 (add-hook 'eva-after-load-vars-hook
           (defun eva-mood-load ()
@@ -235,12 +241,13 @@ itself through use.")
     (if (= 0 (string-to-number wt))
         ;; user typed only non-numeric characters
         (eva-emit "Ok, I'll ask you again later.")
-      (eva-tsv-append eva-curr-dataset
-        (ts-format eva-date)
-        (s-replace "," "." wt))
-      (eva-emit "Weight today: "
-                (eva-tsv-last-value eva-curr-dataset)
-                " kg"))))
+      (when wt
+        (eva-tsv-append eva-curr-dataset
+          (ts-format eva-date)
+          (s-replace "," "." wt))
+        (eva-emit "Weight today: "
+                  (eva-tsv-last-value eva-curr-dataset)
+                  " kg")))))
 
 ;; TODO: Let's pass the datasets as args, from eva-item-create :args
 ;; TODO: Pass start-date (today minus 3mo) and projection incline, letting
@@ -344,19 +351,21 @@ add."
                      (list suggested-length
                            "I don't know")
                      suggested-length))))
-    (eva-emit (when wakeup-time
-                (concat "You woke at " wakeup-time ". "))
-              (when sleep-minutes
-                (concat "You slept " (number-to-string (round sleep-minutes))
-                        " minutes (" (eva-one-decimal (number-to-string
-                                                       (/ sleep-minutes 60.0)))
-                        " hours)."))
-              (when (-all-p #'null '(wakeup-time sleep-minutes))
-                (concat "One sleep block recorded without metrics.")))
-    (eva-tsv-append eva-curr-dataset
-      (ts-format "%F" eva-date) ;; date (no time component)
-      wakeup-time ;; time (optional)
-      (when sleep-minutes (number-to-string (round sleep-minutes))))))
+    ;; TODO: save data even if user typed /skip on the second q
+    (when (and wakeup-time sleep-minutes)
+      (eva-emit (when wakeup-time
+                  (concat "You woke at " wakeup-time ". "))
+                (when sleep-minutes
+                  (concat "You slept " (number-to-string (round sleep-minutes))
+                          " minutes (" (eva-one-decimal (number-to-string
+                                                         (/ sleep-minutes 60.0)))
+                          " hours)."))
+                (when (-all-p #'null '(wakeup-time sleep-minutes))
+                  (concat "One sleep block recorded without metrics.")))
+      (eva-tsv-append eva-curr-dataset
+        (ts-format "%F" eva-date) ;; date (no time component)
+        wakeup-time ;; time (optional)
+        (when sleep-minutes (number-to-string (round sleep-minutes)))))))
 
 
 ;;; Ledger & finances
