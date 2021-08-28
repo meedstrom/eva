@@ -1496,7 +1496,8 @@ spawned by the functions will be skipped by
         (setq eva--queue fns)
         (unless (eq t (frame-focus-state))
           (require 'notifications)
-          (notifications-notify :title eva-va-name :body (eva-greeting)))
+          (when (notifications-get-capabilities)
+            (notifications-notify :title eva-va-name :body (eva-greeting))))
         (eva--chime-aural)
         (eva--chime-visual)
         (run-with-timer 1 nil #'eva-run-queue)))))
@@ -1812,16 +1813,15 @@ Return the function on success, nil otherwise."
           (add-hook 'after-init-hook #'eva--check-for-time-anomalies 2)
           (add-hook 'after-init-hook #'eva--init-r 3)
           (add-hook 'after-init-hook #'eva--user-is-present 90)
-          (named-timer-run :eva-keepalive 300 300 #'eva--keepalive)
           (when after-init-time
             (progn
               (eva--init)
               (eva--check-for-time-anomalies)
               (eva--init-r)
-              (eva--user-is-present)
-              (when eva-debug
-                (eva-emit
-                 "------ (Eva debug) Mode turned on. ----------"))))))
+              (eva--user-is-present)))
+          (named-timer-run :eva-keepalive 300 300 #'eva--keepalive)
+          (when eva-debug
+            (message "------ (Eva debug) Mode turned on. ----------"))))
     ;; Turn off.
     (unless (eva--another-eva-running-p)
       (eva-emit "Turning off.")
@@ -1835,7 +1835,7 @@ Return the function on success, nil otherwise."
     (remove-hook 'after-init-hook #'eva--emacs-init-message)
     (remove-hook 'after-init-hook #'eva--check-for-time-anomalies)
     (remove-hook 'after-init-hook #'eva--init-r)
-    (remove-hook 'after-init-hook #'eva--start-next-timer)
+    (remove-hook 'after-init-hook #'eva--user-is-present)
     (remove-hook 'kill-emacs-hook #'eva--save-vars-to-disk)
     (named-timer-cancel :eva)
     (named-timer-cancel :eva-retry)

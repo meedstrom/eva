@@ -434,8 +434,10 @@ Requires the ssconvert program that comes with Gnumeric."
   "~/org/archive.org"
   "The file name of your main datetree, if you have one.
 Only relevant if you have one you use as a big archive file, see
-Info node `(org) Moving subtrees', or you write/capture
-diary entries directly into.  Checked by `eva-present-diary'."
+Info node `(org) Moving subtrees', or one to which you
+write/capture diary entries directly, in the same style as Doom's
+`+org-capture-journal-file'.  This file is scanned by
+`eva-present-diary'."
   :group 'eva
   :type 'file)
 
@@ -593,12 +595,14 @@ Suitable on `eva-after-load-vars-hook'."
         (restored-agenda-files
          (map-elt eva-mem 'org-agenda-files)))
     (when eva-debug ; TODO: remove this condition, but ensure it's not annoying
-      (when restored-templates
-        (unless (equal restored-templates org-capture-templates)
-          (message (eva-emit "org-capture-templates changed!"))))
-      (when restored-agenda-files
-        (unless (equal restored-agenda-files org-agenda-files)
-          (message (eva-emit "org-agenda-files changed!")))))))
+      (with-eval-after-load 'org-capture
+        (when restored-templates
+          (unless (equal restored-templates org-capture-templates)
+            (message (eva-emit "org-capture-templates changed!")))))
+      (with-eval-after-load 'org-agenda
+        (when restored-agenda-files
+          (unless (equal restored-agenda-files org-agenda-files)
+            (message (eva-emit "org-agenda-files changed!"))))))))
 
 ;; (defvar eva--org-vars-checked nil)
 

@@ -45,6 +45,10 @@ Set-up
 * Initial::
 * Choose what to track::
 
+Full set-up example
+
+* Notes::
+
 Customising your VA
 
 * Writing a new function::
@@ -251,11 +255,12 @@ File: eva.info,  Node: Full set-up example,  Next: Usage,  Prev: Set-up,  Up: To
        (setq ess-ask-for-ess-directory nil)
 
        :config
-       (require 'eva-builtin)
 
        ;; These are used by `eva-present-diary'; org-journal not needed.
-       (setq org-journal-dir "/home/kept/Diary")
+       (setq org-journal-dir "~/org/journal/")
        (setq org-journal-file-format "%F.org")
+
+       (require 'eva-builtin)
 
        (add-hook 'eva-after-load-vars-hook #'eva-check-dangling-clock)
 
@@ -272,10 +277,6 @@ File: eva.info,  Node: Full set-up example,  Next: Usage,  Prev: Set-up,  Up: To
 
               (eva-item-create :fn #'eva-query-mood
                                :dataset "~/self-data/mood.tsv"
-                               :min-hours-wait 1)
-
-              (eva-item-create :fn #'eva-query-activity
-                               :dataset "~/self-data/activities.tsv"
                                :min-hours-wait 1)
 
               (eva-item-create :fn #'eva-present-diary
@@ -304,6 +305,10 @@ File: eva.info,  Node: Full set-up example,  Next: Usage,  Prev: Set-up,  Up: To
               (eva-item-create :fn #'eva-query-cold-shower
                                :dataset "~/self-data/cold.tsv"
                                :max-entries-per-day 1)
+
+              (eva-item-create :fn #'eva-query-activity
+                               :dataset "~/self-data/activities.tsv"
+                               :min-hours-wait 1)
 
               ;; you can inline define the functions too
               (eva-item-create
@@ -334,12 +339,33 @@ File: eva.info,  Node: Full set-up example,  Next: Usage,  Prev: Set-up,  Up: To
 
        (eva-mode))
 
-   Note that when you re-eval ‘(setq eva-items ...)’, it will reset the
-items’ keys ‘:last-called’ and ‘:dismissals’.  This doesn’t matter much
-while you are experimenting.  but if you care then it’s a good idea to
-immediately eval ‘(eva--mem-restore-items-values)’ before the reset
-values are written to disk (a timer that runs every other minute does
-this).
+* Menu:
+
+* Notes::
+
+
+File: eva.info,  Node: Notes,  Up: Full set-up example
+
+4.1 Notes
+=========
+
+Note that when you re-eval ‘(setq eva-items ...)’ seen in the previous
+section, it will reset the items’ keys ‘:last-called’ and ‘:dismissals’.
+This doesn’t matter much while you are experimenting.  but if you care
+about it, you can immediately eval ‘(eva--mem-restore-items-values)’
+before the reset values are written to disk (by a timer that runs every
+other minute).
+
+   Bit of a tangent, but you could use the functions from both
+‘org-journal’ and the ‘org-roam’ dailies if your
+‘org-journal-file-format’ is the same file name format as used by your
+‘org-roam-dailies-capture-templates’.  So your ‘org-journal-dir’ can
+refer to the same location as ‘(concat org-roam-directory
+org-roam-dailies-directory)’.  Just a tip.  That’s pretty much what you
+have to do now if you want ‘eva-present-diary’ to scan your org-roam
+dailies, since it as yet doesn’t scan them specifically.  Although it’s
+likely you _don’t_ use org-journal, in which case you can simply set
+org-journal-dir to your ‘~/org-roam/daily/’ equivalent.
 
 
 File: eva.info,  Node: Usage,  Next: Customising your VA,  Prev: Full set-up example,  Up: Top
@@ -840,31 +866,32 @@ File: eva.info,  Node: Known issues,  Prev: Surgery,  Up: Top
 
 Tag Table:
 Node: Top184
-Node: Requirements1559
-Node: Soft requirements2184
-Node: Set-up3923
-Node: Initial4086
-Node: Choose what to track5626
-Node: Full set-up example7949
-Node: Usage12491
-Node: Customising your VA13571
-Node: Writing a new function13797
-Node: Greetings15641
-Node: Composing a custom session16178
-Node: Synergistic programs18337
-Node: Memacs18539
-Node: Org configuration25230
-Node: Reminder of clocked task25420
-Node: Dangling clocks26315
-Node: Notes on built-ins27552
-Node: eva-query-sleep27785
-Node: eva-present-diary28553
-Node: eva--log-buffer29571
-Node: eva--log-idle30636
-Node: Surgery31001
-Node: Changing dataset file names31186
-Node: Editing datasets manually31524
-Node: Known issues33270
+Node: Requirements1591
+Node: Soft requirements2216
+Node: Set-up3955
+Node: Initial4118
+Node: Choose what to track5658
+Node: Full set-up example7981
+Node: Notes12159
+Node: Usage13319
+Node: Customising your VA14399
+Node: Writing a new function14625
+Node: Greetings16469
+Node: Composing a custom session17006
+Node: Synergistic programs19165
+Node: Memacs19367
+Node: Org configuration26058
+Node: Reminder of clocked task26248
+Node: Dangling clocks27143
+Node: Notes on built-ins28380
+Node: eva-query-sleep28613
+Node: eva-present-diary29381
+Node: eva--log-buffer30399
+Node: eva--log-idle31464
+Node: Surgery31829
+Node: Changing dataset file names32014
+Node: Editing datasets manually32352
+Node: Known issues34098
 
 End Tag Table
 

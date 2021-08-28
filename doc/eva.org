@@ -142,11 +142,12 @@ The order in which the items come in this list reflects the order in which you w
   (setq ess-ask-for-ess-directory nil)
 
   :config
-  (require 'eva-builtin)
 
   ;; These are used by `eva-present-diary'; org-journal not needed.
-  (setq org-journal-dir "/home/kept/Diary")
+  (setq org-journal-dir "~/org/journal/")
   (setq org-journal-file-format "%F.org")
+
+  (require 'eva-builtin)
 
   (add-hook 'eva-after-load-vars-hook #'eva-check-dangling-clock)
 
@@ -163,10 +164,6 @@ The order in which the items come in this list reflects the order in which you w
 
          (eva-item-create :fn #'eva-query-mood
                           :dataset "~/self-data/mood.tsv"
-                          :min-hours-wait 1)
-
-         (eva-item-create :fn #'eva-query-activity
-                          :dataset "~/self-data/activities.tsv"
                           :min-hours-wait 1)
 
          (eva-item-create :fn #'eva-present-diary
@@ -195,6 +192,10 @@ The order in which the items come in this list reflects the order in which you w
          (eva-item-create :fn #'eva-query-cold-shower
                           :dataset "~/self-data/cold.tsv"
                           :max-entries-per-day 1)
+
+         (eva-item-create :fn #'eva-query-activity
+                          :dataset "~/self-data/activities.tsv"
+                          :min-hours-wait 1)
 
          ;; you can inline define the functions too
          (eva-item-create
@@ -226,7 +227,10 @@ The order in which the items come in this list reflects the order in which you w
   (eva-mode))
 #+end_src
 
-Note that when you re-eval =(setq eva-items ...)=, it will reset the items' keys =:last-called= and =:dismissals=. This doesn't matter much while you are experimenting. but if you care then it's a good idea to immediately eval =(eva--mem-restore-items-values)= before the reset values are written to disk (a timer that runs every other minute does this).
+** Notes
+Note that when you re-eval =(setq eva-items ...)= seen in the previous section, it will reset the items' keys =:last-called= and =:dismissals=. This doesn't matter much while you are experimenting. but if you care about it, you can immediately eval =(eva--mem-restore-items-values)= before the reset values are written to disk (by a timer that runs every other minute).
+
+Bit of a tangent, but you could use the functions from both =org-journal= and the =org-roam= dailies if your =org-journal-file-format= is the same file name format as used by your =org-roam-dailies-capture-templates=.  So your =org-journal-dir= can refer to the same location as =(concat org-roam-directory org-roam-dailies-directory)=.  Just a tip.  That's pretty much what you have to do now if you want =eva-present-diary= to scan your org-roam dailies, since it as yet doesn't scan them specifically.  Although it's likely you /don't/ use org-journal, in which case you can simply set org-journal-dir to your =~/org-roam/daily/= equivalent.
 
 * Usage
 
