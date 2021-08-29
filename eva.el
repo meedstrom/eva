@@ -52,6 +52,7 @@
 (declare-function calendar-check-holidays "holidays")
 (declare-function calendar-current-date "calendar")
 (declare-function run-ess-r "ess-r-mode")
+(declare-function ess-process-live-p "ess-inf")
 (declare-function ess-execute "ess-inf")
 (declare-function eww-current-url "eww")
 (declare-function notifications-notify "notifications")

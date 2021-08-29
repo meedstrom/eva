@@ -150,9 +150,7 @@ The order in which the items come in this list reflects the order in which you w
   (require 'eva-builtin)
 
   (add-hook 'eva-after-load-vars-hook #'eva-check-dangling-clock)
-
-  ;; currently only says anything with eva-debug t b/c it's work in progress
-  (add-hook 'eva-after-load-vars-hook #'eva-check-org-variables)
+  (add-hook 'eva-after-load-vars-hook #'eva-check-org-vars)
 
   ;; HINT: Though not likely you'll want to, you can use the same object
   ;; multiple times in the queue, you'll just have to assign the output of

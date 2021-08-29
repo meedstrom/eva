@@ -263,9 +263,7 @@ File: eva.info,  Node: Full set-up example,  Next: Usage,  Prev: Set-up,  Up: To
        (require 'eva-builtin)
 
        (add-hook 'eva-after-load-vars-hook #'eva-check-dangling-clock)
-
-       ;; currently only says anything with eva-debug t b/c it's work in progress
-       (add-hook 'eva-after-load-vars-hook #'eva-check-org-variables)
+       (add-hook 'eva-after-load-vars-hook #'eva-check-org-vars)
 
        ;; HINT: Though not likely you'll want to, you can use the same object
        ;; multiple times in the queue, you'll just have to assign the output of
@@ -872,26 +870,26 @@ Node: Set-up3955
 Node: Initial4118
 Node: Choose what to track5658
 Node: Full set-up example7981
-Node: Notes12159
-Node: Usage13319
-Node: Customising your VA14399
-Node: Writing a new function14625
-Node: Greetings16469
-Node: Composing a custom session17006
-Node: Synergistic programs19165
-Node: Memacs19367
-Node: Org configuration26058
-Node: Reminder of clocked task26248
-Node: Dangling clocks27143
-Node: Notes on built-ins28380
-Node: eva-query-sleep28613
-Node: eva-present-diary29381
-Node: eva--log-buffer30399
-Node: eva--log-idle31464
-Node: Surgery31829
-Node: Changing dataset file names32014
-Node: Editing datasets manually32352
-Node: Known issues34098
+Node: Notes12071
+Node: Usage13231
+Node: Customising your VA14311
+Node: Writing a new function14537
+Node: Greetings16381
+Node: Composing a custom session16918
+Node: Synergistic programs19077
+Node: Memacs19279
+Node: Org configuration25970
+Node: Reminder of clocked task26160
+Node: Dangling clocks27055
+Node: Notes on built-ins28292
+Node: eva-query-sleep28525
+Node: eva-present-diary29293
+Node: eva--log-buffer30311
+Node: eva--log-idle31376
+Node: Surgery31741
+Node: Changing dataset file names31926
+Node: Editing datasets manually32264
+Node: Known issues34010
 
 End Tag Table
 

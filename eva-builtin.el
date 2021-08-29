@@ -568,7 +568,7 @@ Note that org-journal is not needed."
 
 (add-hook 'eva-before-save-vars-hook
           (defun eva--save-org-variables ()
-            "Sync certain org settings to mem."
+            "Sync certain Org settings to memory."
             (when (featurep 'org-clock)
               (eva-mem-push 'org-clock-current-task))
             (when (featurep 'org-agenda)
@@ -583,9 +583,21 @@ Note that org-journal is not needed."
                                              template))))
                 (eva-mem-push-alt transformed-org-templates)))))
 
-(defun eva-check-org-variables ()
+(defcustom eva-check-org-vars-load-modules t
+  "Whether `eva-check-org-vars' should load certain Org modules.
+Note that it still waits for Org init before doing so.  This
+ensures that the relevant variables (as of 2021-08-29
+`org-agenda-files' and `org-capture-templates') are set to their
+final values by the time the VA compares them to its remembered
+values."
+  :group 'eva
+  :type 'boolean)
+
+(defun eva-check-org-vars-1 ()
   "Alert user if certain Org settings have changed.
-Suitable on `eva-after-load-vars-hook'."
+Hook that runs once and removes itself, since the compiler said
+`eval-after-load' is mainly for user init files."
+  (remove-hook 'org-mode-hook #'eva-check-org-vars-1)
   (let ((restored-templates
          (cl-loop for template in (map-elt eva-mem 'transformed-org-templates)
                   collect (--map (if (stringp it)
@@ -594,15 +606,26 @@ Suitable on `eva-after-load-vars-hook'."
                                  template)))
         (restored-agenda-files
          (map-elt eva-mem 'org-agenda-files)))
-    (when eva-debug ; TODO: remove this condition, but ensure it's not annoying
-      (with-eval-after-load 'org-capture
-        (when restored-templates
-          (unless (equal restored-templates org-capture-templates)
-            (message (eva-emit "org-capture-templates changed!")))))
-      (with-eval-after-load 'org-agenda
-        (when restored-agenda-files
-          (unless (equal restored-agenda-files org-agenda-files)
-            (message (eva-emit "org-agenda-files changed!"))))))))
+    (when eva-check-org-vars-load-modules
+      (require 'org-agenda)
+      (require 'org-capture))
+    (when (and (bound-and-true-p org-capture-templates)
+               restored-templates)
+      (if (equal restored-templates org-capture-templates)
+          (eva-dbg "org-capture-templates unchanged")
+        (message (eva-emit "org-capture-templates changed!"))))
+    (when (and (bound-and-true-p org-agenda-files)
+               restored-agenda-files)
+      (if (equal restored-agenda-files org-agenda-files)
+          (eva-dbg "org-agenda-files unchanged")
+        (message (eva-emit "org-agenda-files changed!"))))))
+
+(defun eva-check-org-vars ()
+  "Alert user if certain Org settings have changed.
+Suitable on `eva-after-load-vars-hook'."
+  (add-hook 'org-mode-hook #'eva-check-org-vars-1 91))
+
+(defalias 'eva-check-org-variables #'eva-check-org-vars "Renamed 2021-08-29")
 
 ;; (defvar eva--org-vars-checked nil)
 
