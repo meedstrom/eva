@@ -174,14 +174,16 @@ and text encoding), but creates an interactive R buffer which
 unfortunately may surprise the user when they go to work on their
 own R project."
   (let ((default-directory (f-dirname (find-library-name "eva"))))
-    (save-window-excursion
-      (setq eva--buffer-r (run-ess-r)))
-    ;; gotcha: only use `ess-with-current-buffer' for temp output buffers, not
-    ;; for the process buffer
-    (with-current-buffer eva--buffer-r
-      (setq eva--r-process (get-process ess-local-process-name))
-      ;; TODO: How to check if the script errors out?
-      (ess-execute "source(\"init.R\")" 'buffer))))
+    (unless (and (buffer-live-p eva--buffer-r)
+                 (ess-process-live-p eva--r-process))
+      (save-window-excursion
+        (setq eva--buffer-r (run-ess-r)))
+      ;; gotcha: only use `ess-with-current-buffer' for temp output buffers, not
+      ;; for the process buffer
+      (with-current-buffer eva--buffer-r
+        (setq eva--r-process (get-process ess-local-process-name))
+        ;; TODO: How to check if the script errors out?
+        (ess-execute "source(\"init.R\")" 'buffer)))))
 
 (defun eva-dbg (&rest strings)
   "Concat STRINGS and print them via function `eva-debug-fn'.
