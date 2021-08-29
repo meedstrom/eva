@@ -160,10 +160,10 @@ Recommended options are nil, `message', `warn' and `error'."
 
 (defvar eva-date (ts-now)
   "Date to which to apply the current fn.
-Can be set anytime during a welcome to override the date to which
-some queries apply, for example to log something for yesterday.
-This may not apply, check the source for the welcomer you are
-using.")
+Can be set anytime to override the date to which some queries
+apply, for example to log something for yesterday.
+
+Mind that starting a new session resets this to today.")
 
 (defvar eva--r-process nil)
 
@@ -1780,6 +1780,10 @@ Return the function on success, nil otherwise."
 (defun eva-unload-function ()
   "Unload the Eva library."
   (eva-mode 0)
+  (kill-buffer (eva-buffer-chat))
+  (kill-buffer eva--buffer-r)
+  (kill-buffer eva--buffer-focus-log-buffer)
+  (kill-buffer eva--buffer-info-buffer)
   (with-demoted-errors nil
     (unload-feature 'eva-test)
     (unload-feature 'eva-builtin))
