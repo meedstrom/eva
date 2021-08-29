@@ -85,7 +85,8 @@ For the auto-clocking feature, when the VA's probability estimates make it nearl
 
 Please note
 1. There is no auto-clocker yet!
-2. New commits MAY break the package for days at a time and deprecations are frequent.
+2. New commits MAY break a feature for days at a time.
+3. Deprecations and renames are frequent.
 
 If you have [[https://github.com/raxod502/straight.el][straight.el]], you can install the package like so:
 #+begin_src elisp

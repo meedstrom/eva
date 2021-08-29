@@ -247,7 +247,7 @@ If \"am\" or \"pm\" present, assume input is in 12-hour clock."
             (number-to-string minute))))
 
 (defun eva-one-decimal (string)
-  "If STRING contains a number, drop decimals beyond the first."
+  "If STRING is a number, drop decimals beyond the first."
   (when (stringp string)
     (if (s-numeric? string)
         ;; leave integer as is
@@ -653,11 +653,6 @@ meant to get."
     (flush-lines (rx bol eol))
     (let ((rows (s-split "\n" (buffer-string) t)))
       (--map (s-split "\t" it) rows))))
-
-;; equivalents
-;; (-map (##s-split "\t" %) rows) ;; with llama.el
-;; (-map (l's-split "\t" %) rows) ;; with l.el
-;; (--map (s-split "\t" it) rows)
 
 ;; HACK: too strong assumption
 (defun eva-tsv-last-timestamp* (path)
