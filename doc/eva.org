@@ -128,7 +128,7 @@ The order in which the items come in this list reflects the order in which you w
 #+begin_src elisp
 (use-package eva
   :init
-  (setq eva-ai-name "Alfred")
+  (setq eva-va-name "Alfred")
   (setq eva-user-name "Bruce")
   (setq eva-user-birthday "1963-02-19")
   (setq eva-user-short-title "sir") ;; don't like titles? put in your name again
