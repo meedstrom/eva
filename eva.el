@@ -1642,6 +1642,10 @@ Put this on `window-buffer-change-functions' and
 
 ;;; Commands
 
+(defun eva-version ()
+  (interactive)
+  (message "Eva version 0.4.0"))
+
 (defun eva-decrement-date ()
   "Decrement `eva-date'."
   (interactive)

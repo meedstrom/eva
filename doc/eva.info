@@ -241,7 +241,7 @@ File: eva.info,  Node: Full set-up example,  Next: Usage,  Prev: Set-up,  Up: To
 
      (use-package eva
        :init
-       (setq eva-ai-name "Alfred")
+       (setq eva-va-name "Alfred")
        (setq eva-user-name "Bruce")
        (setq eva-user-birthday "1963-02-19")
        (setq eva-user-short-title "sir") ;; don't like titles? put in your name again
