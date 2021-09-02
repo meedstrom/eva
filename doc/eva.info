@@ -11,7 +11,7 @@ File: eva.info,  Node: Top,  Next: Requirements,  Up: (dir)
 Eva’s User Manual
 *****************
 
-This manual is for Eva version 0.4.0
+This manual is for Eva version 0.5-pre.
 
      Copyright (C) 2020-2021 Martin Edström <meedstrom@teknik.io>
 
@@ -864,32 +864,32 @@ File: eva.info,  Node: Known issues,  Prev: Surgery,  Up: Top
 
 Tag Table:
 Node: Top184
-Node: Requirements1591
-Node: Soft requirements2216
-Node: Set-up3955
-Node: Initial4118
-Node: Choose what to track5658
-Node: Full set-up example7981
-Node: Notes12071
-Node: Usage13231
-Node: Customising your VA14311
-Node: Writing a new function14537
-Node: Greetings16381
-Node: Composing a custom session16918
-Node: Synergistic programs19077
-Node: Memacs19279
-Node: Org configuration25970
-Node: Reminder of clocked task26160
-Node: Dangling clocks27055
-Node: Notes on built-ins28292
-Node: eva-query-sleep28525
-Node: eva-present-diary29293
-Node: eva--log-buffer30311
-Node: eva--log-idle31376
-Node: Surgery31741
-Node: Changing dataset file names31926
-Node: Editing datasets manually32264
-Node: Known issues34010
+Node: Requirements1594
+Node: Soft requirements2219
+Node: Set-up3958
+Node: Initial4121
+Node: Choose what to track5661
+Node: Full set-up example7984
+Node: Notes12074
+Node: Usage13234
+Node: Customising your VA14314
+Node: Writing a new function14540
+Node: Greetings16384
+Node: Composing a custom session16921
+Node: Synergistic programs19080
+Node: Memacs19282
+Node: Org configuration25973
+Node: Reminder of clocked task26163
+Node: Dangling clocks27058
+Node: Notes on built-ins28295
+Node: eva-query-sleep28528
+Node: eva-present-diary29296
+Node: eva--log-buffer30314
+Node: eva--log-idle31379
+Node: Surgery31744
+Node: Changing dataset file names31929
+Node: Editing datasets manually32267
+Node: Known issues34013
 
 End Tag Table
 
