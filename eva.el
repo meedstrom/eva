@@ -179,6 +179,7 @@ own R project."
                  (ess-process-live-p eva--r-process))
       (save-window-excursion
         (setq eva--buffer-r (run-ess-r)))
+      (bury-buffer eva--buffer-r)
       ;; gotcha: only use `ess-with-current-buffer' for temp output buffers, not
       ;; for the process buffer
       (with-current-buffer eva--buffer-r
@@ -555,8 +556,7 @@ superset of `eva-greeting'.  Mutually exclusive with
 ;;; Library for files
 
 (defun eva--transact-buffer-onto-file (buffer path)
-  "Append contents of BUFFER to file at PATH, emptying BUFFER.
-Before doing so, also flush any blank lines in BUFFER."
+  "Append contents of BUFFER to file at PATH, emptying BUFFER."
   (mkdir (f-dirname path) t)
   (with-current-buffer buffer
     (eva-append-safely (buffer-string) path)
@@ -570,8 +570,8 @@ Before doing so, also flush any blank lines in BUFFER."
     (if (and dataset
              (f-exists? dataset))
         (length (eva-tsv-entries-by-date dataset))
-      ;; FIXME: this has only unixstamps, get-entries scans for datestamps, so
-      ;; this will always be zero
+      ;; FIXME: this has only unixstamps, while eva-tsv-entries-by-date scans
+      ;;        for datestamps, so this will always be zero
       (if (f-exists? log)
           (length (eva-tsv-entries-by-date log))
         (message "No dataset or log file found for %s %s."
@@ -669,8 +669,8 @@ meant to get."
 ;; TODO: Search for unix-stamps too.
 (defun eva-tsv-entries-by-date (path &optional ts)
   "Return the contents of a .tsv at PATH as a Lisp list.
-Filters for rows containing a YYYY-MM-DD datestamp matching today
-or optional ts object TS."
+Filters for rows containing a YYYY-MM-DD datestamp matching
+either today or the date of optional ts object TS."
   (if (f-exists? path)
       (with-temp-buffer
         (insert-file-contents-literally path)
@@ -1032,6 +1032,11 @@ Referred to by their :fn value."
                               (-map #'symbol-name eva-disabled-fns))))
         (setq eva-disabled-fns (remove response eva-disabled-fns)))
     (message "There are no disabled items")))
+
+(defun eva-disable (fn)
+  (interactive "CCommand: ")
+  (push fn eva-disabled-fns)
+  (setq eva--queue (remove fn eva--queue)))
 
 (defun eva-ask-disable (fn)
   "Ask to disable item indicated by FN.
@@ -1642,9 +1647,11 @@ Put this on `window-buffer-change-functions' and
 
 ;;; Commands
 
-(defun eva-version ()
-  (interactive)
-  (message "Eva version 0.5-pre"))
+(defun eva-version (&optional interactive)
+  (interactive "p")
+  (if interactive
+      (message "Eva version 0.5-pre")
+    "0.5-pre"))
 
 (defun eva-decrement-date ()
   "Decrement `eva-date'."
@@ -1756,6 +1763,14 @@ creating some context."
   (when eva--has-restored-variables ; guard clause needed b/c of emit's code
     (eva-emit "------ Emacs (re)started. ------")))
 
+(defun eva--delayed-start-timer ()
+  "Wait a bit, then start the VA's heartbeat timer.
+The delay works around issues of an open prompt on init causing
+a XELB timeout."
+  (add-hook 'exwm-init-hook #'eva--user-is-present)
+  ;; (run-with-timer 4 nil #'eva--user-is-present)
+  )
+
 (defun eva--idle-set-fn ()
   "Set `eva--idle-secs-fn' to an appropriate function.
 Return the function on success, nil otherwise."
@@ -1786,6 +1801,7 @@ Return the function on success, nil otherwise."
   (kill-buffer eva--buffer-info-buffer)
   (with-demoted-errors nil
     (unload-feature 'eva-test)
+    (unload-feature 'eva-activity)
     (unload-feature 'eva-builtin))
   ;; Continue standard unloading.
   nil)
@@ -1820,16 +1836,16 @@ Return the function on success, nil otherwise."
           (add-hook 'window-buffer-change-functions #'eva--log-buffer)
           (add-hook 'window-selection-change-functions #'eva--log-buffer)
           (add-hook 'after-init-hook #'eva--init -90)
-          ;; (add-hook 'after-init-hook #'eva--emacs-init-message 1)
+          (add-hook 'after-init-hook #'eva--emacs-init-message 1)
           (add-hook 'after-init-hook #'eva--check-for-time-anomalies 2)
           (add-hook 'after-init-hook #'eva--init-r 3)
-          (add-hook 'after-init-hook #'eva--user-is-present 90)
+          (add-hook 'after-init-hook #'eva--delayed-start-timer 90)
           (when after-init-time
             (progn
               (eva--init)
               (eva--check-for-time-anomalies)
               (eva--init-r)
-              (eva--user-is-present)))
+              (eva--delayed-start-timer)))
           (named-timer-run :eva-keepalive 300 300 #'eva--keepalive)
           (when eva-debug
             (message "------ (Eva debug) Mode turned on. ----------"))))
@@ -1846,7 +1862,7 @@ Return the function on success, nil otherwise."
     (remove-hook 'after-init-hook #'eva--emacs-init-message)
     (remove-hook 'after-init-hook #'eva--check-for-time-anomalies)
     (remove-hook 'after-init-hook #'eva--init-r)
-    (remove-hook 'after-init-hook #'eva--user-is-present)
+    (remove-hook 'after-init-hook #'eva--delayed-start-timer)
     (remove-hook 'kill-emacs-hook #'eva--save-vars-to-disk)
     (named-timer-cancel :eva)
     (named-timer-cancel :eva-retry)

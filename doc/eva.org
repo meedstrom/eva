@@ -34,7 +34,7 @@ General Public License for more details.
 #+END_QUOTE
 :END:
 * Requirements
-- GNU/Linux or other Unix-like systems. Should work on MacOS to my knowledge.
+- GNU/Linux or other Unix-like systems.  Should work on MacOS to my knowledge.
 - GNU Emacs 27+
 - GNU R
 - gnuplot

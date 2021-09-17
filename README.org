@@ -16,10 +16,10 @@
 
 * Important news
 *** [2021-08-28 Sat]
-1. Turns out if you typed "/help" in a query, it'd append a row to the dataset including the value "/help".  While not a breaking problem, you can now prevent it in your =eva-defun= bodies by checking that they got a non-nil input from =eva-read= or =eva-read-string=.  Queries in [[file:eva-builtin.el]] are updated accordingly.
+1. Turns out if you typed "/help" in a query, it'd append a row to the dataset including the value "/help".  While not a breaking problem, you can now prevent it in your =eva-defun= bodies by checking that they got a non-nil input from =eva-read= or =eva-read-string=.  Queries in [[file:eva-builtin.el]] updated accordingly.
 
 *** [2021-08-25 Wed]
-1. Your =eva-defun= bodies no longer need =(keyboard-quit)= to pause the session, use =(eva-stop-queue)= instead.
+1. Your =eva-defun= bodies no longer need =(keyboard-quit)= to pause the session, use =(eva-stop-queue)= instead.  Excursions in [[file:eva-builtin.el]] updated accordingly.
 
 *** [2021-08-23 Mon]
 1. Git happened. If Straight asks you about merge conflicts on your next sync, just reset to origin/master. Sorry about that.
