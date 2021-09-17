@@ -109,7 +109,7 @@
         (eva-stop-queue))
       score-num)))
 
-(defalias eva-present-org-agenda #'eva-present-org-agenda-log-archive
+(defalias 'eva-present-org-agenda #'eva-present-org-agenda-log-archive
   "Deprecated 2021-09-17 -- misnamed")
 
 (eva-defun eva-present-org-agenda-log-archive ()
