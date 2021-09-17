@@ -7,7 +7,7 @@
 ;; Version: 0.5-pre
 ;; Created: 2020-12-03
 ;; Keywords: convenience
-;; Package-Requires: ((emacs "27.1") (ts "0.3-pre") (s "1.12") (dash "2.19") (f "0.20.0") (ess "18.10.3snapshot") (pfuture "1.9") (named-timer "0.1") (transient "0.3.6"))
+;; Package-Requires: ((emacs "27.1") (ts "0.3-pre") (s "1.12") (dash "2.19") (f "0.20.0") (ess "18.10.3snapshot") (named-timer "0.1") (transient "0.3.6"))
 
 ;; This file is not part of GNU Emacs.
 
@@ -46,9 +46,8 @@
 (require 'dash)
 (require 's)
 (require 'f) ;; f-read and f-append are just nice
-(require 'pfuture)
 
-;; Calm down the byte compiler
+;; Mollify the byte compiler
 (declare-function calendar-check-holidays "holidays")
 (declare-function calendar-current-date "calendar")
 (declare-function run-ess-r "ess-r-mode")
@@ -151,6 +150,11 @@ Recommended options are nil, `message', `warn' and `error'."
   :type 'function
   :safe t)
 
+(defcustom eva-init-r t
+  "Whether to initialize an R session on startup."
+  :group 'eva
+  :type 'boolean)
+
 (defvar eva--buffer-r nil)
 
 (defvar eva-curr-fn nil)
@@ -175,17 +179,18 @@ and text encoding), but creates an interactive R buffer which
 unfortunately may surprise the user when they go to work on their
 own R project."
   (let ((default-directory (f-dirname (find-library-name "eva"))))
-    (unless (and (buffer-live-p eva--buffer-r)
-                 (ess-process-live-p eva--r-process))
-      (save-window-excursion
-        (setq eva--buffer-r (run-ess-r)))
-      (bury-buffer eva--buffer-r)
-      ;; gotcha: only use `ess-with-current-buffer' for temp output buffers, not
-      ;; for the process buffer
-      (with-current-buffer eva--buffer-r
-        (setq eva--r-process (get-process ess-local-process-name))
-        ;; TODO: How to check if the script errors out?
-        (ess-execute "source(\"init.R\")" 'buffer)))))
+    (when eva-init-r
+      (unless (and (buffer-live-p eva--buffer-r)
+                   (ess-process-live-p eva--r-process))
+        (save-window-excursion
+          (setq eva--buffer-r (run-ess-r)))
+        (bury-buffer eva--buffer-r)
+        ;; gotcha: only use `ess-with-current-buffer' for temp output buffers, not
+        ;; for the process buffer
+        (with-current-buffer eva--buffer-r
+          (setq eva--r-process (get-process ess-local-process-name))
+          ;; TODO: How to check if the script errors out?
+          (ess-execute "source(\"init.R\")" 'buffer))))))
 
 (defun eva-dbg (&rest strings)
   "Concat STRINGS and print them via function `eva-debug-fn'.
@@ -528,7 +533,7 @@ superset of `eva-greeting'.  Mutually exclusive with
   (and eva-play-sounds
        (executable-find "aplay")
        (f-exists? eva-chime-sound-path)
-       (pfuture-new "aplay" eva-chime-sound-path)))
+       (start-process "aplay" nil "aplay" eva-chime-sound-path)))
 
 (defun eva--chime-visual ()
   "Give the fringes a flash of color and fade out."

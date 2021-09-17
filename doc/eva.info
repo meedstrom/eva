@@ -44,6 +44,7 @@ Set-up
 
 * Initial::
 * Choose what to track::
+* ESS on init::
 
 Full set-up example
 
@@ -144,6 +145,7 @@ File: eva.info,  Node: Set-up,  Next: Full set-up example,  Prev: Soft requireme
 
 * Initial::
 * Choose what to track::
+* ESS on init::
 
 
 File: eva.info,  Node: Initial,  Next: Choose what to track,  Up: Set-up
@@ -184,7 +186,7 @@ are:
      at the computer.
 
 
-File: eva.info,  Node: Choose what to track,  Prev: Initial,  Up: Set-up
+File: eva.info,  Node: Choose what to track,  Next: ESS on init,  Prev: Initial,  Up: Set-up
 
 3.2 Choose what to track
 ========================
@@ -234,33 +236,49 @@ separately in ‘eva-mem’.  To reenable, try ‘M-x eva-reenable-fn’ and
 enter the name of that function, or simply edit ‘eva-disabled-fns’.
 
 
+File: eva.info,  Node: ESS on init,  Prev: Choose what to track,  Up: Set-up
+
+3.3 ESS on init
+===============
+
+To prevent latency during a session, Eva initializes ESS at emacs init.
+Currently the builtin functions that use the R process are:
+   • ‘eva-plot-weight’
+
+   If you do not use these in your ‘eva-items’, you can prevent the ESS
+initialization by setting ‘eva-init-r’ to nil.
+
+
 File: eva.info,  Node: Full set-up example,  Next: Usage,  Prev: Set-up,  Up: Top
 
 4 Full set-up example
 *********************
 
      (use-package eva
-       :init
-       (setq eva-va-name "Alfred")
-       (setq eva-user-name "Bruce")
-       (setq eva-user-birthday "1963-02-19")
-       (setq eva-user-short-title "sir") ;; don't like titles? put in your name again
-       (setq eva-idle-log-path         "~/self-data/idle.tsv")
-       (setq eva-buffer-focus-log-path "~/self-data/buffer-focus.tsv")
-       (setq eva-buffer-info-path      "~/self-data/Self_data/buffer-info.tsv")
-       (setq eva-main-ledger-path      "~/l.ledger")
-       (setq eva-main-datetree-path    "~/org/diary.org")
 
-       ;; Prevent annoying ESS prompt.
-       (setq ess-ask-for-ess-directory nil)
+       ;; Things that should be set before load
+       :custom
+
+       (eva-va-name "Alfred")
+       (eva-user-name "Bruce")
+       (eva-user-short-title "sir") ;; don't like titles? put in your name again
+       (eva-user-birthday "1963-02-19")
+
+       (eva-idle-log-path         "~/self-data/idle.tsv")
+       (eva-buffer-focus-log-path "~/self-data/buffer-focus.tsv")
+       (eva-buffer-info-path      "~/self-data/Self_data/buffer-info.tsv")
+       (eva-main-ledger-path      "~/finances.ledger")
+       (eva-main-datetree-path    "~/org/diary.org")
+
+       (ess-ask-for-ess-directory nil) ;; Prevent annoying ESS startup prompt.
 
        :config
 
-       ;; These are used by `eva-present-diary'; org-journal not needed.
+       (require 'eva-builtin)
+
+       ;; These are looked up by `eva-present-diary', but org-journal is not needed.
        (setq org-journal-dir "~/org/journal/")
        (setq org-journal-file-format "%F.org")
-
-       (require 'eva-builtin)
 
        (add-hook 'eva-after-load-vars-hook #'eva-check-dangling-clock)
        (add-hook 'eva-after-load-vars-hook #'eva-check-org-vars)
@@ -294,7 +312,9 @@ File: eva.info,  Node: Full set-up example,  Next: Usage,  Prev: Set-up,  Up: To
 
               (eva-item-create :fn #'eva-present-ledger-report)
 
-              (eva-item-create :fn #'eva-present-org-agenda)
+              ;; May be slow
+              ;; (eva-item-create :fn #'eva-present-org-agenda-log-archive)
+              (eva-item-create :fn #'eva-present-org-agenda-log)
 
               (eva-item-create :fn #'eva-query-ingredients
                                :dataset "~/self-data/ingredients.tsv"
@@ -315,7 +335,7 @@ File: eva.info,  Node: Full set-up example,  Next: Usage,  Prev: Set-up,  Up: To
                      (bury-buffer (eva-buffer-chat)))
                :min-hours-wait 0)))
 
-       ;; Add hotkeys
+       ;; Hotkeys in the chat buffer
 
        (transient-replace-suffix 'eva-dispatch '(0)
          '["General actions"
@@ -328,7 +348,9 @@ File: eva.info,  Node: Full set-up example,  Next: Usage,  Prev: Set-up,  Up: To
        (define-key eva-chat-mode-map (kbd "f") #'eva-present-ledger-file)
        (define-key eva-chat-mode-map (kbd "a") #'org-agenda-list)
 
-       ;; Activities
+       ;; Activities (for `eva-query-activity').  These are cl objects for forward
+       ;; compatibility; right now only :name is used, to fill out completion
+       ;; candidates.
        (setq eva-activity-list
              (list (eva-activity-create :name "sleep")
                    (eva-activity-create :name "studying")
@@ -688,19 +710,17 @@ as follows.
      (org-clock-persistence-insinuate)
      ;; (org-clock-auto-clockout-insinuate) ;; unrelated but nice?
      (add-hook 'org-clock-in-hook #'org-clock-save) ;; in case of a crash
+     (eval-after-load 'org #'org-resolve-clocks)
 
-   With those settings, whenever opening an Org buffer (thus autoloading
-Org) it will scan agenda files (I think).  Alternatively, ‘(add-hook
-'org-mode-hook #'org-resolve-clocks’) can help you.
+   With those settings, whenever opening an Org buffer it will scan
+agenda files for dangling clocks.
 
-   However, if you ‘(require ’eva-builtin)’, the VA will watch the
+   However, if you ‘(require 'eva-builtin)’, the VA will remember the
 active Org clock, so if you *don’t want to load Org on every Emacs
 startup*, that’s where it can help you.  The following hook will ask
 about turning on Org if and only if the VA remembers an unfinished clock
 from last session.  After thus loading Org, your Org config will react
 to the dangling clock and can take it from there.
-
-   (TODO: This is largely untested)
 
      (require 'eva-builtin)
      (add-hook 'eva-after-load-vars-hook #'eva-check-dangling-clock)
@@ -864,32 +884,33 @@ File: eva.info,  Node: Known issues,  Prev: Surgery,  Up: Top
 
 Tag Table:
 Node: Top184
-Node: Requirements1594
-Node: Soft requirements2219
-Node: Set-up3958
-Node: Initial4121
-Node: Choose what to track5661
-Node: Full set-up example7984
-Node: Notes12074
-Node: Usage13234
-Node: Customising your VA14314
-Node: Writing a new function14540
-Node: Greetings16384
-Node: Composing a custom session16921
-Node: Synergistic programs19080
-Node: Memacs19282
-Node: Org configuration25973
-Node: Reminder of clocked task26163
-Node: Dangling clocks27058
-Node: Notes on built-ins28295
-Node: eva-query-sleep28528
-Node: eva-present-diary29296
-Node: eva--log-buffer30314
-Node: eva--log-idle31379
-Node: Surgery31744
-Node: Changing dataset file names31929
-Node: Editing datasets manually32267
-Node: Known issues34013
+Node: Requirements1610
+Node: Soft requirements2235
+Node: Set-up3974
+Node: Initial4153
+Node: Choose what to track5693
+Node: ESS on init8036
+Node: Full set-up example8439
+Node: Notes12838
+Node: Usage13998
+Node: Customising your VA15078
+Node: Writing a new function15304
+Node: Greetings17148
+Node: Composing a custom session17685
+Node: Synergistic programs19844
+Node: Memacs20046
+Node: Org configuration26737
+Node: Reminder of clocked task26927
+Node: Dangling clocks27822
+Node: Notes on built-ins28976
+Node: eva-query-sleep29209
+Node: eva-present-diary29977
+Node: eva--log-buffer30995
+Node: eva--log-idle32060
+Node: Surgery32425
+Node: Changing dataset file names32610
+Node: Editing datasets manually32948
+Node: Known issues34694
 
 End Tag Table
 

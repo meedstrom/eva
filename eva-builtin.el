@@ -109,8 +109,11 @@
         (eva-stop-queue))
       score-num)))
 
-(eva-defun eva-present-org-agenda ()
-  "Send the user to an Org agenda log with archives enabled.
+(defalias eva-present-org-agenda #'eva-present-org-agenda-log-archive
+  "Deprecated 2021-09-17 -- misnamed")
+
+(eva-defun eva-present-org-agenda-log-archive ()
+  "Send the user to an Org agenda with log and archives enabled.
 Near equivalent to typing l v A after entering `org-agenda-list'."
   (require 'org-agenda)
   (message (eva-emit "Here's the agenda archive as of now."))
@@ -119,6 +122,18 @@ Near equivalent to typing l v A after entering `org-agenda-list'."
   (org-agenda-list)
   (org-agenda-log-mode t)
   (org-agenda-archives-mode t)
+  (push (current-buffer) eva-excursion-buffers)
+  (eva-stop-queue))
+
+(eva-defun eva-present-org-agenda-log ()
+  "Send the user to an Org agenda with log enabled.
+Equivalent to typing l after entering `org-agenda-list'."
+  (require 'org-agenda)
+  (message (eva-emit "Here's the agenda as of now."))
+  ;; (message (eva-emit "Sending you to the Org agenda log + archive."))
+  (sit-for eva-sit-short)
+  (org-agenda-list)
+  (org-agenda-log-mode t)
   (push (current-buffer) eva-excursion-buffers)
   (eva-stop-queue))
 
@@ -425,7 +440,7 @@ Requires the ssconvert program that comes with Gnumeric."
                                             "xdg-open"))))
     (if (= 0 (call-process "Rscript" nil nil nil
                            script eva-main-ledger-path sheet))
-        (pfuture-new app sheet)
+        (start-process app nil app sheet)
       (message (eva-emit "Error running " script)))))
 
 
