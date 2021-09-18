@@ -534,8 +534,13 @@ and you have a bunch of older observations on the same topic you wrote on a piec
 As long as the Unix timestamps are always greater or equal to the ones above, it's valid. Nothing bad will happen if they're not in order, as it stands, but that data could come into use at some point (for sanity checks if not a matter for analysis in its own right) so it's a matter of hygiene.
 
 * Known issues
-
-- C- hotkeys don't work during a prompt (=set-transient-map= doesn't do what I want)
-- Doom's Org makes eva-present-diary slow
-
 See https://github.com/meedstrom/eva/issues
+
+* Deprecations
+
+- [2021-09-18]: =eva-present-org-agenda= renamed to =eva-present-org-agenda-log-archive=. The old name will work for a while, but will eventually be redefined.
+- [2021-08-29] =eva-check-org-variables= renamed to =eva-check-org-vars=
+- [2021-08-24] =eva-mem-pushnew= renamed to =eva-mem-push=
+- [2021-08-24] =eva-mem-pushnew-alt= renamed to =eva-mem-push-alt=
+- [2021-08-23] =eva-ai-name= renamed to =eva-va-name=
+- [2021-08-23] =eva-dbg-fn= renamed to =eva-debug-fn=

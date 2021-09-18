@@ -37,6 +37,7 @@ This manual is for Eva version 0.5-pre.
 * Notes on built-ins::
 * Surgery::
 * Known issues::
+* Deprecations::
 
 — The Detailed Node Listing —
 
@@ -869,48 +870,62 @@ order, as it stands, but that data could come into use at some point
 it’s a matter of hygiene.
 
 
-File: eva.info,  Node: Known issues,  Prev: Surgery,  Up: Top
+File: eva.info,  Node: Known issues,  Next: Deprecations,  Prev: Surgery,  Up: Top
 
 10 Known issues
 ***************
 
-   • C- hotkeys don’t work during a prompt (‘set-transient-map’ doesn’t
-     do what I want)
-   • Doom’s Org makes eva-present-diary slow
+See <https://github.com/meedstrom/eva/issues>
 
-   See <https://github.com/meedstrom/eva/issues>
+
+File: eva.info,  Node: Deprecations,  Prev: Known issues,  Up: Top
+
+11 Deprecations
+***************
+
+   • _[2021-09-18 Sat]_: ‘eva-present-org-agenda’ renamed to
+     ‘eva-present-org-agenda-log-archive’.  The old name will work for a
+     while, but will eventually be redefined.
+   • _[2021-08-29 Sun] _ ‘eva-check-org-variables’ renamed to
+     ‘eva-check-org-vars’
+   • _[2021-08-24 Tue] _ ‘eva-mem-pushnew’ renamed to ‘eva-mem-push’
+   • _[2021-08-24 Tue] _ ‘eva-mem-pushnew-alt’ renamed to
+     ‘eva-mem-push-alt’
+   • _[2021-08-23 Mon] _ ‘eva-ai-name’ renamed to ‘eva-va-name’
+   • _[2021-08-23 Mon] _ ‘eva-dbg-fn’ renamed to ‘eva-debug-fn’
 
 
 
 Tag Table:
 Node: Top184
-Node: Requirements1610
-Node: Soft requirements2235
-Node: Set-up3974
-Node: Initial4153
-Node: Choose what to track5693
-Node: ESS on init8036
-Node: Full set-up example8439
-Node: Notes12838
-Node: Usage13998
-Node: Customising your VA15078
-Node: Writing a new function15304
-Node: Greetings17148
-Node: Composing a custom session17685
-Node: Synergistic programs19844
-Node: Memacs20046
-Node: Org configuration26737
-Node: Reminder of clocked task26927
-Node: Dangling clocks27822
-Node: Notes on built-ins28976
-Node: eva-query-sleep29209
-Node: eva-present-diary29977
-Node: eva--log-buffer30995
-Node: eva--log-idle32060
-Node: Surgery32425
-Node: Changing dataset file names32610
-Node: Editing datasets manually32948
-Node: Known issues34694
+Node: Requirements1627
+Node: Soft requirements2252
+Node: Set-up3991
+Node: Initial4170
+Node: Choose what to track5710
+Node: ESS on init8053
+Node: Full set-up example8456
+Node: Notes12855
+Node: Usage14015
+Node: Customising your VA15095
+Node: Writing a new function15321
+Node: Greetings17165
+Node: Composing a custom session17702
+Node: Synergistic programs19861
+Node: Memacs20063
+Node: Org configuration26754
+Node: Reminder of clocked task26944
+Node: Dangling clocks27839
+Node: Notes on built-ins28993
+Node: eva-query-sleep29226
+Node: eva-present-diary29994
+Node: eva--log-buffer31012
+Node: eva--log-idle32077
+Node: Surgery32442
+Node: Changing dataset file names32627
+Node: Editing datasets manually32965
+Node: Known issues34711
+Node: Deprecations34877
 
 End Tag Table
 

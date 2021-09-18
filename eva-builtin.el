@@ -651,8 +651,6 @@ Hook that runs once and removes itself, since the compiler said
 Suitable on `eva-after-load-vars-hook'."
   (add-hook 'org-mode-hook #'eva-check-org-vars-1 91))
 
-(defalias 'eva-check-org-variables #'eva-check-org-vars "Renamed 2021-08-29")
-
 ;; (defvar eva--org-vars-checked nil)
 
 ;; (defun eva-check-org-variables ()
@@ -672,6 +670,12 @@ Suitable on `eva-after-load-vars-hook'."
   (and (map-elt eva-mem 'org-clock-current-task)
        (eva-ynp "Dangling clock found, activate Org?")
        (require 'org-clock)))
+
+
+;;; Misc
+
+;; DEPRECATED: Old function names
+(defalias 'eva-check-org-variables #'eva-check-org-vars "Renamed 2021-08-29")
 
 (provide 'eva-builtin)
 

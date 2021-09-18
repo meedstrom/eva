@@ -61,6 +61,10 @@
 (defvar exwm-class-name)
 (defvar exwm-title)
 
+;; DEPRECATED: Old variable names
+(defvaralias 'eva-ai-name 'eva-va-name "Renamed 2021-08-23.")
+(defvaralias 'eva-dbg-fn 'eva-debug-fn "Renamed 2021-08-23.")
+
 
 ;;; Some user options
 
@@ -68,8 +72,6 @@
   :prefix "eva-"
   :group 'convenience)
 
-;; DEPRECATED 2021-08-23
-(defvaralias 'eva-ai-name 'eva-va-name)
 
 (defcustom eva-va-name "Alfred"
   "Your VA's name."
@@ -139,9 +141,6 @@ See also `eva-sit-long' and `eva-sit-medium'."
   "Whether to do debug stuff."
   :group 'eva
   :type 'boolean)
-
-;; DEPRECATED 2021-08-23
-(defvaralias 'eva-dbg-fn 'eva-debug-fn)
 
 (defcustom eva-debug-fn (when eva-debug #'message)
   "Control the behavior of `eva-dbg'.
@@ -1039,6 +1038,8 @@ Referred to by their :fn value."
     (message "There are no disabled items")))
 
 (defun eva-disable (fn)
+  "Disable a member of `eva-items' so it will not be processed.
+Refer to the member by its FN key."
   (interactive "CCommand: ")
   (push fn eva-disabled-fns)
   (setq eva--queue (remove fn eva--queue)))
@@ -1281,9 +1282,6 @@ cases (pushing let-bound variables) where that function won't."
        (map-put! eva-mem ',var ,var)
      (setq eva-mem
            (map-insert eva-mem ',var ,var))))
-
-(defalias 'eva-mem-pushnew #'eva-mem-push "Deprecated 2021-08-24")
-(defalias 'eva-mem-pushnew-alt #'eva-mem-push-alt "Deprecated 2021-08-24")
 
 (defun eva-mem-get (var)
   "Get VAR's value from `eva-mem'.
@@ -1653,6 +1651,8 @@ Put this on `window-buffer-change-functions' and
 ;;; Commands
 
 (defun eva-version (&optional interactive)
+  "Return the Eva package version.
+Argument INTERACTIVE is set internally."
   (interactive "p")
   (if interactive
       (message "Eva version 0.5-pre")
@@ -1810,6 +1810,11 @@ Return the function on success, nil otherwise."
     (unload-feature 'eva-builtin))
   ;; Continue standard unloading.
   nil)
+
+
+;; DEPRECATED: Old function names
+(defalias 'eva-mem-pushnew #'eva-mem-push "Renamed 2021-08-24")
+(defalias 'eva-mem-pushnew-alt #'eva-mem-push-alt "Renamed 2021-08-24")
 
 ;;;###autoload
 (define-minor-mode eva-mode
