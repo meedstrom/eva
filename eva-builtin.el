@@ -109,12 +109,23 @@
         (eva-stop-queue))
       score-num)))
 
-(defalias 'eva-present-org-agenda #'eva-present-org-agenda-log-archive
-  "Deprecated 2021-09-17 -- misnamed")
-
 (eva-defun eva-present-org-agenda-log-archive ()
   "Send the user to an Org agenda with log and archives enabled.
 Near equivalent to typing l v A after entering `org-agenda-list'."
+  (require 'org-agenda)
+  (message (eva-emit "Here's the agenda archive as of now."))
+  ;; (message (eva-emit "Sending you to the Org agenda log + archive."))
+  (sit-for eva-sit-short)
+  (org-agenda-list)
+  (org-agenda-log-mode t)
+  (org-agenda-archives-mode t)
+  (push (current-buffer) eva-excursion-buffers)
+  (eva-stop-queue))
+
+(eva-defun eva-present-org-agenda ()
+  "Send the user to an Org agenda with log and archives enabled.
+Near equivalent to typing l v A after entering `org-agenda-list'."
+  (declare (obsolete eva-present-org-agenda-log-archive "2021-09-17"))
   (require 'org-agenda)
   (message (eva-emit "Here's the agenda archive as of now."))
   ;; (message (eva-emit "Sending you to the Org agenda log + archive."))
