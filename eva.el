@@ -839,7 +839,7 @@ Digression: Should honestly be submitted to Emacs,
 `current-idle-time' is... not normal."
   (let ((idle-time (current-idle-time)))
     (if idle-time
-	(float-time idle-time)
+        (float-time idle-time)
       0)))
 
 (defun eva--idle-secs-gnome ()
@@ -1751,11 +1751,13 @@ Indispensable while hacking on the package."
              (format-time-string "%H:%M"))
     (eva--start-next-timer)))
 
+;; BUG: /tmp/eva/pid can be empty
 (defun eva--another-eva-running-p ()
-  "Return t if another Emacs instance has eva-mode on.
-Return nil if only the current Emacs instance or none has it on.
-If you've somehow forced it on in several Emacsen, the behavior
-is unspecified, but it shouldn't be possible to do."
+  "Return non-nil if another Emacs instance has eva-mode on.
+Return nil if only the current Emacs instance is running it, or
+if no Emacsen are running it.  If you've somehow forced it on in
+several Emacsen, the behavior is unspecified, but it shouldn't be
+possible to do."
   (when (f-exists? "/tmp/eva/pid")
     (let ((pid (string-to-number (f-read-bytes "/tmp/eva/pid"))))
       (and (/= pid (emacs-pid))
