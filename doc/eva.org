@@ -544,3 +544,32 @@ See https://github.com/meedstrom/eva/issues
 - [2021-08-24] =eva-mem-pushnew-alt= renamed to =eva-mem-push-alt=
 - [2021-08-23] =eva-ai-name= renamed to =eva-va-name=
 - [2021-08-23] =eva-dbg-fn= renamed to =eva-debug-fn=
+
+* Concept map :noexport:
+
+Work in progress:  map of concepts.
+
+#+begin_src dot :file concept-map.jpg
+digraph concepts {
+  subgraph directed {
+      Logs -> Auto-logged
+      Logs -> "User response"
+      Auto-logged -> "Buffer focus"
+      Auto-logged -> "Buffer existence"
+      "User response" -> Weight
+      "User response" -> Meditation
+      "User response" -> "Cold showers"
+      "User response" -> "Mood"
+      Excursions -> "Diary re-reading"
+      Excursions -> "Ledger"
+  }
+
+  subgraph undirected {
+    edge [dir=none]
+      "Disk writes" -- Logs
+      "Disk writes" -- "Disk access"
+      "Disk access" -- Ledger
+      "Disk access" -- "On startup"
+      }
+}
+#+end_src
