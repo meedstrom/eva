@@ -1,6 +1,6 @@
 ;;; eva.el --- Emacs virtual assistant -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2020-2021 Martin Edström
+;; Copyright (C) 2020-2022 Martin Edström
 
 ;; Author: Martin Edström <meedstrom@teknik.io>
 ;; URL: https://github.com/meedstrom/eva
