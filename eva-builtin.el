@@ -1,6 +1,6 @@
 ;;; eva-builtin.el --- Premade applications -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2021 Martin Edström
+;; Copyright (C) 2021-2023 Martin Edström
 
 ;; This file is not part of GNU Emacs.
 

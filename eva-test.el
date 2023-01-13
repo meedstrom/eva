@@ -1,6 +1,6 @@
 ;;; eva-test.el --- Unit tests -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2020-2022 Martin Edström
+;; Copyright (C) 2020-2023 Martin Edström
 
 ;; This file is not part of GNU Emacs.
 
