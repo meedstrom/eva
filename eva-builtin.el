@@ -25,9 +25,14 @@
 ;;; Code:
 
 (require 'eva)
+<<<<<<< HEAD
 ;; (require 'l) ;; cool
 
 ;; Silence the compiler.
+=======
+
+;; Muffle the compiler
+>>>>>>> 8d72264 (Polish docs)
 (declare-function ess-execute "ess-inf")
 (declare-function ess-wait-for-process "ess-inf")
 (declare-function ledger-report "ext:ledger-report")
@@ -539,7 +544,12 @@ When FILE-FORMAT is nil, use `org-journal-file-format'; if that's
 
 Note that org-journal is not needed."
   (let* ((dir (or dir
+<<<<<<< HEAD
                   (bound-and-true-p org-journal-dir)))
+=======
+                  (bound-and-true-p org-journal-dir)
+                  (error "org-journal-dir not set")))
+>>>>>>> 8d72264 (Polish docs)
          (file-format (or file-format
                           (and (boundp 'org-journal-file-type)
                                (boundp 'org-journal-file-format)
@@ -561,7 +571,13 @@ Note that org-journal is not needed."
          (datetree-buf (get-buffer-create
                         (concat "*" eva-va-name ": Selected diary entries*")))
          (datetree-found-count
+<<<<<<< HEAD
           (eva--make-indirect-datetree datetree-buf dates-to-check))
+=======
+          (if (file-exists-p eva-main-datetree-path)
+              (eva--make-indirect-datetree datetree-buf dates-to-check)
+            0))
+>>>>>>> 8d72264 (Polish docs)
          (total-found-count
           (+ (length discrete-files-found) datetree-found-count)))
     (if (= 0 total-found-count)
