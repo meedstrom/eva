@@ -14,42 +14,14 @@
 
 [[file:assets/screencast01.gif]]
 
-<<<<<<< HEAD
-* Important news
-*** [2021-08-28 Sat]
-1. Turns out if you typed "/help" in a query, it'd append a row to the dataset including the value "/help".  While not a breaking problem, you can now prevent it in your =eva-defun= bodies by checking that they got a non-nil input from =eva-read= or =eva-read-string=.  Queries in [[file:eva-builtin.el]] updated accordingly.
-
-*** [2021-08-25 Wed]
-1. Your =eva-defun= bodies no longer need =(keyboard-quit)= to pause the session, use =(eva-stop-queue)= instead.  Excursions in [[file:eva-builtin.el]] updated accordingly.
-
-*** [2021-08-23 Mon]
-1. Git happened. If Straight asks you about merge conflicts on your next sync, just reset to origin/master. Sorry about that.
-2. The installation recipe was missing a few items.  Please see the updated version in [[#Installation]].
-3. It came to my attention that ESS asks about the R directory on every startup. I suggest setting =(setq ess-ask-for-ess-directory nil)=.
-
-* Introduction
-
-This is an Emacs-based [[https://en.wikipedia.org/wiki/Virtual_assistant][virtual assistant]]: *Eva* for short.  It helps you with
-=======
 * Introduction
 
 This is an Emacs-based [[https://en.wikipedia.org/wiki/Virtual_assistant][virtual assistant]]: *Eva* for short.  It aims to help you with
->>>>>>> 8d72264 (Polish docs)
 
 - tracking data about yourself,
 - presenting some of it back to you,
 - and getting you to do things.
 
-<<<<<<< HEAD
-My goal is an extensible toolbox for making a virtual assistant VA that meets your needs, rather than a monolith.  Thus writing new functions is the primary means of configuring this thing.  I ship a lot of premade functions in [[file:eva-builtin.el]], and it's hopefully easy to make your own.  I'll be happy to mainline your suggestion; please, open an issue!
-
-As part of data tracking, it also has some automatic loggers:
-- *Idleness logger:*  Record all time when the computer was idle or the VA was off (like when the computer was off).
-- *Buffer logger:*  Record the current buffer, with info such as how long the buffer was in focus, its title, major mode, visited file name, variables =exwm-class-name=, =eww-url= and so on.
-  - (The term "buffer" is an [[https://www.gnu.org/software/emacs/][Emacs]] cognate to "window")
-
-It can basically ask you for anything you configure at various times throughout the day and log your response. For example, ask about your mood, weight, or what you're working on. It tries not to ask too often, and if you dismiss a question a lot, it'll prompt for your consent to quit asking that question.
-=======
 Per Emacs philosophy, my goal is not a monolith but an extensible toolbox for making a virtual assistant (VA) that meets your needs.  Thus writing new functions is the primary means of configuring this thing.  I ship a lot of premade functions in [[file:eva-builtin.el]], and it's hopefully easy to make your own.  I'll be happy to mainline your creations; please open an issue!
 
 As part of data tracking, Eva also has some automatic loggers:
@@ -58,7 +30,6 @@ As part of data tracking, Eva also has some automatic loggers:
   - (If you don't know [[https://www.gnu.org/software/emacs/][Emacs]] jargon, "buffer" is cognate to "window")
 
 Eva can basically ask you for anything you configure at various times throughout the day and log your response.  For example, ask about your mood, weight, or what you're working on.  It tries not to ask too often, and if you dismiss a question a lot, it'll prompt for your consent to quit asking that question.
->>>>>>> 8d72264 (Polish docs)
 
 In addition to gathering data, it works as a reminder/"tickler" system: it'll make sure you see your Org agenda, your Ledger report, yesterday's diary entry, or whatever you configure.
 
@@ -66,11 +37,7 @@ Anyway, the above is all a byproduct of the original purpose.
 
 ** Background
 
-<<<<<<< HEAD
-Years ago, I wrote a procrastination detector that would notice if I was yak-shaving Emacs init files and clock that under a specific Org-mode heading as "procrastination".  Eventually I extended it to clock /whatever I was doing/ so I didn't have to.  For example, visiting StackOverflow counted as work, but visiting Hacker News didn't.   That ran into difficulties, because the challenge is a complex one:
-=======
 Years ago, I wrote a procrastination-detector that would notice if I was [[https://en.wiktionary.org/wiki/yak_shaving][yak-shaving]] Emacs init files and clock that activity under an Org-mode heading called "procrastination".  Eventually I extended it to clock /whatever I was doing/ so I didn't have to.  For example, visiting StackOverflow counted as work, but visiting Hacker News didn't.   That ran into difficulties, because the challenge is a complex one:
->>>>>>> 8d72264 (Polish docs)
 
 - It's not enough to have hardcoded heuristics like a series of if-then clauses.  You need probability estimates.  Either from a Bayesian model (like with [[https://mc-stan.org][Stan]]), or supervised/reinforcement learning (like with PyTorch or TensorFlow).
 - The data available to Emacs -- various facts such as what buffer is active -- is not enough to go on. You need more information, including information you can only get by polling the user.
@@ -86,22 +53,14 @@ Now the VA has most of what it needs on the elisp side, plus a bunch of byproduc
 
 ** Design principles
 *** Memory
-<<<<<<< HEAD
-The VA has "memory", in plain terms a cache of variable values (see the variable =eva-mem= and the append-only record at =eva-mem-history-path=, both of which grow with use), because we think of the virtual assistant as a person.  What would you do in its shoes, employed as an assistant to some [[https://www.urbandictionary.com/define.php?term=Unix%20beard][Unix beard]]?
-=======
 The VA has "memory", in plain terms a cache of variable values (see the variable =eva-mem= and the append-only record at =eva-mem-history-path=, both of which grow with use), because we think of the virtual assistant as a person.  What would you do in its shoes, employed as an assistant to some random computer nerd?
->>>>>>> 8d72264 (Polish docs)
 
 In my interpretation, you'd keep notes of a lot of things and not trust her/him (the user) to follow through on TODOs.  You'd check those notes for things it might be smart to do, like ask the user "so did you ever get around to doing TASK...?" for scheduled tasks that are overdue and not even in the =org-agenda-files= anymore (maybe the user just forgot that file on their last OS reinstall...).
 
 With the memory, it can notice when something looks anomalous e.g. a nulled setting or references to files that don't exist, and ask the user about whether or not that's as it should be.
 
 *** Decision fatigue
-<<<<<<< HEAD
-We try to /minimize decision fatigue/.  There are packages out there that help you get started with your day or remind you what to do, such as org-dashboard, not to mention Org's default agenda of course.  I feel they're not enough: they still require active decisions from the user.  Not to mention actively staying on top of configuration that otherwise could grow stale by the time the user has forgotten how to update the config, creating a perfect storm of "eh, it's broken" and the abandonment of the system.
-=======
 We try to /minimize decision fatigue/.  There are packages out there that help you get started with your day or remind you what to do, such as org-dashboard, not to mention Org-mode's default agenda of course.  I feel they're not enough: they still require active decisions from the user.  Not to mention actively staying on top of configuration that otherwise could grow stale by the time the user has forgotten how to update the config, creating a perfect storm of "eh, it's broken" and the abandonment of the system.
->>>>>>> 8d72264 (Polish docs)
 
 Of course you could work on your personal issues, but all else being equal, a programmable environment like Emacs has more potential for helping you than that.  Better to shove prompts in the user's face, politely and at the right time.  And don't prompt for every little thing, simply "assume yes" when possible, because every skipped prompt is a win.  This can be partly controlled by setting =eva-presumptive=.
 
@@ -398,12 +357,8 @@ d %>%
     str_detect(mode, "ess") ~ "coding"
   ))
 #+end_src
-<<<<<<< HEAD
-Snippet 1: Each observed buffer is run through these =str_detect()= rules, and on the first matching rule, it's assigned a certain =buffer_kind= indicated after the tilde character =~=.
-=======
 
 # Snippet 1: Each observed buffer is run through these =str_detect()= rules, and on the first matching rule, it's assigned a certain =buffer_kind= indicated after the tilde character =~=.
->>>>>>> 8d72264 (Polish docs)
 
 The above snippet of R code is something the user probably will have to edit to encode features unique to their lives (such as file organization) -- but the default snippet should be pretty comprehensive.  This is not yet comprehensive, but a proof of concept.
 
@@ -411,11 +366,7 @@ There remain cases where the =buffer_kind= is left at a N/A value because none o
 
 ** Configuration: define activities
 
-<<<<<<< HEAD
-First, the user shall define an exhaustive and _mutually exclusive_ list of activities, such that any minute in their day can be classified as one of these activities.
-=======
 First, the user shall define an exhaustive and _mutually exclusive_ list of activities, such that any minute in their day can be classified as one of these activities.  Toy example:
->>>>>>> 8d72264 (Polish docs)
 
 #+BEGIN_SRC elisp
 (setq eva-activity-list
@@ -439,11 +390,7 @@ First, the user shall define an exhaustive and _mutually exclusive_ list of acti
 - =:cost-false-pos= is the cost of a false positive, i.e. falsely assuming that you are working on this when you aren't (and thus accumulating clock time on it when you aren't doing it).
 - =:cost-false-neg= is the cost of a false negative, i.e. falsely assuming that you *aren't* working on this when you are (and thus missing out on clock time).
 
-<<<<<<< HEAD
-The "costs" implement a cost function or [[https://en.wikipedia.org/wiki/Loss_function][loss function]].  Emacs will use this information to decide whether it's worth querying you to verify its predictions.  The costs have no measurement unit but are relative to the costs of other activities.  When in doubt, give the same number to both the false positive and negative costs, you can refine them later.
-=======
 The "costs" implement a cost function or [[https://en.wikipedia.org/wiki/Loss_function][loss function]].  Eva will use this information to decide whether it's worth querying you to verify its predictions.  The costs have no measurement unit but are relative to the costs of other activities.  When in doubt, give the same number to both the false positive and negative costs, you can refine them later.
->>>>>>> 8d72264 (Polish docs)
 
 There should be an activity called "unknown" with costs zero, to work as a default.
 
@@ -451,19 +398,11 @@ There should be an activity called "unknown" with costs zero, to work as a defau
 
 Before the auto-clocker starts running models, it will get the priors it needs by carrying out  [[https://onlinelibrary.wiley.com/doi/book/10.1002/0470033312][expert elicitation]], where the user is considered the "expert".  The user shall be asked to give their beliefs about a range of situations.  We already went into this a bit under [[#example-time-of-day][#Example: Time of day]], how the user would give their priors over different times of day.
 
-<<<<<<< HEAD
-Aside from times of day, the user might be asked for Dirichlet concentration parameters to how each =buffer_kind= predicts activity.  While the name is scary, it's not a lot to ask: one number for each one of their predefined activities, where a bigger number means more likely.  Like with the cost function, the most important thing is the ratio between them, but this time the absolute scale does play a role.  There is a difference between {1, 2, 3} and {2, 4, 6}... (TODO: explain)
-
-We'll reassure the user there's no need to overthink your answers.  While priors are necessary, enough data will overwhelm them eventually, provided you didn't zero out any possibilities nor put them at 100% ([[https://en.wikipedia.org/wiki/Cromwell%27s_rule][Cromwell's rule]]).
-
-Ideally, this questioning would be a one-time thing, but in practice we have to repeat it whenever the user re-defines the buffer kinds (repeat for each buffer kind affected by the change) or re-defines the activities (repeat everything), since that changes the statistical model.  This would be an iterative process that's most intense in the beginning.
-=======
 Aside from times of day, the user might be asked for Dirichlet concentration parameters to how each =buffer_kind= predicts activity.  While that name sounds scary, it's not a lot to ask: it's one number for each one of their predefined activities, where a bigger number means more likely.  Like with the cost function, the most important thing is the ratio between them, but this time the absolute scale does play a role.  There is a difference between {1, 2, 3} and {2, 4, 6}... (TODO: explain)
 
 We'll reassure the user there's no need to overthink your answers.  While priors are necessary, enough data will overwhelm them eventually, provided you didn't zero out any possibilities nor put them at 100% ([[https://en.wikipedia.org/wiki/Cromwell%27s_rule][Cromwell's rule]]).
 
 Ideally, this questioning would be a one-time thing, but in practice we have to repeat it whenever the user re-defines the buffer kinds (ask again for each buffer kind affected by the change) or re-defines the set of activities (ask again for all buffer kinds), since that changes the statistical model.  This would be an iterative process that's most intense in the beginning.
->>>>>>> 8d72264 (Polish docs)
 
 Every time the questioning repeats, we have to discard all the data up to that point to avoid HARK ([[https://en.wikipedia.org/wiki/Hypotheses_suggested_by_the_data][hypothesising after results known]]).  The idea is that the user rolls up everything they've learned into the new priors.  We display descriptive statistics during this questioning.  If the user is not feeling up to it, they can cancel all this and stay on the old model until later.
 
@@ -471,11 +410,7 @@ It's possible that instead of asking for Dirichlet parameters, it's smarter to a
 - Probability that editing elisp files is yak shaving as opposed to productivity
 - Probability that ...
 
-<<<<<<< HEAD
-But this may be a nearly endless list of questions (combinatorial explosion) or may require user to design these questions for themselves and modify the R code, whereas the parameters questions are simple and there are only as many of them as there are buffer kinds.
-=======
 But this may be a nearly endless list of questions (a combinatorial explosion) or may require user to design these questions for themselves and modify the R code, whereas the parameters questions are simple and there are only as many of them as there are buffer kinds.
->>>>>>> 8d72264 (Polish docs)
 
 # User-manual version
 
@@ -528,20 +463,12 @@ A "fun" effect is that the user will be obligated to log when they throw away e.
 I'm deaf so I have no real idea what they do.
 
 * Stretch wishlist: NLP
-<<<<<<< HEAD
-An aspect of AI is natural language parsing and generation.  Using GPT-J or whatever is the latest offline-workable system, we may open up a few quality-of-life boosts:
-=======
 An aspect of AI is natural language parsing and generation.  Using GPT-J, [[https://github.com/semiosis/pen.el][pen.el]] or whatever is the latest offline-workable system, we may open up a few quality-of-life boosts:
->>>>>>> 8d72264 (Polish docs)
 
 ** Make Emacs do things through an interactive chat
 May achieve at least 2 things:
 1. Let us modify function calls through subtle differences in language
-<<<<<<< HEAD
-2. Skip the mental work of translating from thought to implementation -- because sometimes, it doesn't take a human to figure out; there can be enough info in a half-formed sentence for GPT-J to catch on
-=======
 2. Skip the mental work of translating from thought to implementation -- because sometimes, it doesn't take a human to figure out; there can be enough info in a half-formed sentence for a LLM to catch on
->>>>>>> 8d72264 (Polish docs)
    - don't have to remember what a file or command is called or how to modulate parameters
    - imagine being able to type: "open dired buffers of all that i worked on yesterday" or just "what was i doing yesterday?" and getting a response that isn't pre-programmed
 

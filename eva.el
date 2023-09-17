@@ -73,11 +73,7 @@
   :group 'convenience)
 
 
-<<<<<<< HEAD
-(defcustom eva-va-name "Alfred"
-=======
 (defcustom eva-va-name "Eva"
->>>>>>> 8d72264 (Polish docs)
   "Your VA's name."
   :group 'eva
   :type 'string
@@ -91,26 +87,16 @@
 
 (defcustom eva-user-name
   (if (s-blank? user-full-name)
-<<<<<<< HEAD
-      "Mr. Bond"
-=======
       user-login-name
->>>>>>> 8d72264 (Polish docs)
     (-first-item (s-split " " user-full-name)))
   "Name by which you prefer the VA to address you."
   :group 'eva
   :type 'string
   :safe t)
 
-<<<<<<< HEAD
-(defcustom eva-user-short-title "Master"
-  "A short title for you that works on its own.
-May be capitalized or not, e.g. \"Sojourner\" or \"sir\"."
-=======
 (defcustom eva-user-short-title "Sojourner"
   "A short title for you that works on its own.
 May be capitalized or not, e.g. \"Mistress\" or \"human\"."
->>>>>>> 8d72264 (Polish docs)
   :group 'eva
   :type 'string
   :safe t)
@@ -760,19 +746,11 @@ integer for the first field."
     (cond
      ((--any-p (s-contains? "\t" it) fields)
       (warn "Entry had tabs inside fields, wrote to %s" errors-path)
-<<<<<<< HEAD
-      (f-append new-text 'utf-8 errors-path)
-      nil)
-     ((s-contains? "\n" text)
-      (warn "Entry had newlines, wrote to %s" errors-path)
-      (f-append new-text 'utf-8 errors-path)
-=======
       (f-append (concat new-text "\tERROR: TABS INSIDE FIELD") 'utf-8 errors-path)
       nil)
      ((s-contains? "\n" text)
       (warn "Entry had newlines, wrote to %s" errors-path)
       (f-append (concat new-text "\tERROR: NEWLINES") 'utf-8 errors-path)
->>>>>>> 8d72264 (Polish docs)
       nil)
      (t
       (eva-append-safely new-text path)
@@ -791,19 +769,11 @@ integer for the first field."
   "Track Emacs idle rather than turn off under unknown OS/DE.
 Not recommended, as the idleness log will be meaningless unless
 you never use a graphical program.  You'll end up with the
-<<<<<<< HEAD
-situation where returning to Emacs from a long Firefox session
-triggers the return-from-idle-hook.
-
-Even EXWM will not update `current-idle-time' while an X window
-is in focus."
-=======
 situation where clicking on Emacs after long time in your web
 browser triggers the return-from-idle-hook.
 
 Note that even EXWM will not update `current-idle-time' while an
 X window is in focus."
->>>>>>> 8d72264 (Polish docs)
   :group 'eva
   :type 'boolean)
 
@@ -1861,14 +1831,9 @@ Return the function on success, nil otherwise."
                        (prog1 nil
                          (message
                           (concat eva-va-name
-<<<<<<< HEAD
-                                  ": Not able to detect idleness, I'll be"
-                                  " useless.  Disabling eva-mode."))
-=======
                                   ": Can't detect idleness, I'll be"
                                   " useless.  Disabling eva-mode.  See"
                                   " `eva-fallback-to-emacs-idle'."))
->>>>>>> 8d72264 (Polish docs)
                          (eva-mode 0)))
                    (if (eva--another-eva-running-p)
                        (prog1 nil
