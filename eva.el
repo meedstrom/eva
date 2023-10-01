@@ -61,9 +61,8 @@
 (defvar exwm-class-name)
 (defvar exwm-title)
 
-;; DEPRECATED: Old variable names
-(defvaralias 'eva-ai-name 'eva-va-name "Renamed 2021-08-23.")
-(defvaralias 'eva-dbg-fn 'eva-debug-fn "Renamed 2021-08-23.")
+(define-obsolete-variable-alias 'eva-dbg-fn 'eva-debug-fn "2021-08-23")
+(define-obsolete-variable-alias 'eva-ai-name 'eva-va-name "2021-08-23")
 
 
 ;;; Some user options
@@ -1813,10 +1812,8 @@ Return the function on success, nil otherwise."
   ;; Continue standard unloading.
   nil)
 
-
-;; DEPRECATED: Old function names
-(defalias 'eva-mem-pushnew #'eva-mem-push "Renamed 2021-08-24")
-(defalias 'eva-mem-pushnew-alt #'eva-mem-push-alt "Renamed 2021-08-24")
+(define-obsolete-function-alias 'eva-mem-pushnew #'eva-mem-push "2021-08-24")
+(define-obsolete-function-alias 'eva-mem-pushnew-alt #'eva-mem-push-alt "2021-08-24")
 
 ;;;###autoload
 (define-minor-mode eva-mode
