@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 2020-2023 Martin Edström
 
-;; Author: Martin Edström <meedstrom@teknik.io>
+;; Author: Martin Edström <meedstrom91@gmail.com>
 ;; URL: https://github.com/meedstrom/eva
 ;; Version: 0.5-pre
 ;; Created: 2020-12-03
@@ -858,8 +858,8 @@ Digression: Should honestly be submitted to Emacs,
 (defun eva--log-idle ()
   "Log chunk of idle time to disk."
   (eva-tsv-append eva-idle-log-path
-    (ts-format)
-    (number-to-string (/ (round eva-length-of-last-idle) 60))))
+                  (ts-format)
+                  (number-to-string (/ (round eva-length-of-last-idle) 60))))
 
 ;; This trio of functions handles many edge cases elegantly.  Modify with care.
 (defun eva--start-next-timer (&optional assume-idle)
@@ -1110,9 +1110,9 @@ NEW is assumed to be a list of buffers\; most likely, it is
         (when (null (eva-item-dataset
                      (eva-item-by-fn eva-curr-fn)))
           (eva-tsv-append
-            (expand-file-name (concat "successes-"
-                                      (symbol-name eva-curr-fn))
-                              eva-cache-dir-path)))
+           (expand-file-name (concat "successes-"
+                                     (symbol-name eva-curr-fn))
+                             eva-cache-dir-path)))
         (setq eva--queue (cl-remove eva-curr-fn eva--queue :count 1))
         ;; TODO: if a fn is called in isolation manually, don't resume
         ;; HACK Because the current-buffer is still active, wait to be sure the
@@ -1160,8 +1160,8 @@ Return t if there was no problem with setup, nil otherwise."
   (setf (eva-item-dismissals eva-curr-item) 0)
   ;; Save timestamp of this successful run.
   (eva-tsv-append
-    (expand-file-name (concat "successes-" (symbol-name eva-curr-fn))
-                      eva-cache-dir-path))
+   (expand-file-name (concat "successes-" (symbol-name eva-curr-fn))
+                     eva-cache-dir-path))
   ;; Clean up, because this wasn't an excursion.
   (named-timer-cancel :eva-excursion)
   (remove-hook 'kill-buffer-hook #'eva--if-excursion-complete-do-stuff))
@@ -1343,11 +1343,11 @@ Return a list looking like
                   (let ((print-level nil)
                         (print-length nil))
                     (eva-tsv-append eva-mem-history-path
-                      (prin1-to-string (car cell))
-                      (if (ts-p (cdr cell))
-                          ;; Convert ts structs because they're clunky to read
-                          (ts-format "%s" (cdr cell))
-                        (prin1-to-string (cdr cell)))))))))
+                                    (prin1-to-string (car cell))
+                                    (if (ts-p (cdr cell))
+                                        ;; Convert ts structs because they're clunky to read
+                                        (ts-format "%s" (cdr cell))
+                                      (prin1-to-string (cdr cell)))))))))
 
 (defun eva--mem-last-value-of-variable (var)
   "Get the most recent stored value of VAR from disk."
