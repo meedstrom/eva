@@ -1,6 +1,6 @@
 ;;; eva-activity.el --- activity tracking -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2021-2023 Martin Edström
+;; Copyright (C) 2021-2024 Martin Edström
 
 ;; This file is not part of GNU Emacs.
 

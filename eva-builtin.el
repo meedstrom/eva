@@ -1,6 +1,6 @@
 ;;; eva-builtin.el --- Premade applications -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2021-2023 Martin Edström
+;; Copyright (C) 2021-2024 Martin Edström
 
 ;; This file is not part of GNU Emacs.
 
@@ -122,16 +122,12 @@ Near equivalent to typing l v A after entering `org-agenda-list'."
   (eva-stop-queue))
 
 (eva-defun eva-present-org-agenda ()
-  "Send the user to an Org agenda with log and archives enabled.
-Near equivalent to typing l v A after entering `org-agenda-list'."
-  (declare (obsolete eva-present-org-agenda-log-archive "2021-09-17"))
+  "Send the user to an Org agenda."
   (require 'org-agenda)
-  (message (eva-emit "Here's the agenda archive as of now."))
+  (message (eva-emit "Here's the agenda as of now."))
   ;; (message (eva-emit "Sending you to the Org agenda log + archive."))
   (sit-for eva-sit-short)
   (org-agenda-list)
-  (org-agenda-log-mode t)
-  (org-agenda-archives-mode t)
   (push (current-buffer) eva-excursion-buffers)
   (eva-stop-queue))
 
@@ -475,10 +471,10 @@ of the month the last 12 months, and this date the last 50 years.
 Optionally, the point of reference can be TS instead of today."
   (let ((now (or ts (ts-now))))
     (-uniq (append
-            (--iterate (ts-dec 'day 1 it) now 1) ;; yesterday
-            (--iterate (ts-dec 'woy 1 it) now 4)
-            (--iterate (ts-dec 'month 1 it) now 12)
-            (--iterate (ts-dec 'year 1 it) now 50)))))
+            (cdr (--iterate (ts-dec 'day 1 it) now 2)) ;; yesterday
+            (cdr (--iterate (ts-dec 'woy 1 it) now 5))
+            (cdr (--iterate (ts-dec 'month 1 it) now 13))
+            (cdr (--iterate (ts-dec 'year 1 it) now 51))))))
 
 (defun eva-past-sample-casual (&optional ts)
   "Return a list of ts objects.
@@ -487,9 +483,9 @@ months, and this date the last 50 years.  Optionally, the point
 of reference can be TS instead of today."
   (let ((now (or ts (ts-now))))
     (-uniq (append
-            (--iterate (ts-dec 'day 1 it) now 1)
-            (--iterate (ts-dec 'month 1 it) now 6)
-            (--iterate (ts-dec 'year 1 it) now 50)))))
+            (cdr (--iterate (ts-dec 'day 1 it) now 2))
+            (cdr (--iterate (ts-dec 'month 1 it) now 7))
+            (cdr (--iterate (ts-dec 'year 1 it) now 51))))))
 
 ;; TODO: Allow a list of datetrees
 (defun eva--make-indirect-datetree (buffer dates)
@@ -586,7 +582,8 @@ Note that org-journal is not needed."
               (push (current-buffer) eva-excursion-buffers))
             (when (-non-nil discrete-files-found)
               (dolist (x discrete-files-found)
-                (view-file x)
+                ;; (view-file x)  ;; surprising
+                (find-file x)
                 (push (current-buffer) eva-excursion-buffers)))
             (eva-stop-queue))
         (kill-buffer datetree-buf)))))
