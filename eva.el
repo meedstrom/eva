@@ -127,7 +127,8 @@ See also `eva-sit-long' and `eva-sit-medium'."
   :type 'boolean)
 
 (defcustom eva-cache-dir-path
-  (expand-file-name "eva" user-emacs-directory)
+  (expand-file-name "eva" (or (bound-and-true-p no-littering-var-directory)
+                              user-emacs-directory))
   "Directory for persistent files (not user datasets)."
   :group 'eva
   :type 'directory
