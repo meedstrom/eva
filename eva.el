@@ -1503,21 +1503,23 @@ spawned by the functions will be skipped by
   "Butt in if any queries are pending, with an introductory chime."
   ;; If a session is already active, don't start a new one.
   (eva-dbg "Running eva-session-butt-in-gently")
-  (unless eva--on-excursion
-    (if (minibufferp) ; user busy
-        (named-timer-run :eva-retry 20 nil #'eva-session-butt-in-gently)
-      (setq eva-date (ts-now))
-      (when-let ((fns (if eva-debug-do-all-items
-                          (eva-enabled-fns)
-                        (-filter #'eva--pending-p (eva-enabled-fns)))))
-        (setq eva--queue fns)
-        (unless (eq t (frame-focus-state))
-          (require 'notifications)
-          (when (notifications-get-capabilities)
-            (notifications-notify :title eva-va-name :body (eva-greeting))))
-        (eva--chime-aural)
-        (eva--chime-visual)
-        (run-with-timer 1 nil #'eva-run-queue)))))
+  ;; TODO: excursions should expire.  once we got that then we can have this
+  ;; clause
+  ;; (unless eva--on-excursion
+  (if (minibufferp) ; user busy
+      (named-timer-run :eva-retry 20 nil #'eva-session-butt-in-gently)
+    (setq eva-date (ts-now))
+    (when-let ((fns (if eva-debug-do-all-items
+                        (eva-enabled-fns)
+                      (-filter #'eva--pending-p (eva-enabled-fns)))))
+      (setq eva--queue fns)
+      (unless (eq t (frame-focus-state))
+        (require 'notifications)
+        (when (notifications-get-capabilities)
+          (notifications-notify :title eva-va-name :body (eva-greeting))))
+      (eva--chime-aural)
+      (eva--chime-visual)
+      (run-with-timer 1 nil #'eva-run-queue))))
 
 (defun eva-session-from-idle ()
   "Start a session if idle was long."
