@@ -833,6 +833,10 @@ Not to be confused with `eva-length-of-last-idle'."
   (/ (eva--process-output-to-number eva--x11idle-program-name)
      1000))
 
+;; Wow, it's really surprising to do
+;; (progn (sleep-for 1) (float-time (current-idle-time)))
+;; because that's just (float-time nil) which does return a value
+;; so the above form returns sth you don't expect
 (defun eva--idle-secs-emacs ()
   "Same as `org-emacs-idle-seconds'.
 Digression: Should honestly be submitted to Emacs,
@@ -890,6 +894,7 @@ Runs `eva-periodic-hook'."
     (run-hooks 'eva-periodic-hook)))
 
 ;; NOTE: This runs rapidly b/c it should react quickly on user returning.
+;; TODO: Actually, just install a post-command-hook that removes itself.
 (defun eva--user-is-idle (&optional decrement)
   "Do stuff assuming the user is idle.
 This function is called by `eva--start-next-timer'
