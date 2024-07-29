@@ -1112,6 +1112,7 @@ NEW is assumed to be a list of buffers\; most likely, it is
   (when eva--on-excursion
     (let ((others (remove (current-buffer) eva-excursion-buffers)))
       (when (-none-p #'buffer-live-p others)
+        (setq eva--on-excursion nil)
         (remove-hook 'kill-buffer-hook #'eva--if-excursion-complete-do-stuff)
         (named-timer-cancel :eva-excursion)
         (when (null (eva-item-dataset
