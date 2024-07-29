@@ -557,7 +557,8 @@ Note that org-journal is not needed."
          (datetree-buf (get-buffer-create
                         (concat "*" eva-va-name ": Selected diary entries*")))
          (datetree-found-count
-          (if (file-exists-p eva-main-datetree-path)
+          (if (and eva-main-datetree-path
+                   (file-exists-p eva-main-datetree-path))
               (eva--make-indirect-datetree datetree-buf dates-to-check)
             0))
          (total-found-count
