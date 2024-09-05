@@ -1,7 +1,7 @@
 #+TITLE: Eva's User Manual
 :PREAMBLE:
 #+AUTHOR: Martin Edström
-#+EMAIL: meedstrom@teknik.io
+#+EMAIL: meedstrom91@gmail.com
 #+DATE: 2020-2024
 #+LANGUAGE: en
 
@@ -20,7 +20,7 @@
 This manual is for Eva version 0.5-pre.
 
 #+BEGIN_QUOTE
-Copyright (C) 2020-2024 Martin Edström <meedstrom@teknik.io>
+Copyright (C) 2020-2024 Martin Edström <meedstrom91@gmail.com>
 
 You can redistribute this document and/or modify it under the terms
 of the GNU General Public License as published by the Free Software
