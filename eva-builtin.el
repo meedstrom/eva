@@ -460,7 +460,7 @@ write/capture diary entries directly, in the same style as Doom's
 `+org-capture-journal-file'.  This file is scanned by
 `eva-present-diary'."
   :group 'eva
-  :type 'file)
+  :type '(choice file (const nil)))
 
 (defvar eva-past-sample-function #'eva-past-sample-greedy)
 
@@ -536,16 +536,17 @@ Note that org-journal is not needed."
   (let* ((dir (or dir
                   (bound-and-true-p org-journal-dir)
                   (error "org-journal-dir not set")))
-         (file-format (or file-format
-                          (and (boundp 'org-journal-file-type)
-                               (boundp 'org-journal-file-format)
-                               (eq org-journal-file-type 'daily)
-                               org-journal-file-format)
-                          "%F.org"))
+         (file-format (concat (or file-format
+                                  (and (boundp 'org-journal-file-type)
+                                       (boundp 'org-journal-file-format)
+                                       (eq org-journal-file-type 'daily)
+                                       org-journal-file-format)
+                                  "%F")
+                              ".org"))
          (file (--find (s-contains-p (ts-format file-format
                                                 (or date eva-date))
                                      it)
-                       (directory-files dir))))
+                       (directory-files-recursively dir "\\.org$" t))))
     (unless (null file)
       (expand-file-name file dir))))
 
