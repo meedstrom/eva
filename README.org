@@ -21,7 +21,7 @@ It'll make sense to spin out a few separate libraries, before assembling a virtu
 
     What it can do is /watch/... and wait for the job to be done, signaled by something like you closing that Ledger file.  Then it can resume interacting with you to take you on to other tasks for the day.
 
-    So, a given task like "update Ledger file" would have to happen in a special context, and I'm calling that an "user excursion".
+    So, a given task like "update Ledger file" would have to happen in a special context, and I'm calling that a "user excursion".
 
 * Introduction
 
