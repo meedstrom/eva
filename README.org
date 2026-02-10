@@ -1,20 +1,34 @@
 #+TITLE: Eva
-:PREAMBLE:
-# Copying and distribution of this file, with or without modification,
-# are permitted in any medium without royalty provided the copyright
-# notice and this notice are preserved.  This file is offered as-is,
-# without any warranty.
+* NOT MAINTAINED
 
-# There is an exception to the above paragraph: it does not apply to
-# screencasts in this file.
+Sorry guys, but the project is inactive. I've [[https://github.com/meedstrom/eva/issues/14#issuecomment-1066084793][gone back to the drawing board]].
+
+This was [[https://old.reddit.com/r/emacs/comments/p8ou3k/new_package_eva_the_emacsbased_virtual_assistant/][very popular when announced in 2021]], getting ~150 stars right off the bat.  That was fun!  But it was always more theory than practice, and never had much users, for good reason.
+
+I currently maintain a subset of features on a private branch, and the challenge I want to solve first of all is the *user interaction model*.  It's a hard challenge!  If you want software to act as a kind of secretary or coach, that software needs to be sufficiently non-annoying that you never end up disabling it.
+
+It'll make sense to spin out a few separate libraries, before assembling a virtual assistant out of them.
+
+- Released: [[https://github.com/meedstrom/system-idle][system-idle]]
+- Unreleased: A library for "loosely scheduled actions"
+
+  - A way to schedule code to run so-and-so many times per day or week, favouring particular times and particular conditions
+  - A way to engage the user for their consent before running said code, and if they deny, track how often they denied, and optionally run other code when they have denied so-and-so many times
+
+- Unreleased: A library for... let's call it "user excursions"
+
+  - Basically, realize that a virtual assistant can't really be in control of your Emacs session, if it tells you to update finances in your Ledger file and displays that file for you, because you might need to access all kinds of other files or the web to do the job properly.
+
+    What it can do is /watch/... and wait for the job to be done, signaled by something like you closing that Ledger file.  Then it can resume interacting with you to take you on to other tasks for the day.
+
+    So, a given task like "update Ledger file" would have to happen in a special context, and I'm calling that an "user excursion".
+
+* Introduction
 
 [[https://www.gnu.org/licenses/gpl-3.0][https://img.shields.io/badge/License-GPL%20v3-blue.svg]]
 [[https://github.com/meedstrom/eva/actions/workflows/test.yml][https://github.com/meedstrom/eva/actions/workflows/test.yml/badge.svg]]
-:END:
 
 [[file:assets/screencast01.gif]]
-
-* Introduction
 
 This is an Emacs-based [[https://en.wikipedia.org/wiki/Virtual_assistant][virtual assistant]]: *Eva* for short.  It aims to help you with
 
